@@ -3,11 +3,10 @@ name: Run tests with coverage
 on:
   push:
     branches:
-      - scala
+      - main
   pull_request:
     branches:
-      - scala
-    
+      - main
 env:
   PROJECT_NAME: Arcane.Stream.MicrosoftSynapseLink
   REGISTRY: ghcr.io

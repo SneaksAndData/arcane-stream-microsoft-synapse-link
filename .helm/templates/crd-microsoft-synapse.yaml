@@ -1,0 +1,285 @@
+{{- if .Values.customResourceDefinitions.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: microsoft-synapse-streams.streaming.sneaksanddata.com
+spec:
+  group: streaming.sneaksanddata.com
+  scope: Namespaced
+  names:
+    plural: microsoft-synapse-streams
+    singular: microsoft-synapse-streams
+    kind: MicrosoftSynapseStream
+    shortNames:
+      - mssynapsestream
+  versions:
+    - name: v1beta1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Source location
+          type: string
+          jsonPath: .spec.baseLocation
+        - name: Entity
+          type: string
+          jsonPath: .spec.entityName
+        - name: Refresh Interval
+          type: string
+          jsonPath: .spec.changeCaptureIntervalSeconds
+        - name: Sink location
+          type: string
+          jsonPath: .spec.sinkLocation
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                partitionExpression:
+                  type: string
+                name:
+                  type: string
+                connectionStringRef:
+                  description: |
+                    Name of the secret containing the connection string.
+                    The secret should have a key named 'ARCANE_CONNECTIONSTRING'.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                jobTemplateRef:
+                  description: |
+                    Name of the job template to be used for the streaming job if stream is running in normal mode.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    kind:
+                      type: string
+                    apiGroup:
+                      type: string
+                backfillJobTemplateRef:
+                  description: |
+                    Name of the job template to be used for the streaming job if stream is running in the backfill mode.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    kind:
+                      type: string
+                    apiGroup:
+                      type: string
+                httpClientMaxRetries:
+                  type: integer
+                  description: Max number of retries on blob reads for the http client.
+                httpClientRetryDelaySeconds:
+                  type: integer
+                  description: Max retry delay on blob reads for the http client.
+                baseLocation:
+                  type: string
+                  description: Location root for CDM entities, in Proteus format.
+                entityName:
+                  type: string
+                  description: Name of a CDM entity to stream.
+                changeCaptureIntervalSeconds:
+                  type: integer
+                  description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
+                  minimum: 1
+                  maximum: 3600
+                rowsPerGroup:
+                  type: integer
+                  description: Number of rows per parquet rowgroup.
+                groupingIntervalSeconds:
+                  type: integer
+                  description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
+                  minimum: 1
+                  maximum: 60
+                groupsPerFile:
+                  type: integer
+                  description: Number of row groups per file.
+                sinkLocation:
+                  type: string
+                  description: Data location for parquet files.
+                lookBackInterval:
+                  type: integer
+                  description: |
+                    Number of seconds to look back when determining first set of changes to extract.
+                    Can be set in interval from 1 second to 10 hours. Default is 1 hour.
+                  minimum: 1
+                  maximum: 36000
+                  default: 3600
+                schemaUpdateIntervalSeconds:
+                  type: integer
+                  description: |
+                    How often to check for schema updates. Can be set in interval from 1 second to 1 hour.
+                    Default is 10 seconds.
+                  minimum: 1
+                  maximum: 3600
+                  default: 10
+                catalogAuthSecretRef:
+                  description: |
+                    Name of the secret containing the catalog authentication.
+                    The secret should have the following mandatory keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SCOPE
+                    And the authentication information in the following keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_ID
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_SECRET
+                    OR
+                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_INIT_TOKEN
+
+                    The authentication information is mutually exclusive.
+                    If init token is provided, client id and secret are not used.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                catalog:
+                  type: object
+                  properties:
+                    namespace:
+                      type: string
+                    warehouse:
+                      type: string
+                    authSecretRef:
+                      description: |
+                        Not used in the operator version 0.0.x
+                        In operator version 0.1.x and above this field will replace the `catalogAuthSecretRef` field.
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                mergeService:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                    authSecretRef:
+                      description: |
+                        Not used in the operator version 0.0.x
+                        In operator version 0.1.x and above this field will replace the `mergeAuthSecretRef` field.
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                mergeAuthSecretRef:
+                  description: |
+                    Name of the secret containing the data storage authentication for the merge service.
+                    The secret should have a key named 'ARCANE_FRAMEWORK__MERGE_SERVICE__JDBC_URL'.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                stagingStorageAuthSecretRef:
+                  description: |
+                    Name of the secret containing the data storage authentication for the S3 bucket containing staging data.
+                    The secret should have the following mandatory keys:
+                      - ARCANE_FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY
+                      - ARCANE_FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID
+                      - ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT
+                      - ARCANE_FRAMEWORK__S3_CATALOG_REGION
+                      - AWS_REGION
+                    The AWS_REGION key is used to set the region for the AWS SDK and it's value should be
+                    the same as ARCANE_FRAMEWORK__S3_STAGING_CATALOG_REGION.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                stagingStorage:
+                  type: object
+                  properties:
+                    authSecretRef:
+                      type: object
+                      description: |
+                        Not used in the operator version 0.0.x
+                        In operator version 0.1.x and above this field will replace the `stagingStorageAuthSecretRef` field.
+                      properties:
+                        name:
+                          type: string
+                streamMetadata:
+                  type: object
+                  default: null
+                  properties:
+                    datePartition:
+                      type: object
+                      properties:
+                        description:
+                          type: string
+                        fieldName:
+                          type: string
+                        fieldFormat:
+                          type: string
+                        fieldExpression:
+                          type: string
+                    partitions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          description:
+                            type: string
+                          fieldName:
+                            type: string
+                          fieldFormat:
+                            type: string
+                stagingLocation:
+                  type: string
+                  description: Data location for staging files.
+                retention:
+                  type: object
+                  properties:
+                    retentionPeriod:
+                      type: integer
+                      description: Number of days to retain data.
+                    retentionUnit:
+                      default: hours
+                      type: string
+                      enum:
+                        - days
+                        - hours
+                        - minutes
+                    location:
+                      type: string
+                      description: Data location for retention table.
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - RESTARTING
+                    - RUNNING
+                    - RELOADING
+                    - TERMINATING
+                    - STOPPED
+                    - SUSPENDED
+                    - FAILED
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - status
+                      - type
+                    properties:
+                      message:
+                        type: string
+                      type:
+                        type: string
+                        enum:
+                          - WARNING
+                          - ERROR
+                          - INFO
+                          - READY
+                      status:
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+  {{- end }}

@@ -1,0 +1,104 @@
+{{- if and .Values.jobTemplateSettings.create -}}
+apiVersion: streaming.sneaksanddata.com/v1
+kind: StreamingJobTemplate
+metadata:
+  name: {{ include "app.name" $ }}
+spec:
+  metadata:
+    labels:
+      {{- include "job.labels" $ | nindent 6 }}
+      {{- with .Values.jobTemplateSettings.additionalAnnotations }}
+    annotations:
+      {{- toYaml . | nindent 6}}
+    {{- end }}
+  template:
+    apiVersion: batch/v1
+    kind: job
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      backoffLimit: {{ .Values.jobTemplateSettings.backoffLimit }}
+      ttlSecondsAfterFinished: 1
+      template:
+        metadata:
+          labels:
+            {{- include "app.labels" $ | nindent 12 }}
+            {{- with .Values.jobTemplateSettings.additionalAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        spec:
+          {{- with .Values.jobTemplateSettings.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: arcane-stream
+              image: "{{ include "app.image" . }}"
+              imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+              {{- with .Values.jobTemplateSettings.securityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              env:
+                - name: ASPNETCORE_ENVIRONMENT
+                  value: {{ .Values.environment }}
+                - name: APPLICATION_VERSION
+                  value: "{{ (default (printf "v%s" .Chart.AppVersion) .Values.image.tag) }}"
+              {{- with .Values.jobTemplateSettings.extraEnv }}
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- if .Values.jobTemplateSettings.extraEnvFrom }}
+              envFrom:
+                {{- with .Values.jobTemplateSettings.extraEnvFrom }}
+                  {{- toYaml . | nindent 16 }}
+                {{- end }}
+              {{- end }}
+              {{- if .Values.jobTemplateSettings.extraVolumeMounts }}
+              volumeMounts:
+                {{- with .Values.jobTemplateSettings.extraVolumeMounts }}
+                  {{- toYaml . | nindent 16 }}
+                {{- end }}
+              {{- end }}
+              {{- with .Values.jobTemplateSettings.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          restartPolicy: Never
+          {{- if .Values.jobTemplateSettings.extraVolumes }}
+          volumes:
+              {{- with .Values.jobTemplateSettings.extraVolumes }}
+                {{- toYaml . | nindent 12 }}
+              {{- end }}
+          {{- end }}
+          serviceAccountName: {{ include "app.serviceAccountName" . }}
+          {{- with .Values.jobTemplateSettings.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.jobTemplateSettings.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      podFailurePolicy:
+        rules:
+          - action: Ignore
+            onExitCodes:
+              operator: In
+              {{- with .Values.jobTemplateSettings.podFailurePolicySettings.retryOnExitCodes }}
+              values:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          - action: FailJob
+            onExitCodes:
+              operator: In
+              {{- with .Values.jobTemplateSettings.podFailurePolicySettings.failOnExitCodes }}
+              values:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          - action: Ignore
+            onPodConditions:
+              - type: DisruptionTarget
+{{- end }}

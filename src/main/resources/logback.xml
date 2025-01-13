@@ -1,0 +1,5 @@
+<configuration>
+    <root level="OFF">
+        <appender-ref ref="JSON_TCP" />
+    </root>
+</configuration>
