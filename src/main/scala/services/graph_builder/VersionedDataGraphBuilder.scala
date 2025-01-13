@@ -2,13 +2,14 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.graph_builder
 
 import main.validateEnv
+import services.streaming.base.VersionedDataProvider
+
 import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.models.settings.VersionedDataGraphBuilderSettings
 import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.DataBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.StreamingConsumer
-
 import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Schedule, ZIO}
@@ -106,6 +107,6 @@ object VersionedDataGraphBuilder:
       ls <- ZIO.service[StreamLifetimeService]
       bp <- ZIO.service[BatchProcessor[LazyList[DataRow], Chunk[DataRow]]]
       bc <- ZIO.service[StreamingConsumer]
-    yield graph_builder.VersionedDataGraphBuilder(sss, dp, ls, bp, bc)
+    yield VersionedDataGraphBuilder(sss, dp, ls, bp, bc)
     
 

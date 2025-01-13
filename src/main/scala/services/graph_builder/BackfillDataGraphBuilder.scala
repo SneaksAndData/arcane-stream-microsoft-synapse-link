@@ -64,5 +64,5 @@ object BackfillDataGraphBuilder:
       ls <- ZIO.service[StreamLifetimeService]
       bp <- ZIO.service[BatchProcessor[DataRow, Chunk[DataRow]]]
       bc <- ZIO.service[BackfillConsumer]
-    yield graph_builder.BackfillDataGraphBuilder(dp, ls, bp, bc)
+    yield BackfillDataGraphBuilder(dp, ls, bp, bc)
 

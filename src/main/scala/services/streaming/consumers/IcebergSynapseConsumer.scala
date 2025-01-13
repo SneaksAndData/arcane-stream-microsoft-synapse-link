@@ -9,7 +9,6 @@ import com.sneaksanddata.arcane.framework.services.consumers.{BatchApplicationRe
 import com.sneaksanddata.arcane.framework.services.lakehouse.CatalogWriter
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.{IcebergStreamingConsumer, StreamingConsumer}
-
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.slf4j.{Logger, LoggerFactory}
@@ -21,6 +20,7 @@ import java.time.{ZoneOffset, ZonedDateTime}
 import IcebergSynapseConsumer.toStagedBatch
 import IcebergSynapseConsumer.getTableName
 import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
 
 class IcebergSynapseConsumer(streamContext: StreamContext,
                                sinkSettings: SinkSettings,
@@ -113,5 +113,5 @@ object IcebergSynapseConsumer:
         schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
         mergeProcessor <- ZIO.service[BatchProcessor[StagedVersionedBatch, StagedVersionedBatch]]
         archivationProcessor <- ZIO.service[BatchProcessor[StagedVersionedBatch, BatchArchivationResult]]
-      yield consumers.IcebergSynapseConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor, archivationProcessor)
+      yield IcebergSynapseConsumer(streamContext, sinkSettings, catalogWriter, schemaProvider, mergeProcessor, archivationProcessor)
     }

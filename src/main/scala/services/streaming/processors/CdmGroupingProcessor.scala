@@ -45,7 +45,7 @@ object CdmGroupingProcessor:
       for
         settings <- ZIO.service[GroupingSettings]
         tas <- ZIO.service[TypeAlignmentService]
-      yield processors.CdmGroupingProcessor(settings, tas)
+      yield CdmGroupingProcessor(settings, tas)
     }
 
   def apply(groupingSettings: GroupingSettings, typeAlignmentService: TypeAlignmentService): CdmGroupingProcessor =

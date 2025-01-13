@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.clients
 
 import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
+import services.clients.{BatchArchivationResult, JdbcConsumer}
 
 import org.slf4j.{Logger, LoggerFactory}
 import zio.{ZIO, ZLayer}
@@ -84,6 +85,6 @@ object JdbcConsumer:
   val layer: ZLayer[JdbcConsumerOptions, Nothing, JdbcConsumer[StagedVersionedBatch]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
-        for connectionOptions <- ZIO.service[JdbcConsumerOptions] yield clients.JdbcConsumer(connectionOptions)
+        for connectionOptions <- ZIO.service[JdbcConsumerOptions] yield JdbcConsumer(connectionOptions)
       }
     }

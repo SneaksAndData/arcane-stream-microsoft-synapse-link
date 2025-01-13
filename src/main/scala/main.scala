@@ -1,12 +1,13 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 
+import models.app.{AzureConnectionSettings, MicrosoftSynapseLinkStreamContext}
+import services.StreamGraphBuilderFactory
+import services.data_providers.microsoft_synapse_link.{CdmDataProvider, CdmSchemaProvider}
+import services.clients.JdbcConsumer
+import services.streaming.consumers.IcebergSynapseConsumer
+import services.streaming.processors.{ArchivationProcessor, CdmGroupingProcessor, MergeBatchProcessor, TypeAlignmentService}
+
 import com.azure.storage.common.StorageSharedKeyCredential
-import com.sneaksanddata.arcane.cdm_change_feed.models.app.{AzureConnectionSettings, CdmStreamContext}
-import com.sneaksanddata.arcane.cdm_change_feed.services.StreamGraphBuilderFactory
-import com.sneaksanddata.arcane.cdm_change_feed.services.cdm.{CdmDataProvider, CdmSchemaProvider}
-import com.sneaksanddata.arcane.cdm_change_feed.services.clients.JdbcConsumer
-import com.sneaksanddata.arcane.cdm_change_feed.services.streaming.consumers.IcebergSynapseConsumer
-import com.sneaksanddata.arcane.cdm_change_feed.services.streaming.processors.{ArchivationProcessor, CdmGroupingProcessor, MergeBatchProcessor, TypeAlignmentService}
 import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
@@ -18,11 +19,10 @@ import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlo
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.IcebergBackfillConsumer
 import com.sneaksanddata.arcane.framework.services.streaming.processors.{BackfillGroupingProcessor, MergeProcessor}
-
 import org.slf4j.MDC
+import zio.*
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
-import zio.*
 
 
 object main extends ZIOAppDefault {
@@ -59,7 +59,7 @@ object main extends ZIOAppDefault {
       storageExplorerLayer,
       CdmDataProvider.layer,
       CdmSchemaProvider.layer,
-      CdmStreamContext.layer,
+      MicrosoftSynapseLinkStreamContext.layer,
       PosixStreamLifetimeService.layer,
       StreamRunnerServiceImpl.layer,
       StreamGraphBuilderFactory.layer,

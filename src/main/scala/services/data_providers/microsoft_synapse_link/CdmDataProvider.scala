@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.data_providers.microsoft_synapse_link
 
 import services.streaming.base.VersionedDataProvider
-import com.sneaksanddata.arcane.cdm_change_feed.models.app.AzureConnectionSettings
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.AzureConnectionSettings
 import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.services.cdm.{CdmTable, CdmTableSettings}
 import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.BackfillBatch

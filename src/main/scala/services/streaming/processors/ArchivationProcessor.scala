@@ -1,11 +1,12 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.processors
 
+import services.clients.{BatchArchivationResult, JdbcConsumer}
+
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
-
-import zio.{ZIO, ZLayer}
 import zio.stream.ZPipeline
+import zio.{ZIO, ZLayer}
 
 class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch])
   extends BatchProcessor[StagedVersionedBatch, BatchArchivationResult]:
@@ -24,5 +25,5 @@ object ArchivationProcessor:
     ZLayer {
       for
         jdbcConsumer <- ZIO.service[JdbcConsumer[StagedVersionedBatch]]
-      yield processors.ArchivationProcessor(jdbcConsumer)
+      yield ArchivationProcessor(jdbcConsumer)
     }

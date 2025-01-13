@@ -3,7 +3,7 @@ package services.streaming.processors
 
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
-
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.JdbcConsumer
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
@@ -46,5 +46,5 @@ object MergeBatchProcessor:
     ZLayer {
       for
         jdbcConsumer <- ZIO.service[JdbcConsumer[StagedVersionedBatch]]
-      yield processors.MergeBatchProcessor(jdbcConsumer)
+      yield MergeBatchProcessor(jdbcConsumer)
     }
