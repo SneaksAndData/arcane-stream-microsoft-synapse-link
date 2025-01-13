@@ -1,0 +1,27 @@
+{{- if .Values.rbac.clusterRole.synapseStreamEditor.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "app.clusterRole.synapseStreamEditor" . }}
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    {{- include "app.labels" $ | nindent 4 }}
+    {{- with .Values.rbac.clusterRole.synapseStreamEditor.additionalLabels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.rbac.clusterRole.synapseStreamEditor.additionalAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  - verbs:
+      - create
+      - update
+      - patch
+      - delete
+    apiGroups:
+      - streaming.sneaksanddata.com
+    resources:
+      - microsoft-synapse-streams
+      - microsoft-synapse-streams/status
+{{- end }}

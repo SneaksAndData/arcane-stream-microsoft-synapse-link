@@ -1,0 +1,8 @@
+apiVersion: v2
+name: arcane-stream-microsoft-synapse-link
+description: Microsoft Synapse Link Stream for Arcane Operator
+type: application
+
+version: 0.0.0
+
+appVersion: 0.0.0

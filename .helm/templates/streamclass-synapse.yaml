@@ -1,0 +1,20 @@
+apiVersion: streaming.sneaksanddata.com/v1beta1
+kind: StreamClass
+metadata:
+  name: {{ template "app.name" . }}-synapse
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "streamclass.labels" $ | nindent 4 }}
+    {{- if .Values.additionalAnnotations }}
+  annotations:
+    {{- with .Values.additionalAnnotations }}
+      {{- toYaml . | nindent 4 }}
+      {{- end }}
+  {{- end }}
+spec:
+  apiGroupRef: streaming.sneaksanddata.com
+  kindRef: MicrosoftSynapseStream
+  apiVersion: v1beta1
+  pluralName: microsoft-synapse-streams
+  secretRefs:
+    - connectionStringRef

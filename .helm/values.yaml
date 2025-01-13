@@ -1,0 +1,175 @@
+environment: "Development"
+replicaCount: 1
+
+image:
+  # Repository to pull the image from
+  repository: "ghcr.io/sneaksanddata/arcane-stream-microsoft-synapse-link"
+
+  # Tag to pull (defaults to the chart appVersion)
+  tag: ""
+
+  # Image pull policy
+  pullPolicy: "IfNotPresent"
+
+# Image pull secrets for private repositories
+imagePullSecrets: [ ]
+
+# Override the application name
+nameOverride: ""
+
+# Fullname override
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: { }
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# CRD configuration
+customResourceDefinitions:
+
+  # Set to true to create CRDs for this operator
+  # Otherwise, the operator will expect the CRDs to be pre-installed
+  create: true
+
+rbac:
+  # Specifies whether RBAC resources should be created
+  clusterRole:
+
+    # Allows the service account to list and view custom resources
+    synapseStreamViewer:
+      additionalLabels: { }
+      additionalAnnotations: { }
+      create: true
+      nameOverride: ""
+
+    # Allows the service account to update custom resources
+    synapseStreamEditor:
+      additionalLabels: { }
+      additionalAnnotations: { }
+      create: true
+      nameOverride: ""
+
+    # Allows the streaming plugin to report schema mismatch status for the Operator
+    jobEditor:
+      additionalLabels: { }
+      additionalAnnotations: { }
+      create: true
+      nameOverride: ""
+
+    # This parameter determines whether role binding resources need to be created.
+    # If you have any roles in your configuration set to 'true', then this parameter for creating role binding resources
+    # should also be set to 'true'.
+  clusterRoleBindings:
+    additionalLabels: { }
+    additionalAnnotations: { }
+    create: true 
+
+# Additional labels for the stream classes
+additionalLabels: { }
+# Example:
+#
+#  app.my-company.com/name: arcane-stream
+#  app.my-company.com/component: streaming
+
+# Additional labels for the stream classes
+additionalAnnotations: { }
+# Example:
+#
+#  app.my-company.com/name: arcane-stream
+#  app.my-company.com/source: restapi
+#  app.my-company.com/application: arcane
+
+jobTemplateSettings:
+  create: true
+
+  # Job backoff limit
+  backoffLimit: 3
+
+  # Additional labels for the streaming jobs and pods
+  additionalLabels: { }
+  # Example:
+  #
+  #  app.my-company.com/name: arcane-stream
+  #  app.my-company.com/component: streaming
+
+  # Additional labels for the streaming jobs and pods
+  additionalAnnotations: { }
+  # Example:
+  #
+  #  app.my-company.com/name: arcane-stream
+  #  app.my-company.com/source: restapi
+  #  app.my-company.com/application: arcane
+
+  # Extra environment variables to set in the the streaming job
+  extraEnv: [ ]
+  # Example:
+  #
+  #  - name: ASPNETCORE_ENVIRONMENT
+  #    value: production
+
+  # Extra environment variables referencing a ConfigMap or Secret
+  extraEnvFrom: [ ]
+  # Example:
+  #
+  #  envFrom:
+  #    - configMapRef:
+  #        name: custom-api-access-token
+
+  # Extra volumes to add to the streaming job
+  extraVolumes: [ ]
+  # Example:
+  #
+  #  - name: data-volume
+  #    emptyDir:
+  #      sizeLimit: 500Mi
+
+  # Extra volumes to add to the streaming job
+  extraVolumeMounts: [ ]
+  # Example:
+  #
+  #  - mountPath: /data
+  #    name: data-volume
+
+  # Resources constraints. By default, the operator does not specify any constraints to allow for easier deployment
+  resources: { }
+  # Example:
+  #
+  #  requests:
+  #    cpu: 1
+  #    memory: 1Gi
+  #  limits:
+  #    cpu: 1
+  #    memory: 1Gi
+
+  # Node labels for pod assignment
+  tolerations: [ ]
+
+  # Node labels for pod assignment
+  affinity: { }
+
+  # Security context settings for the container
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+
+  # Allows to specify a custom settings for pod failure policy
+  podFailurePolicySettings:
+
+    # Specifies the list of exit codes that should trigger a retry without incrementing the retry count
+    retryOnExitCodes:
+      # The stream container completes with this exit code when a retryable error occurs
+      # Like rate by the server limiting, transient connection errors etc.
+      - 2
