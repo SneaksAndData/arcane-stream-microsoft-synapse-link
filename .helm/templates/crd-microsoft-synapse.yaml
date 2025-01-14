@@ -147,6 +147,8 @@ spec:
                       type: string
                     warehouse:
                       type: string
+                    catalogUri:
+                      type: string
                     authSecretRef:
                       description: |
                         Not used in the operator version 0.0.x
