@@ -63,7 +63,7 @@ class IcebergSynapseConsumer(streamContext: StreamContext,
       icebergCatalogSettings.namespace,
       icebergCatalogSettings.warehouse,
       arcaneSchema,
-      s"${sinkSettings.targetNamespace}.${sinkSettings.targetWarehouse}.${sinkSettings.tableName}",
+      sinkSettings.tableName,
       Map())
 
 
@@ -80,7 +80,7 @@ object IcebergSynapseConsumer:
                                              targetName: String,
                                              partitionValues: Map[String, List[String]]): StagedVersionedBatch =
     val batchName = table.name().split('.').last
-    SynapseLinkMergeBatch(s"$warehouse.$namespace.$batchName", batchSchema, targetName, partitionValues)
+    SynapseLinkMergeBatch(batchName, batchSchema, targetName, partitionValues)
 
 
   /**
