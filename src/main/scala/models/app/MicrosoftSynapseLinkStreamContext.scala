@@ -52,15 +52,23 @@ case class StreamSpec(name: String,
 
                       stagingLocation: Option[String],
                       sinkLocation: String,
-                      targetNamespace: String,
-                      targetWarehouse: String,
+                      targetTableName: String,
+                      archiveTableName: String,
                       partitionExpression: Option[String])
   derives ReadWriter
 
 trait TargetTableSettings:
-  val tableName: String
-  val targetNamespace: String
-  val targetWarehouse: String
+  val targetTableFullName: String
+
+trait ArchiveTableSettings:
+  val archiveTableFullName: String
+
+// TODO
+trait StagingTableSettings:
+  val tableNamePrefix: String
+  val namespace: String
+  val warehouse: String
+  val catalogUri: String
 
 /**
  * The context for the SQL Server Change Tracking stream.
@@ -72,7 +80,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with JdbcConsumerOptions
   with VersionedDataGraphBuilderSettings
   with AzureConnectionSettings
-  with TargetTableSettings:
+  with TargetTableSettings
+  with ArchiveTableSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
@@ -90,12 +99,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
 
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
-  /**
-   * The target table to write the data.
-   */
-  override val tableName: String = spec.sinkLocation
-  override val targetNamespace: String = spec.targetNamespace
-  override val targetWarehouse: String = spec.targetWarehouse
+  override val targetTableFullName: String = spec.targetTableName
+  override val archiveTableFullName: String = spec.archiveTableName
 
   override val endpoint: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ENDPOINT")
   override val container: String = sys.env("ARCANE_FRAMEWORK__STORAGE_CONTAINER")
@@ -115,6 +120,8 @@ object MicrosoftSynapseLinkStreamContext {
     & JdbcConsumerOptions
     & TargetTableSettings
     & AzureConnectionSettings
+    & ArchiveTableSettings
+    & TargetTableSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.

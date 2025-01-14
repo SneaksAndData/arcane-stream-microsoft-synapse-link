@@ -8,13 +8,16 @@ import org.slf4j.{Logger, LoggerFactory}
 import zio.{ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
+
 import scala.concurrent.Future
 import scala.util.Try
+
 
 /**
  * The result of applying a batch.
  */
 type BatchApplicationResult = Boolean
+
 
 /**
  * The result of applying a batch.
@@ -88,3 +91,4 @@ object JdbcConsumer:
         for connectionOptions <- ZIO.service[JdbcConsumerOptions] yield JdbcConsumer(connectionOptions)
       }
     }
+

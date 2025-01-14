@@ -19,6 +19,7 @@ import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlo
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.IcebergBackfillConsumer
 import com.sneaksanddata.arcane.framework.services.streaming.processors.{BackfillGroupingProcessor, MergeProcessor}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.{JdbcTableManager, StreamRunnerServiceCdm}
 import org.slf4j.MDC
 import zio.*
 import zio.logging.LogFormat
@@ -60,8 +61,8 @@ object main extends ZIOAppDefault {
       CdmDataProvider.layer,
       CdmSchemaProvider.layer,
       MicrosoftSynapseLinkStreamContext.layer,
-      PosixStreamLifetimeService.layer,
-      StreamRunnerServiceImpl.layer,
+      PosixStreamLifetimeService.layer, 
+      StreamRunnerServiceCdm.layer,
       StreamGraphBuilderFactory.layer,
       IcebergS3CatalogWriter.layer,
       IcebergSynapseConsumer.layer,
@@ -69,7 +70,8 @@ object main extends ZIOAppDefault {
       JdbcConsumer.layer,
       CdmGroupingProcessor.layer,
       ArchivationProcessor.layer,
-      TypeAlignmentService.layer)
+      TypeAlignmentService.layer,
+      JdbcTableManager.layer)
     .orDie
 }
 

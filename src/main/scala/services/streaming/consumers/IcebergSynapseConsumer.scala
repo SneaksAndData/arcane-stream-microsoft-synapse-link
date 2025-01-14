@@ -1,11 +1,11 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.consumers
 
+import models.app.TargetTableSettings
 import services.clients.BatchArchivationResult
 import services.streaming.consumers.IcebergSynapseConsumer.{getTableName, toStagedBatch}
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.SinkSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
@@ -13,7 +13,6 @@ import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalog
 import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.{IcebergStreamingConsumer, StreamingConsumer}
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.TargetTableSettings
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.slf4j.{Logger, LoggerFactory}
@@ -63,7 +62,7 @@ class IcebergSynapseConsumer(streamContext: StreamContext,
       icebergCatalogSettings.namespace,
       icebergCatalogSettings.warehouse,
       arcaneSchema,
-      sinkSettings.tableName,
+      sinkSettings.targetTableFullName,
       Map())
 
 
