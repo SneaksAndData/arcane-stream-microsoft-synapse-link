@@ -52,8 +52,10 @@ case class StreamSpec(name: String,
 
                       stagingLocation: Option[String],
                       sinkLocation: String,
+                     
                       targetTableName: String,
                       archiveTableName: String,
+                     
                       partitionExpression: Option[String])
   derives ReadWriter
 
