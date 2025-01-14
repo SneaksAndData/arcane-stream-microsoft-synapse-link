@@ -23,7 +23,7 @@ lazy val plugin = (project in file("."))
       libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
 
 
-      assembly / mainClass := Some("com.sneaksanddata.arcane.micorsoft_synapse_link.main"),
+      assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
 
       // We do not use the version name here, because it's executable file name
       // and we want to keep it consistent with the name of the project
