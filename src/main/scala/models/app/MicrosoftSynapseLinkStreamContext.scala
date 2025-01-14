@@ -52,9 +52,15 @@ case class StreamSpec(name: String,
 
                       stagingLocation: Option[String],
                       sinkLocation: String,
+                      targetNamespace: String,
+                      targetWarehouse: String,
                       partitionExpression: Option[String])
   derives ReadWriter
 
+trait TargetTableSettings:
+  val tableName: String
+  val targetNamespace: String
+  val targetWarehouse: String
 
 /**
  * The context for the SQL Server Change Tracking stream.
@@ -66,7 +72,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with JdbcConsumerOptions
   with VersionedDataGraphBuilderSettings
   with AzureConnectionSettings
-  with SinkSettings:
+  with TargetTableSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
@@ -87,7 +93,9 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   /**
    * The target table to write the data.
    */
-  override val sinkLocation: String = spec.sinkLocation
+  override val tableName: String = spec.sinkLocation
+  override val targetNamespace: String = spec.targetNamespace
+  override val targetWarehouse: String = spec.targetWarehouse
 
   override val endpoint: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ENDPOINT")
   override val container: String = sys.env("ARCANE_FRAMEWORK__STORAGE_CONTAINER")
@@ -105,7 +113,7 @@ object MicrosoftSynapseLinkStreamContext {
     & VersionedDataGraphBuilderSettings
     & IcebergCatalogSettings
     & JdbcConsumerOptions
-    & SinkSettings
+    & TargetTableSettings
     & AzureConnectionSettings
 
   /**

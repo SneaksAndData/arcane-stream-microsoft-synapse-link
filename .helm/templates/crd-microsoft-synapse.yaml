@@ -106,6 +106,12 @@ spec:
                 sinkLocation:
                   type: string
                   description: Data location for parquet files.
+                targetNamespace:
+                  type: string
+                  description: Data location for parquet files.
+                targetWarehouse:
+                  type: string
+                  description: Data location for parquet files.
                 lookBackInterval:
                   type: integer
                   description: |
