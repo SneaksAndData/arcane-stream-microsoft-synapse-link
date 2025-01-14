@@ -65,7 +65,7 @@ object IcebergSynapseConsumer:
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
 
   extension (batchNumber: Long) def getTableName(streamId: String): String =
-    s"${streamId}_${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$batchNumber"
+    s"${streamId.replace('-', '_')}_${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$batchNumber"
 
   extension (table: Table) def toStagedBatch(batchSchema: ArcaneSchema,
                                              targetName: String,
