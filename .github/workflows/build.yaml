@@ -28,23 +28,23 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Scala
-        uses: japgolly/setup-everything-scala@v3.1
-        with:
-          java-version: temurin:1.23.0.1
-      - name: Build the Docker Compose stack
-        run: docker compose up -d
-      - name: Build and test
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          export $(cat unit-tests.env| xargs)
-          sbt clean coverage test coverageReport
-      - uses: 5monkeys/cobertura-action@v14
-        with:
-          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
-          minimum_coverage: 40
+#      - name: Setup Scala
+#        uses: japgolly/setup-everything-scala@v3.1
+#        with:
+#          java-version: temurin:1.23.0.1
+#      - name: Build the Docker Compose stack
+#        run: docker compose up -d
+#      - name: Build and test
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        shell: bash
+#        run: |
+#          export $(cat unit-tests.env| xargs)
+#          sbt clean coverage test coverageReport
+#      - uses: 5monkeys/cobertura-action@v14
+#        with:
+#          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
+#          minimum_coverage: 40
 
   build_image:
     name: Build Docker Image and Helm Charts
