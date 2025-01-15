@@ -18,12 +18,12 @@ lazy val plugin = (project in file("."))
       name := "arcane-stream-microsoft-synapse-link",
       idePackagePrefix := Some("com.sneaksanddata.arcane.microsoft_synapse_link"),
 
-      libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.0.1-SNAPSHOT",
+      libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.0.2-SNAPSHOT",
       libraryDependencies += "com.azure" % "azure-core-http-okhttp" % "1.12.1",
       libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
 
 
-      assembly / mainClass := Some("com.sneaksanddata.arcane.micorsoft_synapse_link.main"),
+      assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
 
       // We do not use the version name here, because it's executable file name
       // and we want to keep it consistent with the name of the project

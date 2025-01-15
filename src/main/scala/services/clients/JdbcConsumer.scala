@@ -4,6 +4,7 @@ package services.clients
 import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ArchiveTableSettings
 import org.slf4j.{Logger, LoggerFactory}
 import zio.{ZIO, ZLayer}
 
@@ -11,10 +12,12 @@ import java.sql.{Connection, DriverManager, ResultSet}
 import scala.concurrent.Future
 import scala.util.Try
 
+
 /**
  * The result of applying a batch.
  */
 type BatchApplicationResult = Boolean
+
 
 /**
  * The result of applying a batch.
@@ -26,7 +29,10 @@ class BatchArchivationResult
  *
  * @param options The options for the consumer.
  */
-class JdbcConsumer[Batch <: StagedVersionedBatch](val options: JdbcConsumerOptions) extends AutoCloseable:
+class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
+                                                  archiveTableSettings: ArchiveTableSettings)
+  extends AutoCloseable:
+  
   require(options.isValid, "Invalid JDBC url provided for the consumer")
 
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
@@ -51,7 +57,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](val options: JdbcConsumerOptio
     }
     
   def archiveBatch(batch: Batch): Future[BatchArchivationResult] =
-    Future(sqlConnection.prepareStatement(batch.archiveExpr).execute())
+    Future(sqlConnection.prepareStatement(batch.archiveExpr(archiveTableSettings.archiveTableFullName)).execute())
       .flatMap(_ => Future(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}").execute()))
       .map(_ => new BatchArchivationResult)
 
@@ -71,20 +77,26 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](val options: JdbcConsumerOptio
 
 
 object JdbcConsumer:
+  type Environment = JdbcConsumerOptions & ArchiveTableSettings
+  
   /**
    * Factory method to create JdbcConsumer.
    * @param options The options for the consumer.
    * @return The initialized JdbcConsumer instance
    */
-  def apply[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions): JdbcConsumer[Batch] =
-    new JdbcConsumer[Batch](options)
+  def apply[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings): JdbcConsumer[Batch] =
+    new JdbcConsumer[Batch](options, archiveTableSettings)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
    */
-  val layer: ZLayer[JdbcConsumerOptions, Nothing, JdbcConsumer[StagedVersionedBatch]] =
+  val layer: ZLayer[Environment, Nothing, JdbcConsumer[StagedVersionedBatch]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
-        for connectionOptions <- ZIO.service[JdbcConsumerOptions] yield JdbcConsumer(connectionOptions)
+        for
+          connectionOptions <- ZIO.service[JdbcConsumerOptions]
+          archiveTableSettings <- ZIO.service[ArchiveTableSettings]
+        yield JdbcConsumer(connectionOptions, archiveTableSettings)
       }
     }
+
