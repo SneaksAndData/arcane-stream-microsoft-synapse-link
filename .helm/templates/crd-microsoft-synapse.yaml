@@ -92,9 +92,6 @@ spec:
                 httpClientRetryDelaySeconds:
                   type: integer
                   description: Max retry delay on blob reads for the http client.
-                entityName:
-                  type: string
-                  description: Name of a CDM entity to stream.
                 rowsPerGroup:
                   type: integer
                   description: Number of rows per parquet rowgroup.
