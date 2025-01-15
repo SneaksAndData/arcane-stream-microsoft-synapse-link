@@ -154,6 +154,8 @@ spec:
                   properties:
                     dataLocation:
                       type: string
+                    tableNamePrefix:
+                      type: string
                     catalog:
                       type: object
                       properties:
