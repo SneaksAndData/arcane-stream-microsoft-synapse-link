@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.consumers
 
-import models.app.TargetTableSettings
+import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
 import services.clients.BatchArchivationResult
 import services.streaming.consumers.IcebergSynapseConsumer.{getTableName, toStagedBatch}
 
@@ -22,7 +22,7 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
-class IcebergSynapseConsumer(streamContext: StreamContext,
+class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
                              icebergCatalogSettings: IcebergCatalogSettings,
                              sinkSettings: TargetTableSettings,
                              catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
@@ -48,7 +48,7 @@ class IcebergSynapseConsumer(streamContext: StreamContext,
   }
 
   private def writeStagingTable = ZPipeline[Chunk[DataRow]]()
-    .mapAccum(0L) { (acc, chunk) => (acc + 1, (chunk, acc.getTableName(streamContext.streamId))) }
+    .mapAccum(0L) { (acc, chunk) => (acc + 1, (chunk, acc.getTableName(streamContext.stagingTableNamePrefix))) }
     .mapZIO({
       case (rows, tableName) => writeWithWriter(rows, tableName)
     })
@@ -91,7 +91,7 @@ object IcebergSynapseConsumer:
    * @param schemaProvider The schema provider.
    * @return The initialized IcebergConsumer instance
    */
-  def apply(streamContext: StreamContext,
+  def apply(streamContext: MicrosoftSynapseLinkStreamContext,
             icebergCatalogSettings: IcebergCatalogSettings,
             sinkSettings: TargetTableSettings,
             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
@@ -106,7 +106,7 @@ object IcebergSynapseConsumer:
   type Environment = SchemaProvider[ArcaneSchema]
     & CatalogWriter[RESTCatalog, Table, Schema]
     & BatchProcessor[StagedVersionedBatch, StagedVersionedBatch]
-    & StreamContext
+    & MicrosoftSynapseLinkStreamContext
     & TargetTableSettings
     & BatchProcessor[StagedVersionedBatch, BatchArchivationResult]
     & IcebergCatalogSettings
@@ -117,7 +117,7 @@ object IcebergSynapseConsumer:
   val layer: ZLayer[Environment, Nothing, StreamingConsumer] =
     ZLayer {
       for
-        streamContext <- ZIO.service[StreamContext]
+        streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
         sinkSettings <- ZIO.service[TargetTableSettings]
         catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]

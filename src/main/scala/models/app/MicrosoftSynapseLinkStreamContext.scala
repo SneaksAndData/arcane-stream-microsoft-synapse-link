@@ -62,6 +62,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val account: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ACCOUNT")
   override val accessKey: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ACCESS_KEY")
 
+  val stagingTableNamePrefix: String = spec.stagingDataSettings.tableNamePrefix
 
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name, spec.sourceSettings.baseLocation)
@@ -77,6 +78,7 @@ object MicrosoftSynapseLinkStreamContext {
     & AzureConnectionSettings
     & ArchiveTableSettings
     & TargetTableSettings
+    & MicrosoftSynapseLinkStreamContext
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
