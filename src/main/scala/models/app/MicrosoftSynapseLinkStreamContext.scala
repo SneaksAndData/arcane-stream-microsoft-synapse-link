@@ -23,6 +23,7 @@ trait AzureConnectionSettings:
  */
 case class CatalogSettings(namespace: String, warehouse: String, catalogUri: String) derives ReadWriter
 
+
 /**
  * The specification for the stream.
  *

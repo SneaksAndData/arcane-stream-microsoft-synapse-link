@@ -5,10 +5,11 @@ import services.clients.{BatchArchivationResult, JdbcConsumer}
 
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ArchiveTableSettings
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
-class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch])
+class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], archiveTableSettings: ArchiveTableSettings)
   extends BatchProcessor[StagedVersionedBatch, BatchArchivationResult]:
 
   override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, BatchArchivationResult] =
@@ -17,13 +18,15 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch])
 object ArchivationProcessor:
 
   type Environment = JdbcConsumer[StagedVersionedBatch]
+    & ArchiveTableSettings
   
-  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch]): ArchivationProcessor =
-    new ArchivationProcessor(jdbcConsumer)
+  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], archiveTableSettings: ArchiveTableSettings): ArchivationProcessor =
+    new ArchivationProcessor(jdbcConsumer, archiveTableSettings)
     
   val layer: ZLayer[Environment, Nothing, ArchivationProcessor] =
     ZLayer {
       for
         jdbcConsumer <- ZIO.service[JdbcConsumer[StagedVersionedBatch]]
-      yield ArchivationProcessor(jdbcConsumer)
+        archiveTableSettings <- ZIO.service[ArchiveTableSettings]
+      yield ArchivationProcessor(jdbcConsumer, archiveTableSettings)
     }
