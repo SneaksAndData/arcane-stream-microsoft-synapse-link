@@ -25,7 +25,7 @@ spec:
           jsonPath: .spec.entityName
         - name: Refresh Interval
           type: string
-          jsonPath: .spec.changeCaptureIntervalSeconds
+          jsonPath: .spec.sourceSettings.changeCaptureIntervalSeconds
         - name: Sink location
           type: string
           jsonPath: .spec.sinkLocation
@@ -43,8 +43,19 @@ spec:
               properties:
                 partitionExpression:
                   type: string
-                name:
-                  type: string
+                sourceSettings:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    baseLocation:
+                      type: string
+                      description: Location root for CDM entities, in Proteus format.
+                    changeCaptureIntervalSeconds:
+                      type: integer
+                      description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
+                      minimum: 1
+                      maximum: 3600
                 connectionStringRef:
                   description: |
                     Name of the secret containing the connection string.
@@ -81,17 +92,9 @@ spec:
                 httpClientRetryDelaySeconds:
                   type: integer
                   description: Max retry delay on blob reads for the http client.
-                baseLocation:
-                  type: string
-                  description: Location root for CDM entities, in Proteus format.
                 entityName:
                   type: string
                   description: Name of a CDM entity to stream.
-                changeCaptureIntervalSeconds:
-                  type: integer
-                  description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
-                  minimum: 1
-                  maximum: 3600
                 rowsPerGroup:
                   type: integer
                   description: Number of rows per parquet rowgroup.
@@ -106,12 +109,15 @@ spec:
                 sinkLocation:
                   type: string
                   description: Data location for parquet files.
-                targetTableName:
-                  type: string
-                  description: Data location for parquet files.
-                archiveTableName:
-                  type: string
-                  description: Data location for parquet files.
+                sinkSettings:
+                  type: object
+                  properties:
+                    targetTableName:
+                      type: string
+                      description: Data location for parquet files.
+                    archiveTableName:
+                      type: string
+                      description: Data location for parquet files.
                 lookBackInterval:
                   type: integer
                   description: |
@@ -146,22 +152,19 @@ spec:
                   properties:
                     name:
                       type: string
-                catalog:
+                stagingDataSettings:
                   type: object
                   properties:
-                    namespace:
+                    dataLocation:
                       type: string
-                    warehouse:
-                      type: string
-                    catalogUri:
-                      type: string
-                    authSecretRef:
-                      description: |
-                        Not used in the operator version 0.0.x
-                        In operator version 0.1.x and above this field will replace the `catalogAuthSecretRef` field.
+                    catalog:
                       type: object
                       properties:
-                        name:
+                        namespace:
+                          type: string
+                        warehouse:
+                          type: string
+                        catalogUri:
                           type: string
                 mergeService:
                   type: object
@@ -199,17 +202,6 @@ spec:
                   properties:
                     name:
                       type: string
-                stagingStorage:
-                  type: object
-                  properties:
-                    authSecretRef:
-                      type: object
-                      description: |
-                        Not used in the operator version 0.0.x
-                        In operator version 0.1.x and above this field will replace the `stagingStorageAuthSecretRef` field.
-                      properties:
-                        name:
-                          type: string
                 streamMetadata:
                   type: object
                   default: null
@@ -236,9 +228,6 @@ spec:
                             type: string
                           fieldFormat:
                             type: string
-                stagingLocation:
-                  type: string
-                  description: Data location for staging files.
                 retention:
                   type: object
                   properties:
