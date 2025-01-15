@@ -91,7 +91,7 @@ object JdbcTableManager:
 
   private def generateCreateTableSQL(tableName: String, schema: Schema): String =
     val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.convertType}" }.mkString(", ")
-    s"CREATE TABLE $tableName ($columns)"
+    s"CREATE TABLE IF NOT EXISTS $tableName ($columns)"
 
   // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
   extension (field: NestedField) def convertType: String = field.`type`().typeId() match {
