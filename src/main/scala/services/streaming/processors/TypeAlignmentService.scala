@@ -9,6 +9,8 @@ import zio.stream.ZPipeline
 import zio.{Chunk, ZIO, ZLayer}
 import zio.Chunk
 import zio.stream.ZPipeline
+import java.time.LocalDateTime
+import java.sql.Timestamp
 
 import java.time.format.DateTimeFormatter
 
@@ -47,21 +49,15 @@ private class TypeAlignmentServiceImpl extends TypeAlignmentService:
     case ShortType => value.toString.toShort
     case TimeType => java.sql.Time.valueOf(value.toString)
 
-private def convertToTimeStamp(value: Any, columnName: String): java.sql.Timestamp = value match
-  case v: String =>
-    columnName match
-      case "SinkCreatedOn" | "SinkModifiedOn" =>
-        val formatter = DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a")
-        val localDateTime = LocalDateTime.parse(dateTimeString, formatter)
-        val timestamp = Timestamp.valueOf(localDateTime)
-      case "CreatedOn" =>
-        val localDateTime = LocalDateTime.parse(dateTimeString, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        val timestamp = Timestamp.valueOf(localDateTime)
-      case _ =>
-        val localDateTime = LocalDateTime.parse(dateTimeString, DateTimeFormatter.ISO_INSTANT)
-        val timestamp = Timestamp.valueOf(localDateTime)
+private def getDateTimeFormatter(columnName: String): DateTimeFormatter = columnName match
+  case "SinkCreatedOn" | "SinkModifiedOn" => DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a")
+  case "CreatedOn" => DateTimeFormatter.ISO_OFFSET_DATE_TIME
+  case _ => DateTimeFormatter.ISO_INSTANT
+
+private def convertToTimeStamp(columnName: String, value: Any): java.sql.Timestamp = value match
+  case v: String => Timestamp.valueOf(LocalDateTime.parse(v, getDateTimeFormatter(columnName)))
   case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
-  
+
 object TypeAlignmentService:
   val layer: ZLayer[Any, Nothing, TypeAlignmentService] = ZLayer.succeed(new TypeAlignmentServiceImpl)
 
