@@ -12,6 +12,8 @@ import zio.stream.ZPipeline
 
 import java.time.{Instant, LocalDateTime, OffsetDateTime}
 import java.time.format.DateTimeFormatter
+import java.sql.Timestamp
+
 
 /**
  * The service that processes a DataRow and aligns the types of the cells.
@@ -49,20 +51,20 @@ private class TypeAlignmentServiceImpl extends TypeAlignmentService:
     case TimeType => java.sql.Time.valueOf(value.toString)
 
 private def convertToTimeStamp(columnName: String, value: Any): java.sql.Timestamp = value match
-  case v: String =>
+  case timestampValue: String =>
     columnName match
       case "SinkCreatedOn" | "SinkModifiedOn" =>
         // format  from MS docs: M/d/yyyy H:mm:ss tt
         // example from MS docs: 6/28/2021 4:34:35 PM
-        Timestamp.valueOf(LocalDateTime.parse(v, DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a")))
+        Timestamp.valueOf(LocalDateTime.parse(timestampValue, DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a")))
       case "CreatedOn" =>
         // format  from MS docs: yyyy-MM-dd'T'HH:mm:ss.sssssssXXX
         // example from MS docs: 2018-05-25T16:21:09.0000000+00:00
-        Timestamp.valueOf(OffsetDateTime.parse(v, DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+        Timestamp.from(OffsetDateTime.parse(timestampValue, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant)
       case _ =>
         // format  from MS docs: yyyy-MM-dd'T'HH:mm:ss'Z'
         // example from MS docs: 2021-06-25T16:21:12Z
-        Timestamp.valueOf(Instant.parse(v, DateTimeFormatter.ISO_INSTANT))
+        Timestamp.from(Instant.parse(timestampValue))
   case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
 
 object TypeAlignmentService:
