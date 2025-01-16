@@ -28,7 +28,11 @@ class CdmGroupingProcessor(groupingSettings: GroupingSettings, typeAlignmentProc
     .flattenChunks
     .map(typeAlignmentProcessor.alignTypes)
     .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
+    .mapZIO(logBatchSize)
 
+  private def logBatchSize(batch: Chunk[DataRow]): ZIO[Any, Nothing, Chunk[DataRow]] =
+    for _ <- ZIO.log(s"Received batch with ${batch.size} rows from streaming source") yield batch
+    
 /**
  * The companion object for the LazyOutputDataProcessor class.
  */

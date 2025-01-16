@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.processors
 
+import services.clients.JdbcConsumer
+
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.JdbcConsumer
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 

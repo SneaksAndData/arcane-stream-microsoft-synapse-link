@@ -2,24 +2,22 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 
 import models.app.{AzureConnectionSettings, MicrosoftSynapseLinkStreamContext}
 import services.StreamGraphBuilderFactory
-import services.data_providers.microsoft_synapse_link.{CdmDataProvider, CdmSchemaProvider}
+import services.app.logging.JsonEnvironmentEnricher
+import services.app.{JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
+import services.data_providers.microsoft_synapse_link.{CdmDataProvider, CdmSchemaProvider}
 import services.streaming.consumers.IcebergSynapseConsumer
 import services.streaming.processors.{ArchivationProcessor, CdmGroupingProcessor, MergeBatchProcessor, TypeAlignmentService}
 
 import com.azure.storage.common.StorageSharedKeyCredential
-import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
-import com.sneaksanddata.arcane.framework.services.app.{PosixStreamLifetimeService, StreamRunnerServiceImpl}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
-import com.sneaksanddata.arcane.framework.services.streaming.consumers.IcebergBackfillConsumer
-import com.sneaksanddata.arcane.framework.services.streaming.processors.{BackfillGroupingProcessor, MergeProcessor}
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.{JdbcTableManager, StreamRunnerServiceCdm}
+import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
 import org.slf4j.MDC
 import zio.*
 import zio.logging.LogFormat
@@ -28,9 +26,9 @@ import zio.logging.backend.SLF4J
 
 object main extends ZIOAppDefault {
 
-  private val loggingProprieties = Enricher("Application", "Arcane.Stream.Scala")
-    ++ Enricher("App", "Arcane.Stream.Scala")
+  private val loggingProprieties = Enricher("Application", "Arcane.Stream")
     ++ Enricher.fromEnvironment("APPLICATION_VERSION", "0.0.0")
+    ++ JsonEnvironmentEnricher("ARCANE__LOGGING_PROPERTIES")
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = SLF4J.slf4j(
     LogFormat.make{ (builder, _, _, _, line, _, _, _, _) =>
