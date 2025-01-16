@@ -1,9 +1,10 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.processors
 
+import services.clients.JdbcConsumer
+
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.JdbcConsumer
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
@@ -21,14 +22,8 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch])
    * @return ZPipeline (stream source for the stream graph).
    */
   override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, StagedVersionedBatch] =
-    ZPipeline
-      .mapZIO(logBatchSize)
-      .mapZIO(batch => ZIO.fromFuture(implicit ec => jdbcConsumer.applyBatch(batch)).map(_ => batch))
+    ZPipeline.mapZIO(batch => ZIO.fromFuture(implicit ec => jdbcConsumer.applyBatch(batch)).map(_ => batch))
 
-
-  private def logBatchSize: ZIO[Any, Nothing, StagedVersionedBatch] =
-    for _ <- ZIO.log.info(s"Processing batch with ${batch.rows.size} rows")
-    yield batch
 
 object MergeBatchProcessor:
 
