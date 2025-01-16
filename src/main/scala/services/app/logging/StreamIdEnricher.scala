@@ -18,4 +18,4 @@ class StreamIdEnricher extends Enricher:
 
 object StreamIdEnricher:
 
-  def apply: JsonEnvironmentEnricher = new StreamIdEnricher
+  def apply: StreamIdEnricher = new StreamIdEnricher

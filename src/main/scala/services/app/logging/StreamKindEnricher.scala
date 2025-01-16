@@ -32,4 +32,4 @@ object StreamKindEnricher:
    * @param key The environment variable key
    * @return The initialized JsonEnvironmentEnricher instance
    */
-  def apply: JsonEnvironmentEnricher = new StreamKindEnricher
+  def apply: StreamKindEnricher = new StreamKindEnricher
