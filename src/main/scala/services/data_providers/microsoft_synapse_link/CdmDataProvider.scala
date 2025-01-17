@@ -24,7 +24,8 @@ class CdmDataProvider(cdmTable: CdmTable) extends VersionedDataProvider[OffsetDa
 
   override def requestChanges(previousVersion: Option[OffsetDateTime], lookBackInterval: Duration): Task[LazyList[DataRow]] =
     val time = previousVersion.getOrElse(OffsetDateTime.now().minusYears(1))
-    ZIO.fromFuture(_ => cdmTable.snapshot(Some(time)))
+    val now = OffsetDateTime.now()
+    ZIO.fromFuture(_ => cdmTable.snapshot(Some(time), Some(now)))
 
 /**
  * The companion object for the MsSqlDataProvider class.
