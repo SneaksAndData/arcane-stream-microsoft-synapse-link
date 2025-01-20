@@ -6,9 +6,10 @@ import services.clients.{BatchArchivationResult, JdbcConsumer}
 
 import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ArchiveTableSettings
 import org.slf4j.{Logger, LoggerFactory}
-import zio.{ZIO, ZLayer}
+import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
+import java.time.Duration
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -39,6 +40,8 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
   
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
+
+  val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(5)
   
   def getPartitionValues(batchName: String, partitionFields: List[String]): Future[Map[String, List[String]]] =
     Future.sequence(partitionFields
@@ -50,16 +53,40 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       )).map(_.toMap)
 
   
-  def applyBatch(batch: Batch): Future[BatchApplicationResult] =
-    Future{
-      logger.debug(s"Executing batch query: ${batch.batchQuery.query}")
-      sqlConnection.prepareStatement(batch.batchQuery.query).execute()
+  def applyBatch(batch: Batch): Task[BatchApplicationResult] =
+    val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) retry  retryPolicy
+    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())){ statement =>
+      for
+        applicationResult <- ZIO.attemptBlocking{ statement.execute() }
+      yield applicationResult
     }
-    
-  def archiveBatch(batch: Batch): Future[BatchArchivationResult] =
-    Future(sqlConnection.prepareStatement(batch.archiveExpr(archiveTableSettings.archiveTableFullName)).execute())
-      .flatMap(_ => Future(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}").execute()))
-      .map(_ => new BatchArchivationResult)
+
+  def archiveBatch(batch: Batch): Task[BatchArchivationResult] =
+    for _ <- executeArchivationQuery(batch)
+        _ <- dropTempTable(batch)
+    yield new BatchArchivationResult
+
+  private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
+    val ack = ZIO.attemptBlocking {
+      sqlConnection.prepareStatement(batch.archiveExpr(archiveTableSettings.archiveTableFullName))
+    }
+    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
+      for
+        _ <- ZIO.log(s"archiving batch ${batch.name}")
+        _ <- ZIO.attemptBlocking { statement.execute() }
+      yield new BatchArchivationResult
+    }
+
+  private def dropTempTable(batch: Batch): Task[BatchArchivationResult] =
+    val ack = ZIO.attemptBlocking {
+      sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}")
+    }
+    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
+      for
+        _ <- ZIO.log(s"archiving batch ${batch.name}")
+        _ <- ZIO.attemptBlocking { statement.execute() }
+      yield new BatchArchivationResult
+    }
 
   def close(): Unit = sqlConnection.close()
 

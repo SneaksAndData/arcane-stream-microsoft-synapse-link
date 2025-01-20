@@ -6,8 +6,12 @@ import models.app.{ArchiveTableSettings, TargetTableSettings}
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
+import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
+import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
+import zio.Console.printLine
 import zio.{ZIO, ZLayer}
 
 /**
@@ -18,7 +22,9 @@ import zio.{ZIO, ZLayer}
  */
 private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
                                      lifetimeService: StreamLifetimeService,
-                                     tableManager: TableManager) extends StreamRunnerService:
+                                     tableManager: TableManager,
+                                     reader: AzureBlobStorageReaderZIO,
+                                     rootPath: String) extends StreamRunnerService:
 
   /**
    * Runs the stream.
@@ -32,6 +38,7 @@ private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
       _ <- ZIO.fromFuture(implicit ec => tableManager.createTargetTable)
       _ <- ZIO.fromFuture(implicit ec => tableManager.createArchiveTable)
       _ <- builder.create.run(builder.consume)
+      _ <- ZIO.log("Stream completed")
     } yield ()
 
 /**
@@ -42,6 +49,8 @@ object StreamRunnerServiceCdm:
   type Environemnt = TableManager
     & StreamGraphBuilder
     & StreamLifetimeService
+    & AzureBlobStorageReaderZIO
+    & CdmTableSettings
   
   /**
    * The ZLayer for the stream runner service.
@@ -52,5 +61,7 @@ object StreamRunnerServiceCdm:
         builder <- ZIO.service[StreamGraphBuilder]
         lifetimeService <- ZIO.service[StreamLifetimeService]
         tableManager <- ZIO.service[TableManager]
-      } yield new StreamRunnerServiceCdm(builder, lifetimeService, tableManager)
+        reader <- ZIO.service[AzureBlobStorageReaderZIO]
+        tableSettings <- ZIO.service[CdmTableSettings]
+      } yield new StreamRunnerServiceCdm(builder, lifetimeService, tableManager, reader, tableSettings.rootPath)
     }

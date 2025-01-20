@@ -5,7 +5,7 @@ import services.StreamGraphBuilderFactory
 import services.app.logging.{JsonEnvironmentEnricher, StreamIdEnricher, StreamKindEnricher}
 import services.app.{JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
-import services.data_providers.microsoft_synapse_link.{CdmDataProvider, CdmSchemaProvider}
+import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
 import services.streaming.consumers.IcebergSynapseConsumer
 import services.streaming.processors.{ArchivationProcessor, CdmGroupingProcessor, MergeBatchProcessor, TypeAlignmentService}
 
@@ -47,18 +47,26 @@ object main extends ZIOAppDefault {
     _ <- streamRunner.run
   yield ()
 
-  val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
+  val storageExplorerLayerZio: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
    for {
      connectionOptions <- ZIO.service[AzureConnectionSettings]
      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
-   } yield AzureBlobStorageReader(connectionOptions.account, connectionOptions.endpoint, credentials)
+   } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials)
+  }
+  
+  val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
+    for {
+      connectionOptions <- ZIO.service[AzureConnectionSettings]
+      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
+    } yield AzureBlobStorageReader(connectionOptions.account, connectionOptions.endpoint, credentials)
   }
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
     appLayer.provide(
       storageExplorerLayer,
-      CdmDataProvider.layer,
+      storageExplorerLayerZio,
+      CdmTableStream.layer,
       CdmSchemaProvider.layer,
       MicrosoftSynapseLinkStreamContext.layer,
       PosixStreamLifetimeService.layer, 
