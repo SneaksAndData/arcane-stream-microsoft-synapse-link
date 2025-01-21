@@ -72,10 +72,10 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
    */
   def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Task[Result] =
     val client = getBlobClient(blobPath)
-    for {
-//      _ <- ZIO.log("Downloading blob content from data file: " + blobPath.toHdfsPath)
+    for
+      _ <- ZIO.log("Downloading blob content from data file: " + blobPath.toHdfsPath)
       content <- ZIO.attemptBlocking { client.downloadContent().toBytes }
-    } yield deserializer(content)
+    yield deserializer(content)
 
   def listPrefixes(rootPrefix: AdlsStoragePath): ZStream[Any, Throwable, StoredBlob] =
     val client = serviceClient.getBlobContainerClient(rootPrefix.container)
