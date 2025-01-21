@@ -71,7 +71,8 @@ SimpleCdmEntity, reader: AzureBlobStorageReaderZIO, parallelismSettings: Paralle
       .filter(blob => blob.name.endsWith(".csv"))
       .repeat(Schedule.spaced(Duration.ofSeconds(90)))
 
-    lookbackStream.concat(repeatStream)
+//    lookbackStream.concat(repeatStream)
+    repeatStream
 
   def getData(blob: StoredBlob): Task[Array[DataRow]] =
       val e = reader.getBlobContent(storagePath + blob.name)

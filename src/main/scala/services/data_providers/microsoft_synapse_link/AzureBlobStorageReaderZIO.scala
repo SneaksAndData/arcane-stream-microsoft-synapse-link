@@ -19,6 +19,7 @@ import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
+import scala.util.Try
 
 /**
  * Blob reader implementation for Azure. Relies on the default credential chain if no added credentials are provided.
@@ -121,6 +122,18 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
         case _: Throwable => date
       }
     }
+
+  private def blobPrefixAsDate(blob: StoredBlob): Option[OffsetDateTime] =
+    val name = blob.name.replaceAll("/$", "")
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
+    Try(OffsetDateTime.parse(name, formatter)).toOption
+
+  private def getRootPrefixesZIO(storagePath: AdlsStoragePath) =
+    val startFrom = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(90)
+    for _ <- ZStream.log("Getting root prefixes stating from " + startFrom)
+      prefixes <- ZStream.fromZIO(ZIO.attemptBlocking { listPrefixes(storagePath) })
+      filteredPrefixes <- prefixes.map(blobPrefixAsDate).filter(_.isDefined).filter(_.get.isAfter(startFrom))
+    yield filteredPrefixes
 
   def getRootPrefixes(storagePath: AdlsStoragePath, formDate: () => OffsetDateTime): ZStream[Any, Throwable, StoredBlob] =
     ZStream.fromZIO(ZIO.attemptBlocking{
