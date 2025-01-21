@@ -10,6 +10,7 @@ import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.mssql.MsSqlConnection.DataBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.StreamingConsumer
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ParallelismSettings
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.CdmTableStream
 import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZSink, ZStream}
@@ -30,7 +31,8 @@ class VersionedDataGraphBuilder[VersionType, BatchType]
                                 cdmTableStream: CdmTableStream,
                                 streamLifetimeService: StreamLifetimeService,
                                 batchProcessor: BatchProcessor[Array[DataRow], Chunk[DataRow]],
-                                batchConsumer: StreamingConsumer)
+                                batchConsumer: StreamingConsumer,
+                                 parallelismSettings: ParallelismSettings)
   extends StreamGraphBuilder:
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[VersionedDataGraphBuilder[VersionType, BatchType]])
@@ -53,7 +55,7 @@ class VersionedDataGraphBuilder[VersionType, BatchType]
 
   private def createStream = cdmTableStream
     .snapshotPrefixes(startDate = Some(OffsetDateTime.now(ZoneOffset.UTC).minus(versionedDataGraphBuilderSettings.changeCaptureInterval)))
-    .mapZIOPar(64)(blob => cdmTableStream.getData(blob))
+    .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getData(blob))
 
 
 /**
@@ -66,6 +68,7 @@ object VersionedDataGraphBuilder:
     & BatchProcessor[Array[DataRow], Chunk[DataRow]]
     & StreamingConsumer
     & VersionedDataGraphBuilderSettings
+    & ParallelismSettings
 
   /**
    * Creates a new instance of the BackfillDataGraphBuilder class.
@@ -79,12 +82,14 @@ object VersionedDataGraphBuilder:
             cdmTableStream: CdmTableStream,
             streamLifetimeService: StreamLifetimeService,
             batchProcessor: BatchProcessor[Array[DataRow], Chunk[DataRow]],
-            batchConsumer: StreamingConsumer): VersionedDataGraphBuilder[VersionType, BatchType] =
+            batchConsumer: StreamingConsumer,
+            parallelismSettings: ParallelismSettings): VersionedDataGraphBuilder[VersionType, BatchType] =
     new VersionedDataGraphBuilder(versionedDataGraphBuilderSettings,
       cdmTableStream,
       streamLifetimeService,
       batchProcessor,
-      batchConsumer)
+      batchConsumer,
+      parallelismSettings)
 
   /**
    * Creates a new instance of the BackfillDataGraphBuilder using services provided by ZIO Environment.
@@ -99,6 +104,7 @@ object VersionedDataGraphBuilder:
       ls <- ZIO.service[StreamLifetimeService]
       bp <- ZIO.service[BatchProcessor[Array[DataRow], Chunk[DataRow]]]
       bc <- ZIO.service[StreamingConsumer]
-    yield VersionedDataGraphBuilder(sss, dp, ls, bp, bc)
+      parallelismSettings <- ZIO.service[ParallelismSettings]
+    yield VersionedDataGraphBuilder(sss, dp, ls, bp, bc, parallelismSettings)
     
 
