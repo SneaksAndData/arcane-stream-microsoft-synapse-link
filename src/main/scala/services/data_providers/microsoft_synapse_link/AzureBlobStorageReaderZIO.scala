@@ -53,17 +53,6 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
 
   private val stringContentSerializer: Array[Byte] => String = _.map(_.toChar).mkString
 
-  @tailrec
-  private def getPage[ElementType, ResultElementType](pageToken: Option[String], result: Iterable[ResultElementType], pager: Option[String] => PagedResponse[ElementType])(implicit converter: ElementType => ResultElementType): Iterable[ResultElementType] =
-    val page = pager(pageToken)
-    val pageData = page.getValue.asScala.map(implicitly)
-    val continuationToken = Option(page.getContinuationToken)
-
-    if continuationToken.isEmpty then
-      result ++ pageData
-    else
-      getPage(continuationToken, result ++ pageData, pager)
-
   /**
    *
    * @param blobPath The path to the blob.
@@ -78,7 +67,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
       content <- ZIO.attemptBlocking { client.downloadContent().toBytes }
     yield deserializer(content)
 
-  def listPrefixes(rootPrefix: AdlsStoragePath): ZStream[Any, Throwable, StoredBlob] =
+  def streamPrefixes(rootPrefix: AdlsStoragePath): ZStream[Any, Throwable, StoredBlob] =
     val client = serviceClient.getBlobContainerClient(rootPrefix.container)
     val listOptions = new ListBlobsOptions()
       .setPrefix(rootPrefix.blobPrefix)
@@ -94,25 +83,10 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     ZStream.fromIterable(publisher)
 
 
-  def listBlobs(rootPrefix: AdlsStoragePath): Task[Chunk[StoredBlob]] =
-    val client = serviceClient.getBlobContainerClient(rootPrefix.container)
-    val listOptions = new ListBlobsOptions()
-      .setPrefix(rootPrefix.blobPrefix)
-      .setMaxResultsPerPage(serviceClientSettings.maxResultsPerPage)
-      .setDetails(
-        BlobListDetails()
-          .setRetrieveMetadata(false)
-          .setRetrieveDeletedBlobs(false)
-          .setRetrieveVersions(false)
-      )
-
-    ZIO.attempt {
-      Chunk.fromIterable(client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly))
-    }
-
   def getFirstBlob(storagePath: AdlsStoragePath): Task[OffsetDateTime] =
-    listPrefixes(storagePath + "/").runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
-      interpretAsDate(blob).getOrElse(date)
+    streamPrefixes(storagePath + "/").runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
+      val current = interpretAsDate(blob).getOrElse(date)
+      if current.isBefore(date) then current else date
     }
 
   private def interpretAsDate(blob: StoredBlob): Option[OffsetDateTime] =
@@ -120,10 +94,10 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
     Try(OffsetDateTime.parse(name, formatter)).toOption
 
-  def getRootPrefixes(storagePath: AdlsStoragePath, formDate: () => OffsetDateTime): ZStream[Any, Throwable, StoredBlob] =
-    for startFrom <- ZStream.succeed(OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(90))
+  def getRootPrefixes(storagePath: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
+    for startFrom <- ZStream.succeed(OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval))
         _ <- ZStream.log("Getting root prefixes stating from " + startFrom)
-        prefixes <- ZStream.fromZIO(ZIO.attemptBlocking { listPrefixes(storagePath) })
+        prefixes <- ZStream.fromZIO(ZIO.attemptBlocking { streamPrefixes(storagePath) })
         zippedWithDate <- prefixes.map(blob => (interpretAsDate(blob), blob))
         eligibleToProcess <- zippedWithDate match
           case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)

@@ -32,7 +32,7 @@ class VersionedDataGraphBuilder[VersionType, BatchType]
                                 streamLifetimeService: StreamLifetimeService,
                                 batchProcessor: BatchProcessor[Array[DataRow], Chunk[DataRow]],
                                 batchConsumer: StreamingConsumer,
-                                 parallelismSettings: ParallelismSettings)
+                                parallelismSettings: ParallelismSettings)
   extends StreamGraphBuilder:
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[VersionedDataGraphBuilder[VersionType, BatchType]])
@@ -54,7 +54,7 @@ class VersionedDataGraphBuilder[VersionType, BatchType]
   override def consume: ZSink[Any, Throwable, Chunk[DataRow], Any, Unit] = batchConsumer.consume
 
   private def createStream = cdmTableStream
-    .snapshotPrefixes(startDate = Some(OffsetDateTime.now(ZoneOffset.UTC).minus(versionedDataGraphBuilderSettings.changeCaptureInterval)))
+    .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval)
     .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getData(blob))
 
 

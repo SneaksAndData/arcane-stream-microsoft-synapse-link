@@ -40,39 +40,28 @@ SimpleCdmEntity, reader: AzureBlobStorageReaderZIO, parallelismSettings: Paralle
         s"${moment.getYear}-$monthString-${dayString}T$hourString"
       }.to(LazyList)
 
-  private def getInfinitePrefixes(startDate: OffsetDateTime): Seq[Seq[String]] =
-    LazyList.unfold(startDate)(startDate => {
-      val prefixes = getListPrefixes(Some(startDate))
-      val next = OffsetDateTime.now()
-      prefixes match
-        case Nil => None
-        case _ => Some((prefixes, next))
-    })
-
   /**
    * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
    * @param startDate Folders from Synapse export to include in the snapshot, based on the start date provided. If not provided, ALL folders from now - defaultFromYears will be included
    * @param endDate Date to stop at when looking for prefixes. In production use None for this value to always look data up to current moment.
    * @return A stream of rows for this table
    */
-  def snapshotPrefixes(startDate: Option[OffsetDateTime] = None, endDate: Option[OffsetDateTime] = None): ZStream[Any, Throwable, StoredBlob] =
+  def snapshotPrefixes(lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
     val lookbackStream = ZStream.fromZIO(reader.getFirstBlob(storagePath + "/"))
         .flatMap(startDate => {
           ZStream.fromIterable(getListPrefixes(Some(startDate)))
-            .flatMap(prefix => reader.listPrefixes(storagePath + prefix))
-            .mapZIOPar(parallelismSettings.parallelism)(prefix => reader.listBlobs(storagePath + prefix.name + name + "/"))
-            .flattenChunks
+            .flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
+            .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
             .filter(blob => blob.name.endsWith(".csv"))
         })
 
-    val repeatStream = reader.getRootPrefixes(storagePath, () => { OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(90) })
-      .mapZIOPar(parallelismSettings.parallelism)(prefix => reader.listBlobs(storagePath + prefix.name + name + "/"))
-      .flattenChunks
+    val repeatStream = reader.getRootPrefixes(storagePath, lookBackInterval)
+      .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
       .filter(blob => blob.name.endsWith(".csv"))
       .repeat(Schedule.spaced(Duration.ofSeconds(90)))
 
-//    lookbackStream.concat(repeatStream)
-    repeatStream
+    lookbackStream.concat(repeatStream)
+//    repeatStream
 
   def getData(blob: StoredBlob): Task[Array[DataRow]] =
       val e = reader.getBlobContent(storagePath + blob.name)
