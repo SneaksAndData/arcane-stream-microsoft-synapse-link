@@ -11,14 +11,14 @@ import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureModelConversions.given_Conversion_BlobItem_StoredBlob
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import zio.stream.{ZSink, ZStream}
+import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.*
-import scala.language.implicitConversions
+import scala.language.{existentials, implicitConversions}
 import scala.util.Try
 
 /**
@@ -112,46 +112,23 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
 
   def getFirstBlob(storagePath: AdlsStoragePath): Task[OffsetDateTime] =
     listPrefixes(storagePath + "/").runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
-      try {
-        val name = blob.name.replaceAll("/$", "")
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
-        val prefixAsDate = OffsetDateTime.parse(name, formatter)
-        if prefixAsDate.isBefore(date) then prefixAsDate else date
-      }
-      catch {
-        case _: Throwable => date
-      }
+      interpretAsDate(blob).getOrElse(date)
     }
 
-  private def blobPrefixAsDate(blob: StoredBlob): Option[OffsetDateTime] =
+  private def interpretAsDate(blob: StoredBlob): Option[OffsetDateTime] =
     val name = blob.name.replaceAll("/$", "")
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
     Try(OffsetDateTime.parse(name, formatter)).toOption
 
-  private def getRootPrefixesZIO(storagePath: AdlsStoragePath) =
-    val startFrom = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(90)
-    for _ <- ZStream.log("Getting root prefixes stating from " + startFrom)
-      prefixes <- ZStream.fromZIO(ZIO.attemptBlocking { listPrefixes(storagePath) })
-      filteredPrefixes <- prefixes.map(blobPrefixAsDate).filter(_.isDefined).filter(_.get.isAfter(startFrom))
-    yield filteredPrefixes
-
   def getRootPrefixes(storagePath: AdlsStoragePath, formDate: () => OffsetDateTime): ZStream[Any, Throwable, StoredBlob] =
-    ZStream.fromZIO(ZIO.attemptBlocking{
-        listPrefixes(storagePath + "/")
-      }
-    )
-    .flatten
-    .filter{ blob =>
-      try {
-        val name = blob.name.replaceAll("/$", "")
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
-        val prefixAsDate = OffsetDateTime.parse(name, formatter)
-        prefixAsDate.isAfter(formDate())
-      }
-      catch {
-        case _: Throwable => false
-      }
-    }
+    for startFrom <- ZStream.succeed(OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(90))
+        _ <- ZStream.log("Getting root prefixes stating from " + startFrom)
+        prefixes <- ZStream.fromZIO(ZIO.attemptBlocking { listPrefixes(storagePath) })
+        zippedWithDate <- prefixes.map(blob => (interpretAsDate(blob), blob))
+        eligibleToProcess <- zippedWithDate match
+          case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)
+          case _ => ZStream.empty
+    yield eligibleToProcess
 
 object AzureBlobStorageReaderZIO:
   /**
