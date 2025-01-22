@@ -1,0 +1,8 @@
+<configuration>
+
+    <root level="OFF">
+        <appender-ref ref="JSON_TCP" />
+        <appender-ref ref="STDOUT" />
+    </root>
+
+</configuration>

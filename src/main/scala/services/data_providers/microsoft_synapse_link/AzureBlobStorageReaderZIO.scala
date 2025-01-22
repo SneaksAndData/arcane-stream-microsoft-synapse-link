@@ -31,16 +31,18 @@ import scala.util.Try
 final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[String], tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings] = None):
   private val serviceClientSettings = settings.getOrElse(AzureBlobStorageReaderSettings())
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
-  private lazy val serviceClient =
+  private lazy val clientBuilder =
     val builder = (tokenCredential, sharedKeyCredential) match
       case (Some(credential), _) => new BlobServiceClientBuilder().credential(credential)
       case (None, Some(credential)) => new BlobServiceClientBuilder().credential(credential)
       case (None, None) => new BlobServiceClientBuilder().credential(defaultCredential)
-
     builder
       .endpoint(endpoint.getOrElse("https://$accountName.blob.core.windows.net/"))
       .retryOptions(RequestRetryOptions(RetryPolicyType.EXPONENTIAL, serviceClientSettings.httpMaxRetries, serviceClientSettings.httpRetryTimeout.toSeconds.toInt, serviceClientSettings.httpMinRetryDelay.toMillis, serviceClientSettings.httpMaxRetryDelay.toMillis, null))
-      .buildClient()
+    
+  private lazy val serviceClient = clientBuilder.buildClient()
+    
+  private lazy val asyncServiceClient = clientBuilder.buildAsyncClient()
 
   private val defaultTimeout = Duration.ofSeconds(30)
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global

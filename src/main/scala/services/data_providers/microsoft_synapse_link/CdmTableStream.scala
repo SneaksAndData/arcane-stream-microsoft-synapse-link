@@ -14,7 +14,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
-import java.io.IOException
+import java.io.{IOException, Reader}
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 
 class CdmTableStream(
@@ -69,19 +69,16 @@ class CdmTableStream(
 
     if streamContext.IsBackfilling then lookbackStream else repeatStream
 
-  def getData(blob: StoredBlob): ZStream[Any, IOException, DataRow] =
-      val javaStream = reader
-        .getBlobContent(storagePath + blob.name)
-        .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
-      
-      val stream = ZStream.fromReaderZIO(javaStream)
+  def getStream(blob: StoredBlob): ZIO[Any, IOException, Reader] =
+    reader.getBlobContent(storagePath + blob.name).mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
+
+  def getData(javaStream: Reader): ZStream[Any, IOException, DataRow] =
+      val stream = ZStream.fromReader(javaStream)
       stream
           .via(ZPipeline.mapChunks(chars => Chunk.single(new String(chars.toArray))))
           .via(ZPipeline.splitLines)
           .map(content => replaceQuotedNewlines(content))
           .map(implicitly[DataRow](_, schema))
-      
-//      e.map(content => replaceQuotedNewlines(content).split('\n').map(implicitly[DataRow](_, schema)))
 
 object CdmTableStream:
   type Environment = AzureConnectionSettings

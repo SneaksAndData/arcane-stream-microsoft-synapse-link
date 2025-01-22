@@ -65,7 +65,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val container: String = sys.env("ARCANE_FRAMEWORK__STORAGE_CONTAINER")
   override val account: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ACCOUNT")
   override val accessKey: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ACCESS_KEY")
-  override val parallelism: Int = 2
+  override val parallelism: Int = 16
 
   val stagingTableNamePrefix: String = spec.stagingDataSettings.tableNamePrefix
 
