@@ -23,7 +23,7 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], para
    * @return ZPipeline (stream source for the stream graph).
    */
   override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, StagedVersionedBatch] =
-    ZPipeline.mapZIO(batch => jdbcConsumer.applyBatch(batch).map(_ => batch))
+    ZPipeline.mapZIOParUnordered(parallelismSettings.parallelism)(batch => jdbcConsumer.applyBatch(batch).map(_ => batch))
 
 
 object MergeBatchProcessor:
