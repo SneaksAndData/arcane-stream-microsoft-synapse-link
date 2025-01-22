@@ -11,8 +11,9 @@ import zio.Chunk
 import zio.stream.ZPipeline
 
 import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneId}
-import java.time.format.DateTimeFormatter
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.sql.Timestamp
+import java.time.temporal.ChronoField
 
 
 /**
@@ -24,7 +25,7 @@ import java.sql.Timestamp
 trait TypeAlignmentService:
   def alignTypes(data: DataRow): DataRow
 
-private class TypeAlignmentServiceImpl extends TypeAlignmentService:
+class TypeAlignmentServiceImpl extends TypeAlignmentService:
 
   override def alignTypes(row: DataRow): DataRow = row map { cell =>
     DataCell(cell.name, cell.Type, convertType(cell.name, cell.Type, cell.value))
@@ -65,7 +66,12 @@ private def convertToTimeStamp(columnName: String, value: Any): LocalDateTime = 
       case _ =>
         // format  from MS docs: yyyy-MM-dd'T'HH:mm:ss'Z'
         // example from MS docs: 2021-06-25T16:21:12Z
-        LocalDateTime.ofInstant(Instant.parse(timestampValue), ZoneId.systemDefault())
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS");
+        if (timestampValue.endsWith("Z")) {
+          LocalDateTime.parse(timestampValue, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        } else {
+          LocalDateTime.parse(timestampValue, formatter)
+        }
   case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
 
 object TypeAlignmentService:
