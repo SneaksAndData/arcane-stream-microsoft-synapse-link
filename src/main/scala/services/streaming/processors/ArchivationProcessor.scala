@@ -15,7 +15,7 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
   extends BatchProcessor[StagedVersionedBatch, BatchArchivationResult]:
 
   override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, BatchArchivationResult] =
-    ZPipeline.mapZIOPar(parallelismSettings.parallelism)(batch => jdbcConsumer.archiveBatch(batch))
+    ZPipeline.mapZIO(batch => jdbcConsumer.archiveBatch(batch))
 
 object ArchivationProcessor:
 
