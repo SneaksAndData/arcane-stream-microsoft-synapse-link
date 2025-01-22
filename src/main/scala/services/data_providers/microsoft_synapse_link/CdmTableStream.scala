@@ -11,9 +11,10 @@ import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
 import org.slf4j.{Logger, LoggerFactory}
-import zio.stream.ZStream
-import zio.{Schedule, Task, ZIO, ZLayer}
+import zio.stream.{ZPipeline, ZStream}
+import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
+import java.io.IOException
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 
 class CdmTableStream(
@@ -68,9 +69,19 @@ class CdmTableStream(
 
     if streamContext.IsBackfilling then lookbackStream else repeatStream
 
-  def getData(blob: StoredBlob): Task[Array[DataRow]] =
-      val e = reader.getBlobContent(storagePath + blob.name)
-      e.map(content => replaceQuotedNewlines(content).split('\n').map(implicitly[DataRow](_, schema)))
+  def getData(blob: StoredBlob): ZStream[Any, IOException, DataRow] =
+      val javaStream = reader
+        .getBlobContent(storagePath + blob.name)
+        .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
+      
+      val stream = ZStream.fromReaderZIO(javaStream)
+      stream
+          .via(ZPipeline.mapChunks(chars => Chunk.single(new String(chars.toArray))))
+          .via(ZPipeline.splitLines)
+          .map(content => replaceQuotedNewlines(content))
+          .map(implicitly[DataRow](_, schema))
+      
+//      e.map(content => replaceQuotedNewlines(content).split('\n').map(implicitly[DataRow](_, schema)))
 
 object CdmTableStream:
   type Environment = AzureConnectionSettings

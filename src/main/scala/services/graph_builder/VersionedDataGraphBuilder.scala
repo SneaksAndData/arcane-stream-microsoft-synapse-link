@@ -55,7 +55,8 @@ class VersionedDataGraphBuilder[VersionType, BatchType]
 
   private def createStream = cdmTableStream
     .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval)
-    .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getData(blob))
+    .flatMap(blob => cdmTableStream.getData(blob))
+    .map(e => Array(e))
 
 
 /**

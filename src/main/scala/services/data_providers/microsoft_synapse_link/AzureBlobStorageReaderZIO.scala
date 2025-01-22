@@ -14,6 +14,7 @@ import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlo
 import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
 
+import java.io.{BufferedReader, InputStreamReader, Reader}
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import scala.annotation.tailrec
@@ -60,12 +61,15 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
    * @tparam Result The type of the result.
    *  @return The result of applying the function to the content of the blob.
    */
-  def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Task[Result] =
+  def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Task[Reader] =
     val client = getBlobClient(blobPath)
     for
       _ <- ZIO.log("Downloading blob content from data file: " + blobPath.toHdfsPath)
-      content <- ZIO.attemptBlocking { client.downloadContent().toBytes }
-    yield deserializer(content)
+      stream <- ZIO.attemptBlocking { 
+        val stream = client.openInputStream() 
+        new BufferedReader(new InputStreamReader(stream))
+      }
+    yield stream
 
   def streamPrefixes(rootPrefix: AdlsStoragePath): ZStream[Any, Throwable, StoredBlob] =
     val client = serviceClient.getBlobContainerClient(rootPrefix.container)
