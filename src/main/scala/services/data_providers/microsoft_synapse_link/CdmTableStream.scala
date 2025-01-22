@@ -3,6 +3,7 @@ package services.data_providers.microsoft_synapse_link
 
 import models.app.{AzureConnectionSettings, ParallelismSettings}
 
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.cdm.CSVParser.{parseCsvLine, replaceQuotedNewlines}
 import com.sneaksanddata.arcane.framework.models.cdm.{SimpleCdmEntity, given_Conversion_SimpleCdmEntity_ArcaneSchema, given_Conversion_String_ArcaneSchema_DataRow}
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
@@ -15,8 +16,13 @@ import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 
-class CdmTableStream(name: String, storagePath: AdlsStoragePath, entityModel:
-SimpleCdmEntity, reader: AzureBlobStorageReaderZIO, parallelismSettings: ParallelismSettings):
+class CdmTableStream(
+                      name: String,
+                      storagePath: AdlsStoragePath,
+                      entityModel: SimpleCdmEntity,
+                      reader: AzureBlobStorageReaderZIO,
+                      parallelismSettings: ParallelismSettings,
+                      streamContext: StreamContext):
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private val defaultFromYears: Int = 1
   private val schema: ArcaneSchema = implicitly(entityModel)
@@ -60,8 +66,7 @@ SimpleCdmEntity, reader: AzureBlobStorageReaderZIO, parallelismSettings: Paralle
       .filter(blob => blob.name.endsWith(".csv"))
       .repeat(Schedule.spaced(Duration.ofSeconds(90)))
 
-    lookbackStream.concat(repeatStream)
-//    repeatStream
+    if streamContext.IsBackfilling then lookbackStream else repeatStream
 
   def getData(blob: StoredBlob): Task[Array[DataRow]] =
       val e = reader.getBlobContent(storagePath + blob.name)
@@ -73,13 +78,19 @@ object CdmTableStream:
     & AzureBlobStorageReaderZIO
     & CdmSchemaProvider
     & ParallelismSettings
+    & StreamContext
 
-  def apply(settings: CdmTableSettings, entityModel: SimpleCdmEntity, reader: AzureBlobStorageReaderZIO, parallelismSettings: ParallelismSettings): CdmTableStream = new CdmTableStream(
+  def apply(settings: CdmTableSettings,
+            entityModel: SimpleCdmEntity,
+            reader: AzureBlobStorageReaderZIO,
+            parallelismSettings: ParallelismSettings,
+            streamContext: StreamContext): CdmTableStream = new CdmTableStream(
     name = settings.name,
     storagePath = AdlsStoragePath(settings.rootPath).get,
     entityModel = entityModel,
     reader = reader,
-    parallelismSettings = parallelismSettings
+    parallelismSettings = parallelismSettings,
+    streamContext = streamContext
   )
 
 
@@ -96,6 +107,7 @@ object CdmTableStream:
         schemaProvider <- ZIO.service[CdmSchemaProvider]
         parSettings <- ZIO.service[ParallelismSettings]
         l <- ZIO.fromFuture(_ => schemaProvider.getEntity)
-      } yield CdmTableStream(tableSettings, l, reader, parSettings)
+        sc <- ZIO.service[StreamContext]
+      } yield CdmTableStream(tableSettings, l, reader, parSettings, sc)
     }
 
