@@ -17,6 +17,7 @@ class TypeAlignmentServiceTests extends AnyFlatSpec with Matchers {
     ("line", "result"),
     (List(DataCell("timestamp", ArcaneType.TimestampType, Some("2020-01-01T00:00:00.000Z"))), LocalDateTime.now),
     (List(DataCell("timestamp", ArcaneType.TimestampType, Some("1900-01-01T00:00:00.0000000"))), LocalDateTime.now),
+    (List(DataCell("timestamp", ArcaneType.DateTimeOffsetType, Some("0001-01-03T00:00:00.0000000"))), LocalDateTime.now),
   )
 
 

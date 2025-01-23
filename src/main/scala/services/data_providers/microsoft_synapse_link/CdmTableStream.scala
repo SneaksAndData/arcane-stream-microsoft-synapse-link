@@ -54,7 +54,7 @@ class CdmTableStream(
    * @return A stream of rows for this table
    */
   def snapshotPrefixes(lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
-    val lookbackStream = ZStream.fromZIO(reader.getFirstBlob(storagePath + "/"))
+    val backfillStream = ZStream.fromZIO(reader.getFirstBlob(storagePath + "/"))
         .flatMap(startDate => {
           ZStream.fromIterable(getListPrefixes(Some(startDate)))
             .flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
@@ -67,7 +67,7 @@ class CdmTableStream(
       .filter(blob => blob.name.endsWith(".csv"))
       .repeat(Schedule.spaced(Duration.ofSeconds(90)))
 
-    if streamContext.IsBackfilling then lookbackStream else repeatStream
+    if streamContext.IsBackfilling then backfillStream else repeatStream
 
   def getStream(blob: StoredBlob): ZIO[Any, IOException, Reader] =
     reader.getBlobContent(storagePath + blob.name).mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
