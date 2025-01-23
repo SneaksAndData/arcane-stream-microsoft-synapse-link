@@ -14,7 +14,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
-import java.io.{IOException, Reader}
+import java.io.{BufferedReader, IOException, Reader}
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 
 class CdmTableStream(
@@ -72,15 +72,33 @@ class CdmTableStream(
   def getStream(blob: StoredBlob): ZIO[Any, IOException, Reader] =
     reader.getBlobContent(storagePath + blob.name).mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
+  def tryGetContinuation(stream: Reader, quotes: Int): ZIO[Any, Throwable, String] =
+    if quotes % 2 == 0 then
+      ZIO.succeed("")
+    else
+      ZIO.attemptBlockingIO(Option(new BufferedReader(stream).readLine()).getOrElse(""))
+
+  def getLine(stream: Reader): ZIO[Any, Throwable, Option[String]] =
+    for {
+      br <- ZIO.attemptBlockingIO(new BufferedReader(stream))
+      dataLine <- ZIO.attempt(Option(br.readLine()))
+      continuation <- tryGetContinuation(stream, dataLine.getOrElse("").count(_ == '"'))
+    }
+    yield {
+      dataLine match
+        case None => None
+        case Some(dataLine) if dataLine != "" => Some(s"$dataLine\n$continuation")
+        case Some(dataLine) if dataLine == "" => Some(s"")
+    }
+
   def getData(streamData: (Reader, String)): ZStream[Any, IOException, DataRow] =
       val (javaStream, fileName) = streamData
-      val stream = ZStream.fromReader(javaStream)
-      stream.via(ZPipeline.mapChunks(it => Chunk.single(new String(it.toArray))))
-          .via(ZPipeline.splitLines)
-          .map(content => replaceQuotedNewlines(content))
-          .mapError(e => new IOException(s"Failed to quoted newlines: ${e.getMessage} from file: $fileName", e))
-          .map(content => implicitly[DataRow](content, schema))
-          .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
+      ZStream.fromZIO(getLine(javaStream))
+        .takeUntil(_.isEmpty)
+        .map(_.get)
+        .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
+        .mapZIO(content => ZIO.attempt(implicitly[DataRow](content, schema)))
+        .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
 
 object CdmTableStream:
   type Environment = AzureConnectionSettings

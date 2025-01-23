@@ -14,6 +14,7 @@ import java.time.{Instant, LocalDateTime, OffsetDateTime, ZoneId, ZoneOffset}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.sql.Timestamp
 import java.time.temporal.ChronoField
+import scala.util.Try
 
 
 /**
@@ -39,7 +40,7 @@ class TypeAlignmentServiceImpl extends TypeAlignmentService:
   private def convertSome(cellName: String, arcaneType: ArcaneType, value: Any): Any = arcaneType match
     case LongType => value.toString.toLong
     case ByteArrayType => value.toString.getBytes
-    case BooleanType => value.toString.toBoolean
+    case BooleanType => Try(value.toString.toBoolean).getOrElse(null)
     case StringType => value.toString
     case DateType => java.sql.Date.valueOf(value.toString)
     case TimestampType => convertToTimeStamp(cellName, value)
