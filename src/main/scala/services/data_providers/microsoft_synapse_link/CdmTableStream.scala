@@ -72,28 +72,32 @@ class CdmTableStream(
   def getStream(blob: StoredBlob): ZIO[Any, IOException, Reader] =
     reader.getBlobContent(storagePath + blob.name).mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
-  def tryGetContinuation(stream: Reader, quotes: Int): ZIO[Any, Throwable, String] =
+  def tryGetContinuation(stream: BufferedReader, quotes: Int, accum: StringBuilder): ZIO[Any, Throwable, String] =
     if quotes % 2 == 0 then
-      ZIO.succeed("")
+      ZIO.succeed(accum.toString())
     else
-      ZIO.attemptBlockingIO(Option(new BufferedReader(stream).readLine()).getOrElse(""))
+      for {
+        line <- ZIO.attempt(Option(stream.readLine()))
+        continuation <- tryGetContinuation(stream, line.getOrElse("").count(_ == '"'), accum.append(s"\n$line"))
+      }
+      yield continuation
 
-  def getLine(stream: Reader): ZIO[Any, Throwable, Option[String]] =
+  def getLine(stream: BufferedReader): ZIO[Any, Throwable, Option[String]] =
     for {
-      br <- ZIO.attemptBlockingIO(new BufferedReader(stream))
-      dataLine <- ZIO.attempt(Option(br.readLine()))
-      continuation <- tryGetContinuation(stream, dataLine.getOrElse("").count(_ == '"'))
+      dataLine <- ZIO.attempt(Option(stream.readLine()))
+      continuation <- tryGetContinuation(stream, dataLine.getOrElse("").count(_ == '"'), new StringBuilder())
     }
     yield {
       dataLine match
         case None => None
-        case Some(dataLine) if dataLine != "" => Some(s"$dataLine\n$continuation")
         case Some(dataLine) if dataLine == "" => Some(s"")
+        case Some(dataLine) => Some(s"$dataLine\n$continuation")
     }
 
   def getData(streamData: (Reader, String)): ZStream[Any, IOException, DataRow] =
       val (javaStream, fileName) = streamData
-      ZStream.fromZIO(getLine(javaStream))
+      val javaReader = new BufferedReader(javaStream)
+      ZStream.fromZIO(getLine(javaReader))
         .takeUntil(_.isEmpty)
         .map(_.get)
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
