@@ -78,6 +78,7 @@ class CdmTableStream(
       stream.via(ZPipeline.mapChunks(it => Chunk.single(new String(it.toArray))))
           .via(ZPipeline.splitLines)
           .map(content => replaceQuotedNewlines(content))
+          .mapError(e => new IOException(s"Failed to quoted newlines: ${e.getMessage} from file: $fileName", e))
           .map(content => implicitly[DataRow](content, schema))
           .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
 

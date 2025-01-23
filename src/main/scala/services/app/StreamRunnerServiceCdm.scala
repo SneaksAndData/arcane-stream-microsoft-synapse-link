@@ -37,6 +37,7 @@ private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
       _ <- ZIO.log("Starting the stream runner")
       _ <- ZIO.fromFuture(implicit ec => tableManager.createTargetTable)
       _ <- ZIO.fromFuture(implicit ec => tableManager.createArchiveTable)
+      _ <- tableManager.cleanupStagingTables
       _ <- builder.create.run(builder.consume)
       _ <- ZIO.log("Stream completed")
     } yield ()

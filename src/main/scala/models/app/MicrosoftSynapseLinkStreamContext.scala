@@ -68,6 +68,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val parallelism: Int = 16
 
   val stagingTableNamePrefix: String = spec.stagingDataSettings.tableNamePrefix
+  val stagingCatalog: String = "lakehouse_staging.d365_ame"
 
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name, spec.sourceSettings.baseLocation)
