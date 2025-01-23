@@ -72,13 +72,14 @@ class CdmTableStream(
   def getStream(blob: StoredBlob): ZIO[Any, IOException, Reader] =
     reader.getBlobContent(storagePath + blob.name).mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
-  def getData(javaStream: Reader): ZStream[Any, IOException, DataRow] =
+  def getData(streamData: (Reader, String)): ZStream[Any, IOException, DataRow] =
+      val (javaStream, fileName) = streamData
       val stream = ZStream.fromReader(javaStream)
-      stream
-          .via(ZPipeline.mapChunks(chars => Chunk.single(new String(chars.toArray))))
+      stream.via(ZPipeline.mapChunks(it => Chunk.single(new String(it.toArray))))
           .via(ZPipeline.splitLines)
           .map(content => replaceQuotedNewlines(content))
-          .map(implicitly[DataRow](_, schema))
+          .map(content => implicitly[DataRow](content, schema))
+          .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
 
 object CdmTableStream:
   type Environment = AzureConnectionSettings
