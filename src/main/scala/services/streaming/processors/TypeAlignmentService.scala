@@ -52,8 +52,12 @@ class TypeAlignmentServiceImpl extends TypeAlignmentService:
     case TimeType => java.sql.Time.valueOf(value.toString)
 
   private def convertOffsetDateTime(value: Any): OffsetDateTime = value match
-    case timestampValue: String if timestampValue.endsWith("Z") => OffsetDateTime.parse(timestampValue)
-    case timestampValue: String => LocalDateTime.parse(timestampValue, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")).atOffset(ZoneOffset.UTC)
+    case timestampValue: String if timestampValue.endsWith("Z")
+      => OffsetDateTime.parse(timestampValue)
+    case timestampValue: String if timestampValue.contains("+00:00")
+      => OffsetDateTime.parse(timestampValue, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSXXX"))
+    case timestampValue: String
+      => LocalDateTime.parse(timestampValue, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")).atOffset(ZoneOffset.UTC)
     case _ => throw new IllegalArgumentException(s"Invalid timestamp type: ${value.getClass}")
 
   private def convertToTimeStamp(columnName: String, value: Any): LocalDateTime = value match
