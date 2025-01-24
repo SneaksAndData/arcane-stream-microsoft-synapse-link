@@ -71,7 +71,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
     ZIO.acquireReleaseWith(statement)(st => ZIO.succeed(st.close())) { statement =>
       for
         resultSet <- ZIO.attemptBlocking { statement.executeQuery() }
-        strings <- ZIO.attemptBlocking { readStrings(resultSet, Nil) }
+        strings <- ZIO.attemptBlocking { readStrings(resultSet) }
         _ <- ZIO.foreach(strings)(tableName => ZIO.log("Found lost staging table: " + tableName))
         _ <- ZIO.foreach(strings)(dropTable)
       yield ()
@@ -89,15 +89,10 @@ class JdbcTableManager(options: JdbcConsumerOptions,
       yield ()
     }
 
-  @tailrec
-  private def readStrings(row: ResultSet, acc: List[String]): List[String] =
+  private def readStrings(row: ResultSet): List[String] =
     Iterator.iterate(row.next())(_ => row.next())
       .takeWhile(identity)
-      .map(_ => row.getString(1))
-      .toList match {
-      case Nil => acc
-      case head :: tail => readStrings(row, head :: acc)
-    }
+      .map(_ => row.getString(1)).toList
 
   private def createTable(name: String, schema: Schema): Future[TableCreationResult] =
     Future(sqlConnection.prepareStatement(JdbcTableManager.generateCreateTableSQL(name, schema)).execute())
