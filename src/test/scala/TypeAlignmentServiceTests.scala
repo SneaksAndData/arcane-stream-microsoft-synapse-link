@@ -1,14 +1,12 @@
-package com.sneaksanddata.arcane.framework
-package models
+package com.sneaksanddata.arcane.microsoft_synapse_link
 
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.streaming.processors.{TypeAlignmentService, TypeAlignmentServiceImpl}
-import models.cdm.CSVParser
-import org.scalatest.flatspec.{AnyFlatSpec, AsyncFlatSpec}
+import services.streaming.processors.TypeAlignmentServiceImpl
+
+import com.sneaksanddata.arcane.framework.models.{ArcaneType, DataCell}
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.should
 import org.scalatest.prop.TableDrivenPropertyChecks.*
-
-import java.time.LocalDateTime
 
 
 class TypeAlignmentServiceTests extends AnyFlatSpec with Matchers {
