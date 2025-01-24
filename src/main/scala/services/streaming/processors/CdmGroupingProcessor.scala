@@ -16,15 +16,15 @@ import scala.concurrent.duration.Duration
  * @param groupingSettings The grouping settings.
  */
 class CdmGroupingProcessor(groupingSettings: GroupingSettings, typeAlignmentProcessor: TypeAlignmentService)
-  extends BatchProcessor[LazyList[DataRow], Chunk[DataRow]]:
+  extends BatchProcessor[Array[DataRow], Chunk[DataRow]]:
 
   /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
    */
-  def process: ZPipeline[Any, Throwable, LazyList[DataRow], Chunk[DataRow]] = ZPipeline
-    .map[LazyList[DataRow], Chunk[DataRow]](list => Chunk.fromIterable(list))
+  def process: ZPipeline[Any, Throwable, Array[DataRow], Chunk[DataRow]] = ZPipeline
+    .map[Array[DataRow], Chunk[DataRow]](list => Chunk.fromIterable(list))
     .flattenChunks
     .map(typeAlignmentProcessor.alignTypes)
     .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)

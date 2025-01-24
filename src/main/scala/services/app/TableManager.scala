@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
-import models.app.{ArchiveTableSettings, TargetTableSettings}
+import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, TargetTableSettings}
 
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
@@ -10,21 +10,27 @@ import scala.jdk.CollectionConverters.*
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import org.apache.iceberg.Schema
 import org.slf4j.{Logger, LoggerFactory}
-import zio.{ZIO, ZLayer}
+import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
-import java.sql.{Connection, DriverManager}
+import java.sql.{Connection, DriverManager, ResultSet}
 import scala.concurrent.Future
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.NestedField
 import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
+
+import scala.annotation.tailrec
+import scala.util.{Try, Using}
 
 trait TableManager:
   
   def createTargetTable: Future[TableCreationResult]
 
   def createArchiveTable: Future[TableCreationResult]
+
+  def cleanupStagingTables: Task[Unit]
 
 /**
  * The result of applying a batch.
@@ -34,8 +40,8 @@ type TableCreationResult = Boolean
 class JdbcTableManager(options: JdbcConsumerOptions,
                        targetTableSettings: TargetTableSettings,
                        archiveTableSettings: ArchiveTableSettings,
-                       schemaProvider: SchemaProvider[ArcaneSchema]
-                      )
+                       schemaProvider: SchemaProvider[ArcaneSchema],
+                       streamContext: MicrosoftSynapseLinkStreamContext)
   extends TableManager with AutoCloseable:
 
   require(options.isValid, "Invalid JDBC url provided for the consumer")
@@ -57,6 +63,37 @@ class JdbcTableManager(options: JdbcConsumerOptions,
         result <- createTable(archiveTableSettings.archiveTableFullName, schema)
     yield result
 
+  def cleanupStagingTables: Task[Unit] =
+    val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} LIKE '${streamContext.stagingTableNamePrefix}%'"
+    val statement = ZIO.attemptBlocking {
+      sqlConnection.prepareStatement(sql)
+    }
+    ZIO.acquireReleaseWith(statement)(st => ZIO.succeed(st.close())) { statement =>
+      for
+        resultSet <- ZIO.attemptBlocking { statement.executeQuery() }
+        strings <- ZIO.attemptBlocking { readStrings(resultSet) }
+        _ <- ZIO.foreach(strings)(tableName => ZIO.log("Found lost staging table: " + tableName))
+        _ <- ZIO.foreach(strings)(dropTable)
+      yield ()
+    }
+
+  private def dropTable(tableName: String): Task[Unit] =
+    val sql = s"DROP TABLE IF EXISTS $tableName"
+    val statement = ZIO.attemptBlocking {
+      sqlConnection.prepareStatement(sql)
+    }
+    ZIO.acquireReleaseWith(statement)(st => ZIO.succeed(st.close())) { statement =>
+      for
+        _ <- ZIO.log("Dropping table: " + tableName)
+        _ <- ZIO.attemptBlocking { statement.execute() }
+      yield ()
+    }
+
+  private def readStrings(row: ResultSet): List[String] =
+    Iterator.iterate(row.next())(_ => row.next())
+      .takeWhile(identity)
+      .map(_ => row.getString(1)).toList
+
   private def createTable(name: String, schema: Schema): Future[TableCreationResult] =
     Future(sqlConnection.prepareStatement(JdbcTableManager.generateCreateTableSQL(name, schema)).execute())
 
@@ -68,12 +105,14 @@ object JdbcTableManager:
     & TargetTableSettings
     & ArchiveTableSettings
     & SchemaProvider[ArcaneSchema]
+    & MicrosoftSynapseLinkStreamContext
 
   def apply(options: JdbcConsumerOptions,
             targetTableSettings: TargetTableSettings,
             archiveTableSettings: ArchiveTableSettings,
-            schemaProvider: SchemaProvider[ArcaneSchema]): JdbcTableManager =
-    new JdbcTableManager(options, targetTableSettings, archiveTableSettings, schemaProvider)
+            schemaProvider: SchemaProvider[ArcaneSchema],
+            streamContext: MicrosoftSynapseLinkStreamContext): JdbcTableManager =
+    new JdbcTableManager(options, targetTableSettings, archiveTableSettings, schemaProvider, streamContext)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -85,7 +124,8 @@ object JdbcTableManager:
             targetTableSettings <- ZIO.service[TargetTableSettings]
             archiveTableSettings <- ZIO.service[ArchiveTableSettings]
             schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
-        yield JdbcTableManager(connectionOptions, targetTableSettings, archiveTableSettings, schemaProvider)
+            streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
+        yield JdbcTableManager(connectionOptions, targetTableSettings, archiveTableSettings, schemaProvider, streamContext)
       }
     }
 

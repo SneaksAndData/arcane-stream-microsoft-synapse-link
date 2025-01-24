@@ -5,6 +5,7 @@ import services.clients.JdbcConsumer
 
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ParallelismSettings
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
@@ -13,7 +14,7 @@ import zio.{ZIO, ZLayer}
  *
  * @param jdbcConsumer The JDBC consumer.
  */
-class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch])
+class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings)
   extends BatchProcessor[StagedVersionedBatch, StagedVersionedBatch]:
 
   /**
@@ -22,7 +23,7 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch])
    * @return ZPipeline (stream source for the stream graph).
    */
   override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, StagedVersionedBatch] =
-    ZPipeline.mapZIO(batch => ZIO.fromFuture(implicit ec => jdbcConsumer.applyBatch(batch)).map(_ => batch))
+    ZPipeline.mapZIO(batch => jdbcConsumer.applyBatch(batch).map(_ => batch))
 
 
 object MergeBatchProcessor:
@@ -32,13 +33,14 @@ object MergeBatchProcessor:
    * @param jdbcConsumer The JDBC consumer.
    * @return The initialized MergeProcessor instance
    */
-  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch]): MergeBatchProcessor =
-    new MergeBatchProcessor(jdbcConsumer)
+  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings): MergeBatchProcessor =
+    new MergeBatchProcessor(jdbcConsumer, parallelismSettings)
 
   /**
    * The required environment for the MergeProcessor.
    */
   type Environment = JdbcConsumer[StagedVersionedBatch]
+    & ParallelismSettings
 
   /**
    * The ZLayer that creates the MergeProcessor.
@@ -47,5 +49,6 @@ object MergeBatchProcessor:
     ZLayer {
       for
         jdbcConsumer <- ZIO.service[JdbcConsumer[StagedVersionedBatch]]
-      yield MergeBatchProcessor(jdbcConsumer)
+        parallelismSettings <- ZIO.service[ParallelismSettings]
+      yield MergeBatchProcessor(jdbcConsumer, parallelismSettings)
     }

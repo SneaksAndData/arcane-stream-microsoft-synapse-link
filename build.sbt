@@ -22,6 +22,9 @@ lazy val plugin = (project in file("."))
       libraryDependencies += "com.azure" % "azure-core-http-okhttp" % "1.12.1",
       libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
 
+      // Test dependencies
+      libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
 
       assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
 

@@ -42,9 +42,9 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
     writeStagingTable >>> mergeProcessor.process >>> archivationProcessor.process >>> logResults
 
 
-  private def logResults: ZSink[Any, Throwable, BatchArchivationResult, Nothing, Unit] = ZSink.foreach { e =>
-    logger.info(s"Received the batch $e from the streaming source")
-    ZIO.unit
+  private def logResults: ZSink[Any, Throwable, BatchArchivationResult, Any, Unit] = ZSink.foreach { e =>
+    for _ <- ZIO.log(s"Received the batch $e from the streaming source")
+    yield ()
   }
 
   private def writeStagingTable = ZPipeline[Chunk[DataRow]]()

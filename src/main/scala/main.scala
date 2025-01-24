@@ -2,10 +2,10 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 
 import models.app.{AzureConnectionSettings, MicrosoftSynapseLinkStreamContext}
 import services.StreamGraphBuilderFactory
-import services.app.logging.JsonEnvironmentEnricher
+import services.app.logging.{JsonEnvironmentEnricher, StreamIdEnricher, StreamKindEnricher}
 import services.app.{JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
-import services.data_providers.microsoft_synapse_link.{CdmDataProvider, CdmSchemaProvider}
+import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
 import services.streaming.consumers.IcebergSynapseConsumer
 import services.streaming.processors.{ArchivationProcessor, CdmGroupingProcessor, MergeBatchProcessor, TypeAlignmentService}
 
@@ -29,6 +29,8 @@ object main extends ZIOAppDefault {
   private val loggingProprieties = Enricher("Application", "Arcane.Stream")
     ++ Enricher.fromEnvironment("APPLICATION_VERSION", "0.0.0")
     ++ JsonEnvironmentEnricher("ARCANE__LOGGING_PROPERTIES")
+    ++ StreamKindEnricher.apply
+    ++ StreamIdEnricher.apply
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = SLF4J.slf4j(
     LogFormat.make{ (builder, _, _, _, line, _, _, _, _) =>
@@ -45,18 +47,26 @@ object main extends ZIOAppDefault {
     _ <- streamRunner.run
   yield ()
 
-  val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
+  val storageExplorerLayerZio: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
    for {
      connectionOptions <- ZIO.service[AzureConnectionSettings]
      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
-   } yield AzureBlobStorageReader(connectionOptions.account, connectionOptions.endpoint, credentials)
+   } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials)
+  }
+  
+  val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
+    for {
+      connectionOptions <- ZIO.service[AzureConnectionSettings]
+      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
+    } yield AzureBlobStorageReader(connectionOptions.account, connectionOptions.endpoint, credentials)
   }
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
     appLayer.provide(
       storageExplorerLayer,
-      CdmDataProvider.layer,
+      storageExplorerLayerZio,
+      CdmTableStream.layer,
       CdmSchemaProvider.layer,
       MicrosoftSynapseLinkStreamContext.layer,
       PosixStreamLifetimeService.layer, 

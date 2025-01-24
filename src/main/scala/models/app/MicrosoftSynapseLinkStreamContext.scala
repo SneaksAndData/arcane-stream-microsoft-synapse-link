@@ -25,6 +25,9 @@ trait TargetTableSettings:
 trait ArchiveTableSettings:
   val archiveTableFullName: String
 
+trait ParallelismSettings:
+  val parallelism: Int
+
 /**
  * The context for the SQL Server Change Tracking stream.
  *
@@ -37,7 +40,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with VersionedDataGraphBuilderSettings
   with AzureConnectionSettings
   with TargetTableSettings
-  with ArchiveTableSettings:
+  with ArchiveTableSettings
+  with ParallelismSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
@@ -61,8 +65,10 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val container: String = sys.env("ARCANE_FRAMEWORK__STORAGE_CONTAINER")
   override val account: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ACCOUNT")
   override val accessKey: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ACCESS_KEY")
+  override val parallelism: Int = 16
 
   val stagingTableNamePrefix: String = spec.stagingDataSettings.tableNamePrefix
+  val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
 
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name, spec.sourceSettings.baseLocation)
