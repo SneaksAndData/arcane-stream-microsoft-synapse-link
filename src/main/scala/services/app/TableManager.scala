@@ -64,13 +64,12 @@ class JdbcTableManager(options: JdbcConsumerOptions,
     yield result
 
   def cleanupStagingTables: Task[Unit] =
-    val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} like '${streamContext.stagingTableNamePrefix}%'"
+    val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} LIKE '${streamContext.stagingTableNamePrefix}%'"
     val statement = ZIO.attemptBlocking {
       sqlConnection.prepareStatement(sql)
     }
     ZIO.acquireReleaseWith(statement)(st => ZIO.succeed(st.close())) { statement =>
       for
-        _ <- ZIO.log("Executing metadata query: " + sql)
         resultSet <- ZIO.attemptBlocking { statement.executeQuery() }
         strings <- ZIO.attemptBlocking { readStrings(resultSet, Nil) }
         _ <- ZIO.foreach(strings)(tableName => ZIO.log("Found lost staging table: " + tableName))
