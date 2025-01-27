@@ -74,7 +74,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
 
 given Conversion[StreamSpec, CdmTableSettings] with
-  def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name, spec.sourceSettings.baseLocation)
+  def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
 
 object MicrosoftSynapseLinkStreamContext {
   type Environment = StreamContext
