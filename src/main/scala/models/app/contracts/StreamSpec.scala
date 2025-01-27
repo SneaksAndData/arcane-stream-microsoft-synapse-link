@@ -1,6 +1,7 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app.contracts
 
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.OptimizeSettings
 import upickle.default.*
 
 /**
@@ -20,7 +21,14 @@ case class StagingDataSettings(tableNamePrefix: String, catalog: CatalogSettings
 /**
  * The configuration of Iceberg sink.
  */
-case class SinkSettings(targetTableName: String, archiveTableName: String) derives ReadWriter
+case class OptimizeSettingsSpec(batchThreshold: Int,
+                                fileSizeThreshold: String) derives ReadWriter
+/**
+ * The configuration of Iceberg sink.
+ */
+case class SinkSettings(targetTableName: String,
+                         archiveTableName: String,
+                         optimizeSettings: OptimizeSettingsSpec) derives ReadWriter
 
 
 /**

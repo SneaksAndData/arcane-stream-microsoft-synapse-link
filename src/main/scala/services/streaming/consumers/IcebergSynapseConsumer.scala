@@ -25,7 +25,7 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
-type InFlightBatch = (StagedVersionedBatch, Seq[SourceCleanupRequest])
+type InFlightBatch = ((StagedVersionedBatch, Seq[SourceCleanupRequest]), Long)
 type CompletedBatch = (BatchArchivationResult, Seq[SourceCleanupRequest])
 type PiplineResult = (BatchArchivationResult, Seq[SourceCleanupResult])
 
@@ -61,6 +61,7 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
     .mapZIO({
       case (elements, tableName) => writeDataRows(elements, tableName)
     })
+    .zipWithIndex
 
 
   private def writeDataRows(elements: Chunk[DataStreamElement], name: String): Task[(StagedVersionedBatch, Seq[SourceCleanupRequest])] =

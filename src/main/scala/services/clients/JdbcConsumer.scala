@@ -66,6 +66,21 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
         _ <- dropTempTable(batch)
     yield new BatchArchivationResult
 
+  def optimizeTarget(tableName: String, batchNumber: Long, optimizeThreshold: Long, fileSizeThreshold: String): Task[BatchApplicationResult] =
+    if (batchNumber+1) % optimizeThreshold == 0 then
+      val query = ZIO.attemptBlocking {
+        sqlConnection.prepareStatement(s"ALTER TABLE $tableName execute optimize(file_size_threshold => '$fileSizeThreshold')")
+      }
+      ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
+        for
+          _ <- ZIO.log(s"Optimizing table $tableName")
+          _ <- ZIO.attemptBlocking { statement.execute() }
+        yield true
+      }
+    else
+      ZIO.succeed(false)
+
+
   private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
     val ack = ZIO.attemptBlocking {
       sqlConnection.prepareStatement(batch.archiveExpr(archiveTableSettings.archiveTableFullName))
