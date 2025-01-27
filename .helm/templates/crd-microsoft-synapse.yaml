@@ -118,7 +118,7 @@ spec:
                           default: 60
                           description: Number of batches to accumulate before running the optimization query.
                         fileSizeThreshold:
-                          type: String
+                          type: string
                           default: 100MB
                           description: File size to accumulate in the optimization query.
                     targetTableName:
