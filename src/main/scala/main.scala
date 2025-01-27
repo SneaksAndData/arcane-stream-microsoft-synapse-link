@@ -7,7 +7,7 @@ import services.app.{JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
 import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
 import services.streaming.consumers.IcebergSynapseConsumer
-import services.streaming.processors.{ArchivationProcessor, CdmGroupingProcessor, MergeBatchProcessor, TypeAlignmentService}
+import services.streaming.processors.{ArchivationProcessor, CdmGroupingProcessor, MergeBatchProcessor, SourceDeleteProcessor, TypeAlignmentService}
 
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
@@ -47,11 +47,12 @@ object main extends ZIOAppDefault {
     _ <- streamRunner.run
   yield ()
 
-  val storageExplorerLayerZio: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
+  val storageExplorerLayerZio: ZLayer[AzureConnectionSettings & MicrosoftSynapseLinkStreamContext, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
    for {
      connectionOptions <- ZIO.service[AzureConnectionSettings]
+     streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
-   } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials)
+   } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials, streamContext.sourceDeleteDryRun)
   }
   
   val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
@@ -79,6 +80,7 @@ object main extends ZIOAppDefault {
       CdmGroupingProcessor.layer,
       ArchivationProcessor.layer,
       TypeAlignmentService.layer,
+      SourceDeleteProcessor.layer,
       JdbcTableManager.layer)
     .orDie
 }

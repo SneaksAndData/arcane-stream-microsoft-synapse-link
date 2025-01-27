@@ -5,17 +5,21 @@ import services.clients.{BatchArchivationResult, JdbcConsumer}
 
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
 import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.{ArchiveTableSettings, ParallelismSettings}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.streaming.consumers.{CompletedBatch, InFlightBatch}
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
 class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
                            archiveTableSettings: ArchiveTableSettings,
                            parallelismSettings: ParallelismSettings)
-  extends BatchProcessor[StagedVersionedBatch, BatchArchivationResult]:
+  extends BatchProcessor[InFlightBatch, CompletedBatch]:
 
-  override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, BatchArchivationResult] =
-    ZPipeline.mapZIO(batch => jdbcConsumer.archiveBatch(batch))
+  override def process: ZPipeline[Any, Throwable, InFlightBatch, CompletedBatch] =
+    ZPipeline.mapZIO({
+      case (batch, other) => jdbcConsumer.archiveBatch(batch).map(result => (result, other))
+    })
 
 object ArchivationProcessor:
 
