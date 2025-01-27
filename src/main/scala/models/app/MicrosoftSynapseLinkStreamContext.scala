@@ -76,7 +76,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
   override val targetTableFullName: String = spec.sinkSettings.targetTableName
-  override val optimizeSettings: OptimizeSettings = OptimizeSettingsImpl(spec.sinkSettings.optimizeSettings.BatchThreshold,
+  override val optimizeSettings: OptimizeSettings = OptimizeSettingsImpl(spec.sinkSettings.optimizeSettings.batchThreshold,
     spec.sinkSettings.optimizeSettings.fileSizeThreshold)
 
   override val archiveTableFullName: String = spec.sinkSettings.archiveTableName

@@ -29,7 +29,10 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
     ZPipeline.mapZIO({
       case ((batch, other), batchNumber) => jdbcConsumer
         .applyBatch(batch)
-        .flatMap( _ => jdbcConsumer.optimizeTarget(targetTableSettings.targetTableFullName, batchNumber, targetTableSettings.optimizeSettings.BatchThreshold))
+        .flatMap( _ =>
+          jdbcConsumer.optimizeTarget(targetTableSettings.targetTableFullName, batchNumber,
+            targetTableSettings.optimizeSettings.BatchThreshold,
+            targetTableSettings.optimizeSettings.fileSizeThreshold))
         .flatMap(_ => ZIO.succeed((batch, other), batchNumber))
     })
 

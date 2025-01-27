@@ -21,8 +21,8 @@ case class StagingDataSettings(tableNamePrefix: String, catalog: CatalogSettings
 /**
  * The configuration of Iceberg sink.
  */
-case class OptimizeSettingsSpec(BatchThreshold: Int,
-                               fileSizeThreshold: String) derives ReadWriter
+case class OptimizeSettingsSpec(batchThreshold: Int,
+                                fileSizeThreshold: String) derives ReadWriter
 /**
  * The configuration of Iceberg sink.
  */
