@@ -5,7 +5,8 @@ import com.sneaksanddata.arcane.framework.models.ArcaneType.*
 import com.sneaksanddata.arcane.framework.models.settings.GroupingSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneType, DataCell, DataRow}
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
-
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.DataStreamElement
 import zio.stream.ZPipeline
 import zio.{Chunk, ZIO, ZLayer}
 
@@ -16,21 +17,19 @@ import scala.concurrent.duration.Duration
  * @param groupingSettings The grouping settings.
  */
 class CdmGroupingProcessor(groupingSettings: GroupingSettings, typeAlignmentProcessor: TypeAlignmentService)
-  extends BatchProcessor[Array[DataRow], Chunk[DataRow]]:
+  extends BatchProcessor[DataStreamElement, Chunk[DataStreamElement]]:
 
   /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
    */
-  def process: ZPipeline[Any, Throwable, Array[DataRow], Chunk[DataRow]] = ZPipeline
-    .map[Array[DataRow], Chunk[DataRow]](list => Chunk.fromIterable(list))
-    .flattenChunks
+  def process: ZPipeline[Any, Throwable, DataStreamElement, Chunk[DataStreamElement]] = ZPipeline
     .map(typeAlignmentProcessor.alignTypes)
     .groupedWithin(groupingSettings.rowsPerGroup, groupingSettings.groupingInterval)
     .mapZIO(logBatchSize)
 
-  private def logBatchSize(batch: Chunk[DataRow]): ZIO[Any, Nothing, Chunk[DataRow]] =
+  private def logBatchSize(batch: Chunk[DataStreamElement]): ZIO[Any, Nothing, Chunk[DataStreamElement]] =
     for _ <- ZIO.log(s"Received batch with ${batch.size} rows from streaming source") yield batch
     
 /**

@@ -10,12 +10,15 @@ import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
 import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
 import java.io.{BufferedReader, IOException, Reader}
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
+
+type DataStreamElement = DataRow | SourceCleanupRequest
 
 class CdmTableStream(
                       name: String,
@@ -63,9 +66,9 @@ class CdmTableStream(
         })
 
     val repeatStream = reader.getRootPrefixes(storagePath, lookBackInterval)
-      .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
+      .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name))
       .filter(blob => blob.name.endsWith(".csv"))
-      .repeat(Schedule.spaced(Duration.ofSeconds(90)))
+      .repeat(Schedule.spaced(Duration.ofSeconds(5)))
 
     if streamContext.IsBackfilling then backfillStream else repeatStream
 
@@ -94,15 +97,17 @@ class CdmTableStream(
         case Some(dataLine) => Some(s"$dataLine\n$continuation")
     }
 
-  def getData(streamData: (Reader, String)): ZStream[Any, IOException, DataRow] =
+  def getData(streamData: (Reader, String)): ZStream[Any, IOException, DataStreamElement] =
       val (javaStream, fileName) = streamData
       val javaReader = new BufferedReader(javaStream)
-      ZStream.fromZIO(getLine(javaReader))
+      val dataStream = ZStream.fromZIO(getLine(javaReader))
         .takeUntil(_.isEmpty)
         .map(_.get)
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
         .mapZIO(content => ZIO.attempt(implicitly[DataRow](content, schema)))
         .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
+
+      dataStream.concat(ZStream.succeed(SourceCleanupRequest(fileName)))
 
 object CdmTableStream:
   type Environment = AzureConnectionSettings

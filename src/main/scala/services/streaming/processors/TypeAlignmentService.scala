@@ -5,6 +5,8 @@ import com.sneaksanddata.arcane.framework.models.ArcaneType.*
 import com.sneaksanddata.arcane.framework.models.settings.GroupingSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneType, DataCell, DataRow}
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.DataStreamElement
 import zio.stream.ZPipeline
 import zio.{Chunk, ZIO, ZLayer}
 import zio.Chunk
@@ -24,13 +26,16 @@ import scala.util.Try
  * https://learn.microsoft.com/en-us/power-apps/maker/data-platform/export-data-lake-faq
  */
 trait TypeAlignmentService:
-  def alignTypes(data: DataRow): DataRow
+  def alignTypes(data: DataStreamElement): DataStreamElement
 
 class TypeAlignmentServiceImpl extends TypeAlignmentService:
 
-  override def alignTypes(row: DataRow): DataRow = row map { cell =>
-    DataCell(cell.name, cell.Type, convertType(cell.name, cell.Type, cell.value))
-  }
+  override def alignTypes(streamElement: DataStreamElement): DataStreamElement =
+    streamElement match
+      case SourceCleanupRequest => streamElement
+      case row: DataRow => row map { cell =>
+        DataCell(cell.name, cell.Type, convertType(cell.name, cell.Type, cell.value))
+      }
 
   private def convertType(cellName: String, arcaneType: ArcaneType, value: Any): Any =
     value match

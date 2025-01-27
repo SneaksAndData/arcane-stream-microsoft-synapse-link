@@ -11,6 +11,7 @@ import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.graph_builder.VersionedDataGraphBuilder
 import zio.Console.printLine
 import zio.{ZIO, ZLayer}
 
@@ -20,7 +21,7 @@ import zio.{ZIO, ZLayer}
  * @param builder The stream graph builder.
  * @param lifetimeService The stream lifetime service.
  */
-private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
+private class StreamRunnerServiceCdm(builder: VersionedDataGraphBuilder,
                                      lifetimeService: StreamLifetimeService,
                                      tableManager: TableManager,
                                      reader: AzureBlobStorageReaderZIO,
@@ -48,7 +49,7 @@ private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
 object StreamRunnerServiceCdm:
 
   type Environemnt = TableManager
-    & StreamGraphBuilder
+    & VersionedDataGraphBuilder
     & StreamLifetimeService
     & AzureBlobStorageReaderZIO
     & CdmTableSettings
@@ -59,7 +60,7 @@ object StreamRunnerServiceCdm:
   val layer: ZLayer[Environemnt, Nothing, StreamRunnerService] =
     ZLayer {
       for {
-        builder <- ZIO.service[StreamGraphBuilder]
+        builder <- ZIO.service[VersionedDataGraphBuilder]
         lifetimeService <- ZIO.service[StreamLifetimeService]
         tableManager <- ZIO.service[TableManager]
         reader <- ZIO.service[AzureBlobStorageReaderZIO]

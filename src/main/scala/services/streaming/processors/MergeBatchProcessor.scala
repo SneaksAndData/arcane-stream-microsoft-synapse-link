@@ -6,6 +6,7 @@ import services.clients.JdbcConsumer
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
 import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ParallelismSettings
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.streaming.consumers.InFlightBatch
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
@@ -15,15 +16,18 @@ import zio.{ZIO, ZLayer}
  * @param jdbcConsumer The JDBC consumer.
  */
 class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings)
-  extends BatchProcessor[StagedVersionedBatch, StagedVersionedBatch]:
+  extends BatchProcessor[InFlightBatch, InFlightBatch]:
 
   /**
    * Processes the incoming data.
    *
    * @return ZPipeline (stream source for the stream graph).
    */
-  override def process: ZPipeline[Any, Throwable, StagedVersionedBatch, StagedVersionedBatch] =
-    ZPipeline.mapZIO(batch => jdbcConsumer.applyBatch(batch).map(_ => batch))
+  override def process: ZPipeline[Any, Throwable, InFlightBatch, InFlightBatch] =
+    ZPipeline.mapZIO({
+      case batch: StagedVersionedBatch => jdbcConsumer.applyBatch(batch).map(_ => batch)
+      case other: InFlightBatch => ZIO.attempt(other)
+    })
 
 
 object MergeBatchProcessor:

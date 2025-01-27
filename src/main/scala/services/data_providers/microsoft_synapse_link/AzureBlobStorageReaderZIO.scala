@@ -11,6 +11,7 @@ import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureModelConversions.given_Conversion_BlobItem_StoredBlob
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupResult
 import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
 
@@ -109,6 +110,14 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
           case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)
           case _ => ZStream.empty
     yield eligibleToProcess
+    
+  def deleteSourceFile(fileName: String): ZIO[Any, Throwable, SourceCleanupResult] =
+    for
+      _ <- ZIO.log("Deleting source file: " + fileName)
+      success <- ZIO.attemptBlocking {
+        serviceClient.getBlobContainerClient(fileName).getBlobClient(fileName).deleteIfExists()
+      }
+    yield SourceCleanupResult(fileName, success)
 
 object AzureBlobStorageReaderZIO:
   /**

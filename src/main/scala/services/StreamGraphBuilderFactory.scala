@@ -18,7 +18,7 @@ object StreamGraphBuilderFactory:
   private type Environment = StreamContext
     & VersionedDataGraphBuilder.Environment
 
-  val layer: ZLayer[Environment, Nothing, StreamGraphBuilder] = ZLayer.fromZIO(getGraphBuilder)
+  val layer: ZLayer[Environment, Nothing, VersionedDataGraphBuilder] = ZLayer.fromZIO(getGraphBuilder)
 
   private def getGraphBuilder =
     for
