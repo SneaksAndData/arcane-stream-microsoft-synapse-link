@@ -121,6 +121,9 @@ spec:
                           type: string
                           default: 100MB
                           description: File size to accumulate in the optimization query.
+                      default:
+                        batchThreshold: 60
+                        fileSizeThreshold: 100MB
                     snapshotExpirationSettings:
                       type: object
                       description: Data location for parquet files.
@@ -133,6 +136,9 @@ spec:
                           type: string
                           default: 6h
                           description: File retention period.
+                      default:
+                        batchThreshold: 60
+                        retentionThreshold: 6h
                     orphanFilesExpirationSettings:
                       type: object
                       description: Data location for parquet files.
@@ -145,6 +151,9 @@ spec:
                           type: string
                           default: 6h
                           description: File retention period.
+                      default:
+                        batchThreshold: 60
+                        retentionThreshold: 6h
                     targetTableName:
                       type: string
                       description: Data location for parquet files.
