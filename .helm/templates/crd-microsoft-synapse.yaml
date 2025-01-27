@@ -121,6 +121,18 @@ spec:
                           type: string
                           default: 100MB
                           description: File size to accumulate in the optimization query.
+                    snapshotExpirationSettings:
+                      type: object
+                      description: Data location for parquet files.
+                      properties:
+                        batchThreshold:
+                          type: integer
+                          default: 60
+                          description: Number of batches to accumulate before running the optimization query.
+                        retentionThreshold:
+                          type: string
+                          default: 7d
+                          description: File retention period.
                     targetTableName:
                       type: string
                       description: Data location for parquet files.
