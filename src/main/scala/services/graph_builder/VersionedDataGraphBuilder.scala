@@ -48,7 +48,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
 
   private def createStream = cdmTableStream
     .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval)
-    .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob).map(res => (res, blob.name)))
+    .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
     .flatMap(reader => cdmTableStream.getData(reader))
 
 

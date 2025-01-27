@@ -1,5 +1,7 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app.streaming
 
-case class SourceCleanupRequest(prefix: String)
-case class SourceCleanupResult(prefix: String, success: Boolean)
+import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
+
+case class SourceCleanupRequest(prefix: AdlsStoragePath)
+case class SourceCleanupResult(prefix: AdlsStoragePath, success: Boolean)

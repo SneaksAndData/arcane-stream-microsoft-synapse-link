@@ -32,7 +32,7 @@ class TypeAlignmentServiceImpl extends TypeAlignmentService:
 
   override def alignTypes(streamElement: DataStreamElement): DataStreamElement =
     streamElement match
-      case SourceCleanupRequest => streamElement
+      case SourceCleanupRequest(_) => streamElement
       case row: DataRow => row map { cell =>
         DataCell(cell.name, cell.Type, convertType(cell.name, cell.Type, cell.value))
       }
