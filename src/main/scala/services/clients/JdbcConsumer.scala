@@ -94,6 +94,20 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
     else
       ZIO.succeed(false)
 
+  def expireOrphanFiles(tableName: String, batchNumber: Long, optimizeThreshold: Long, retentionThreshold: String): Task[BatchApplicationResult] =
+    if (batchNumber+1) % optimizeThreshold == 0 then
+      val query = ZIO.attemptBlocking {
+        sqlConnection.prepareStatement(s"ALTER TABLE $tableName execute remove_orphan_files(retention_threshold => '$retentionThreshold')")
+      }
+      ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
+        for
+          _ <- ZIO.log(s"Run remove_orphan_files for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
+          _ <- ZIO.attemptBlocking { statement.execute() }
+        yield true
+      }
+    else
+      ZIO.succeed(false)
+
   private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
     val ack = ZIO.attemptBlocking {
       sqlConnection.prepareStatement(batch.archiveExpr(archiveTableSettings.archiveTableFullName))

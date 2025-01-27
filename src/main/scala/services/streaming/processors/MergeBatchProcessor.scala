@@ -35,6 +35,9 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
             _ <- jdbcConsumer.expireSnapshots(targetTableSettings.targetTableFullName, batchNumber,
                   targetTableSettings.targetSnapshotExpirationSettings.batchThreshold,
                   targetTableSettings.targetSnapshotExpirationSettings.retentionThreshold)
+            _ <- jdbcConsumer.expireOrphanFiles(targetTableSettings.targetTableFullName, batchNumber,
+              targetTableSettings.targetOrphanFilesExpirationSettings.batchThreshold,
+              targetTableSettings.targetOrphanFilesExpirationSettings.retentionThreshold)
         yield ((batch, other), batchNumber)
     })
 

@@ -26,6 +26,9 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
             _ <- jdbcConsumer.expireSnapshots(archiveTableSettings.archiveTableFullName, batchNumber,
               archiveTableSettings.archiveSnapshotExpirationSettings.batchThreshold,
               archiveTableSettings.archiveSnapshotExpirationSettings.retentionThreshold)
+            _ <- jdbcConsumer.expireOrphanFiles(archiveTableSettings.archiveTableFullName, batchNumber,
+              archiveTableSettings.archiveOrphanFilesExpirationSettings.batchThreshold,
+              archiveTableSettings.archiveOrphanFilesExpirationSettings.retentionThreshold)
         yield (result, other)
     })
 

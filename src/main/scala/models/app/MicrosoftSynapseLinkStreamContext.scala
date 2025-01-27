@@ -27,11 +27,13 @@ trait TargetTableSettings:
   val targetTableFullName: String
   val targetOptimizeSettings: OptimizeSettings
   val targetSnapshotExpirationSettings: SnapshotExpirationSettings
+  val targetOrphanFilesExpirationSettings: OrphanFilesExpirationSettings
 
 trait ArchiveTableSettings:
   val archiveTableFullName: String
   val archiveOptimizeSettings: OptimizeSettings
   val archiveSnapshotExpirationSettings: SnapshotExpirationSettings
+  val archiveOrphanFilesExpirationSettings: OrphanFilesExpirationSettings
 
 trait ParallelismSettings:
   val parallelism: Int
@@ -42,13 +44,15 @@ trait SnapshotExpirationSettings:
   val retentionThreshold: String
 
 
-trait RemoveOrphanFilesSettings:
-  val BatchThreshold: Int
-  val RetentionThreshold: String
+trait OrphanFilesExpirationSettings:
+  val batchThreshold: Int
+  val retentionThreshold: String
 
 case class OptimizeSettingsImpl(batchThreshold: Int, fileSizeThreshold: String) extends OptimizeSettings
 
-case class SnapshotExpirationSettingsImpl(batchThreshold: Int, retentionThreshold: String) extends SnapshotExpirationSettings 
+case class SnapshotExpirationSettingsImpl(batchThreshold: Int, retentionThreshold: String) extends SnapshotExpirationSettings
+
+case class OrphanFilesExpirationSettingsImpl(batchThreshold: Int, retentionThreshold: String) extends OrphanFilesExpirationSettings
 
 /**
  * The context for the SQL Server Change Tracking stream.
@@ -81,22 +85,30 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
   override val targetTableFullName: String = spec.sinkSettings.targetTableName
-  
+
   override val targetOptimizeSettings: OptimizeSettings = OptimizeSettingsImpl(
     spec.sinkSettings.optimizeSettings.batchThreshold,
     spec.sinkSettings.optimizeSettings.fileSizeThreshold)
-  
+
   override val archiveOptimizeSettings: OptimizeSettings = OptimizeSettingsImpl(
     spec.sinkSettings.optimizeSettings.batchThreshold,
     spec.sinkSettings.optimizeSettings.fileSizeThreshold)
-  
+
   override val targetSnapshotExpirationSettings: SnapshotExpirationSettings = SnapshotExpirationSettingsImpl(
     spec.sinkSettings.snapshotExpirationSettings.batchThreshold,
     spec.sinkSettings.snapshotExpirationSettings.retentionThreshold)
-  
+
   override val archiveSnapshotExpirationSettings: SnapshotExpirationSettings = SnapshotExpirationSettingsImpl(
     spec.sinkSettings.snapshotExpirationSettings.batchThreshold,
     spec.sinkSettings.snapshotExpirationSettings.retentionThreshold)
+
+  override val targetOrphanFilesExpirationSettings: OrphanFilesExpirationSettings = OrphanFilesExpirationSettingsImpl(
+    spec.sinkSettings.orphanFilesExpirationSettings.batchThreshold,
+    spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold)
+
+  override val archiveOrphanFilesExpirationSettings: OrphanFilesExpirationSettings = OrphanFilesExpirationSettingsImpl(
+    spec.sinkSettings.orphanFilesExpirationSettings.batchThreshold,
+    spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold)
 
   override val archiveTableFullName: String = spec.sinkSettings.archiveTableName
 
