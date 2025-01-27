@@ -109,25 +109,25 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       ZIO.succeed(false)
 
   private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
-    val ack = ZIO.attemptBlocking {
-      sqlConnection.prepareStatement(batch.archiveExpr(archiveTableSettings.archiveTableFullName))
+    val ack = ZIO.blocking {
+      ZIO.succeed(sqlConnection.prepareStatement(batch.archiveExpr(archiveTableSettings.archiveTableFullName)))
     }
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
       for
         _ <- ZIO.log(s"archiving batch ${batch.name}")
-        _ <- ZIO.attemptBlocking { statement.execute() }
+        _ <- ZIO.blocking { ZIO.succeed(statement.execute()) }
         _ <- ZIO.log(s"archivation completed ${batch.name}")
       yield new BatchArchivationResult
     }
 
   private def dropTempTable(batch: Batch): Task[BatchArchivationResult] =
-    val ack = ZIO.attemptBlocking {
-      sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}")
+    val ack = ZIO.blocking {
+      ZIO.succeed(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}"))
     }
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
       for
         _ <- ZIO.log(s"archiving batch ${batch.name}")
-        _ <- ZIO.attemptBlocking { statement.execute() }
+        _ <- ZIO.blocking { ZIO.succeed(statement.execute()) }
       yield new BatchArchivationResult
     }
 
