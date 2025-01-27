@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app
 
-import models.app.contracts.StreamSpec
+import models.app.contracts.{OptimizeSettingsSpec, StreamSpec}
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
@@ -19,14 +19,31 @@ trait AzureConnectionSettings:
   val account: String
   val accessKey: String
 
+trait OptimizeSettings:
+  val BatchThreshold: Int
+  val fileSizeThreshold: String
+
 trait TargetTableSettings:
   val targetTableFullName: String
+  val optimizeSettings: OptimizeSettings
 
 trait ArchiveTableSettings:
   val archiveTableFullName: String
 
 trait ParallelismSettings:
   val parallelism: Int
+
+
+trait SnapshotExpirationSettings:
+  val BatchThreshold: Int
+  val RetentionThreshold: String
+
+
+trait RemoveOrphanFilesSettings:
+  val BatchThreshold: Int
+  val RetentionThreshold: String
+
+case class OptimizeSettingsImpl(BatchThreshold: Int, fileSizeThreshold: String) extends OptimizeSettings
 
 /**
  * The context for the SQL Server Change Tracking stream.
@@ -59,6 +76,9 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
 
   override val targetTableFullName: String = spec.sinkSettings.targetTableName
+  override val optimizeSettings: OptimizeSettings = OptimizeSettingsImpl(spec.sinkSettings.optimizeSettings.BatchThreshold,
+    spec.sinkSettings.optimizeSettings.fileSizeThreshold)
+
   override val archiveTableFullName: String = spec.sinkSettings.archiveTableName
 
   override val endpoint: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ENDPOINT")
@@ -75,6 +95,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
 
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
+
 
 object MicrosoftSynapseLinkStreamContext {
   type Environment = StreamContext

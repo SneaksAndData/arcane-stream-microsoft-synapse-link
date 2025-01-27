@@ -65,6 +65,19 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
     for _ <- executeArchivationQuery(batch)
         _ <- dropTempTable(batch)
     yield new BatchArchivationResult
+    
+  def optimizeTarget(tableName: String, batchNumber: Long, optimizeThreshold: Long): Task[BatchApplicationResult] =
+    if batchNumber % optimizeThreshold == 0 then
+      val query = ZIO.attemptBlocking { sqlConnection.prepareStatement(s"ALTER TABLE $tableName execute OPTIMIZE") }
+      ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
+        for
+          _ <- ZIO.log(s"Optimizing table $tableName")
+          _ <- ZIO.attemptBlocking { statement.execute() }
+        yield true
+      }
+    else
+      ZIO.succeed(false)
+      
 
   private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
     val ack = ZIO.attemptBlocking {

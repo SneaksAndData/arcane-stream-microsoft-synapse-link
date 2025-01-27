@@ -1,22 +1,23 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.processors
 
-import services.clients.JdbcConsumer
+import models.app.{OptimizeSettings, ParallelismSettings, TargetTableSettings}
+import services.clients.{BatchApplicationResult, JdbcConsumer}
+import services.streaming.consumers.InFlightBatch
 
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ParallelismSettings
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.streaming.consumers.InFlightBatch
 import zio.stream.ZPipeline
-import zio.{ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 /**
  * Processor that merges data into a target table.
  *
  * @param jdbcConsumer The JDBC consumer.
  */
-class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings)
+class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
+                          parallelismSettings: ParallelismSettings,
+                          targetTableSettings: TargetTableSettings)
   extends BatchProcessor[InFlightBatch, InFlightBatch]:
 
   /**
@@ -26,9 +27,11 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], para
    */
   override def process: ZPipeline[Any, Throwable, InFlightBatch, InFlightBatch] =
     ZPipeline.mapZIO({
-      case (batch, other) => jdbcConsumer.applyBatch(batch).map(_ => (batch, other))
+      case ((batch, other), batchNumber) => jdbcConsumer
+        .applyBatch(batch)
+        .flatMap( _ => jdbcConsumer.optimizeTarget(targetTableSettings.targetTableFullName, batchNumber, targetTableSettings.optimizeSettings.BatchThreshold))
+        .flatMap(_ => ZIO.succeed((batch, other), batchNumber))
     })
-
 
 object MergeBatchProcessor:
 
@@ -37,14 +40,15 @@ object MergeBatchProcessor:
    * @param jdbcConsumer The JDBC consumer.
    * @return The initialized MergeProcessor instance
    */
-  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings): MergeBatchProcessor =
-    new MergeBatchProcessor(jdbcConsumer, parallelismSettings)
+  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings, targetTableSettings: TargetTableSettings): MergeBatchProcessor =
+    new MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings)
 
   /**
    * The required environment for the MergeProcessor.
    */
   type Environment = JdbcConsumer[StagedVersionedBatch]
     & ParallelismSettings
+    & TargetTableSettings
 
   /**
    * The ZLayer that creates the MergeProcessor.
@@ -54,5 +58,6 @@ object MergeBatchProcessor:
       for
         jdbcConsumer <- ZIO.service[JdbcConsumer[StagedVersionedBatch]]
         parallelismSettings <- ZIO.service[ParallelismSettings]
-      yield MergeBatchProcessor(jdbcConsumer, parallelismSettings)
+        targetTableSettings <- ZIO.service[TargetTableSettings]
+      yield MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings)
     }
