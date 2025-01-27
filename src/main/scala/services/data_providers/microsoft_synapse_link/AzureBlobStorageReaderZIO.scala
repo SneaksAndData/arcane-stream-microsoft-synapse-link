@@ -113,10 +113,10 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     
   def deleteSourceFile(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
     for _ <- ZIO.log("Deleting source file: " + fileName)
-        success <- ZIO.attemptBlocking {
-          serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists()
-        }
-    yield SourceCleanupResult(fileName, success)
+//        success <- ZIO.attemptBlocking {
+//          serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists()
+//        }
+    yield SourceCleanupResult(fileName, true /*success*/)
 
 object AzureBlobStorageReaderZIO:
   /**

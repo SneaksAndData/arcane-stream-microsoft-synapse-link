@@ -74,6 +74,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       for
         _ <- ZIO.log(s"archiving batch ${batch.name}")
         _ <- ZIO.attemptBlocking { statement.execute() }
+        _ <- ZIO.log(s"archivation completed ${batch.name}")
       yield new BatchArchivationResult
     }
 

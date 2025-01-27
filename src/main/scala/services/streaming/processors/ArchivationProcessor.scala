@@ -18,8 +18,7 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
 
   override def process: ZPipeline[Any, Throwable, InFlightBatch, CompletedBatch] =
     ZPipeline.mapZIO({
-      case batch: StagedVersionedBatch => jdbcConsumer.archiveBatch(batch)
-      case sourceCleanupRequest: SourceCleanupRequest => ZIO.attempt(sourceCleanupRequest)
+      case (batch, other) => jdbcConsumer.archiveBatch(batch).map(result => (result, other))
     })
 
 object ArchivationProcessor:

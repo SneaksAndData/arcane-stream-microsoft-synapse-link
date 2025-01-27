@@ -25,9 +25,9 @@ import zio.{Chunk, Task, ZIO, ZLayer}
 import java.time.format.DateTimeFormatter
 import java.time.{ZoneOffset, ZonedDateTime}
 
-type InFlightBatch = StagedVersionedBatch|SourceCleanupRequest
-type CompletedBatch = BatchArchivationResult|SourceCleanupRequest
-type PiplineResult = BatchArchivationResult|SourceCleanupResult
+type InFlightBatch = (StagedVersionedBatch, Seq[SourceCleanupRequest])
+type CompletedBatch = (BatchArchivationResult, Seq[SourceCleanupRequest])
+type PiplineResult = (BatchArchivationResult, Seq[SourceCleanupResult])
 
 class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
                              icebergCatalogSettings: IcebergCatalogSettings,
@@ -51,8 +51,9 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
 
 
   private def logResults: ZSink[Any, Throwable, PiplineResult, Any, Unit] = ZSink.foreach {
-    case arch: BatchArchivationResult => ZIO.log("Batch archivation completed")
-    case src: SourceCleanupResult => ZIO.log(s"Source cleanup completed for ${src.prefix}: ${src.success}")
+    case (arch, results) =>
+      ZIO.log(s"Processing completed: ${arch}") *>
+        ZIO.foreach(results)(src => ZIO.log(s"Source cleanup completed for ${src.prefix}: ${src.success}"))
   }
 
   private def writeStagingTable = ZPipeline[Chunk[DataStreamElement]]()
@@ -60,17 +61,16 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
     .mapZIO({
       case (elements, tableName) => writeDataRows(elements, tableName)
     })
-    .flattenIterables
 
 
-  private def writeDataRows(elements: Chunk[DataStreamElement], name: String): Task[(Seq[SourceCleanupRequest|StagedVersionedBatch])] =
+  private def writeDataRows(elements: Chunk[DataStreamElement], name: String): Task[(StagedVersionedBatch, Seq[SourceCleanupRequest])] =
     for
       arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
-      rows = elements.filter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow])
-      deleteRequests = elements.filter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
+      rows = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow])
+      deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
       table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
       batch = table.toStagedBatch( icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, sinkSettings.targetTableFullName, Map())
-    yield deleteRequests.concat(Seq(batch))
+    yield (batch, deleteRequests)
 
 
 object IcebergSynapseConsumer:
