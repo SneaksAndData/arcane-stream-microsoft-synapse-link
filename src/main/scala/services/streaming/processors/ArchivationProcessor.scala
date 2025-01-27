@@ -18,7 +18,15 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
 
   override def process: ZPipeline[Any, Throwable, InFlightBatch, CompletedBatch] =
     ZPipeline.mapZIO({
-      case ((batch, other), batchNumber) => jdbcConsumer.archiveBatch(batch).map(result => (result, other))
+      case ((batch, other), batchNumber) => 
+        for result <- jdbcConsumer.archiveBatch(batch)
+            _ <- jdbcConsumer.optimizeTarget(archiveTableSettings.archiveTableFullName, batchNumber,
+                archiveTableSettings.archiveOptimizeSettings.batchThreshold,
+                archiveTableSettings.archiveOptimizeSettings.fileSizeThreshold)
+            _ <- jdbcConsumer.expireSnapshots(archiveTableSettings.archiveTableFullName, batchNumber,
+              archiveTableSettings.archiveSnapshotExpirationSettings.batchThreshold,
+              archiveTableSettings.archiveSnapshotExpirationSettings.retentionThreshold)
+        yield (result, other)
     })
 
 object ArchivationProcessor:

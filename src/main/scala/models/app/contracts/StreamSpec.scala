@@ -26,9 +26,15 @@ case class OptimizeSettingsSpec(batchThreshold: Int,
 /**
  * The configuration of Iceberg sink.
  */
+case class SnapshotExpirationSettingsSpec(batchThreshold: Int,
+                                          retentionThreshold: String) derives ReadWriter
+/**
+ * The configuration of Iceberg sink.
+ */
 case class SinkSettings(targetTableName: String,
                          archiveTableName: String,
-                         optimizeSettings: OptimizeSettingsSpec) derives ReadWriter
+                         optimizeSettings: OptimizeSettingsSpec,
+                         snapshotExpirationSettings: SnapshotExpirationSettingsSpec) derives ReadWriter
 
 
 /**

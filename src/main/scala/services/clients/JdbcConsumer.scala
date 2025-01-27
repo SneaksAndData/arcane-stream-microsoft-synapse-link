@@ -73,13 +73,26 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       }
       ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
         for
-          _ <- ZIO.log(s"Optimizing table $tableName")
+          _ <- ZIO.log(s"Optimizing table $tableName. Batch number: $batchNumber. fileSizeThreshold: $fileSizeThreshold")
           _ <- ZIO.attemptBlocking { statement.execute() }
         yield true
       }
     else
       ZIO.succeed(false)
 
+  def expireSnapshots(tableName: String, batchNumber: Long, optimizeThreshold: Long, retentionThreshold: String): Task[BatchApplicationResult] =
+    if (batchNumber+1) % optimizeThreshold == 0 then
+      val query = ZIO.attemptBlocking {
+        sqlConnection.prepareStatement(s"ALTER TABLE $tableName execute expire_snapshots(retention_threshold => '$retentionThreshold')")
+      }
+      ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
+        for
+          _ <- ZIO.log(s"Run expire_snapshots for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
+          _ <- ZIO.attemptBlocking { statement.execute() }
+        yield true
+      }
+    else
+      ZIO.succeed(false)
 
   private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
     val ack = ZIO.attemptBlocking {
