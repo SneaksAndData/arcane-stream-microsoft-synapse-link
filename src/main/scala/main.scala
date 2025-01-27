@@ -47,11 +47,12 @@ object main extends ZIOAppDefault {
     _ <- streamRunner.run
   yield ()
 
-  val storageExplorerLayerZio: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
+  val storageExplorerLayerZio: ZLayer[AzureConnectionSettings & MicrosoftSynapseLinkStreamContext, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
    for {
      connectionOptions <- ZIO.service[AzureConnectionSettings]
+     streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
-   } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials)
+   } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials, streamContext.sourceDeleteDryRun)
   }
   
   val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {

@@ -29,7 +29,7 @@ import scala.util.Try
  * @param tokenCredential Optional token credential provider
  * @param sharedKeyCredential Optional access key credential
  */
-final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[String], tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings] = None):
+final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[String], tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings], deleteDryRun: Boolean):
   private val serviceClientSettings = settings.getOrElse(AzureBlobStorageReaderSettings())
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val clientBuilder =
@@ -112,29 +112,16 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     yield eligibleToProcess
     
   def deleteSourceFile(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
-    for _ <- ZIO.log("Deleting source file: " + fileName)
-//        success <- ZIO.attemptBlocking {
-//          serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists()
-//        }
-    yield SourceCleanupResult(fileName, true /*success*/)
+    if deleteDryRun then
+      ZIO.log("Dry run: Deleting source file: " + fileName).map(_ => SourceCleanupResult(fileName, true))
+    else
+      ZIO.log("Deleting source file: " + fileName) *>
+        ZIO.attemptBlocking {
+            serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists()
+        }
+        .map(result => SourceCleanupResult(fileName, result))
 
 object AzureBlobStorageReaderZIO:
-  /**
-   * Create AzureBlobStorageReaderZIO for the account using TokenCredential
-   * @param accountName Storage account name
-   * @param credential TokenCredential (accessToken provider)
-   * @return AzureBlobStorageReaderZIO instance
-   */
-  def apply(accountName: String, credential: TokenCredential): AzureBlobStorageReaderZIO = new AzureBlobStorageReaderZIO(accountName, None, Some(credential), None)
-
-  /**
-   * Create AzureBlobStorageReaderZIO for the account using StorageSharedKeyCredential
-   *
-   * @param accountName Storage account name
-   * @param credential  StorageSharedKeyCredential (account key)
-   * @return AzureBlobStorageReaderZIO instance
-   */
-  def apply(accountName: String, credential: StorageSharedKeyCredential): AzureBlobStorageReaderZIO = new AzureBlobStorageReaderZIO(accountName, None, None, Some(credential))
 
   /**
    * Create AzureBlobStorageReaderZIO for the account using StorageSharedKeyCredential and custom endpoint
@@ -144,12 +131,4 @@ object AzureBlobStorageReaderZIO:
    * @param credential  StorageSharedKeyCredential (account key)
    * @return AzureBlobStorageReaderZIO instance
    */
-  def apply(accountName: String, endpoint: String, credential: StorageSharedKeyCredential): AzureBlobStorageReaderZIO = new AzureBlobStorageReaderZIO(accountName, Some(endpoint), None, Some(credential))
-
-  /**
-   * Create AzureBlobStorageReaderZIO for the account using default credential chain
-   *
-   * @param accountName Storage account name
-   * @return AzureBlobStorageReaderZIO instance
-   */
-  def apply(accountName: String): AzureBlobStorageReaderZIO = new AzureBlobStorageReaderZIO(accountName, None, None, None)
+  def apply(accountName: String, endpoint: String, credential: StorageSharedKeyCredential, deleteDryRun: Boolean): AzureBlobStorageReaderZIO = new AzureBlobStorageReaderZIO(accountName, Some(endpoint), None, Some(credential), None, deleteDryRun)
