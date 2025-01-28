@@ -18,7 +18,7 @@ import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
-import org.slf4j.MDC
+import org.slf4j.{Logger, LoggerFactory, MDC}
 import zio.*
 import zio.logging.LogFormat
 import zio.logging.backend.SLF4J
@@ -62,6 +62,8 @@ object main extends ZIOAppDefault {
     } yield AzureBlobStorageReader(connectionOptions.account, connectionOptions.endpoint, credentials)
   }
 
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+
   @main
   def run: ZIO[Any, Throwable, Unit] =
     appLayer.provide(
@@ -82,6 +84,10 @@ object main extends ZIOAppDefault {
       TypeAlignmentService.layer,
       SourceDeleteProcessor.layer,
       JdbcTableManager.layer)
-    .orDie
+      .catchAllTrace {
+        case (e, trace) =>
+          logger.error("Application failed", e)
+          ZIO.fail(e)
+      }
 }
 

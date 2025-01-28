@@ -20,10 +20,10 @@ import org.apache.iceberg.{Schema, Table}
 import org.apache.zookeeper.proto.DeleteRequest
 import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZPipeline, ZSink}
-import zio.{Chunk, Task, ZIO, ZLayer}
+import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
 import java.time.format.DateTimeFormatter
-import java.time.{ZoneOffset, ZonedDateTime}
+import java.time.{Duration, ZoneOffset, ZonedDateTime}
 
 type InFlightBatch = ((StagedVersionedBatch, Seq[SourceCleanupRequest]), Long)
 type CompletedBatch = (BatchArchivationResult, Seq[SourceCleanupRequest])
@@ -40,6 +40,8 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
   extends BatchConsumer[Chunk[DataStreamElement]]:
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[IcebergStreamingConsumer])
+
+  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(5)
 
   /**
    * Returns the sink that consumes the batch.
@@ -69,7 +71,7 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
       arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
       rows = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow])
       deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
-      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema))
+      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema)) retry retryPolicy
       batch = table.toStagedBatch( icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, sinkSettings.targetTableFullName, Map())
     yield (batch, deleteRequests)
 
