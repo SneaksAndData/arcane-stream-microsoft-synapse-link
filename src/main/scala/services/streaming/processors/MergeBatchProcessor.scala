@@ -28,7 +28,8 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
   override def process: ZPipeline[Any, Throwable, InFlightBatch, InFlightBatch] =
     ZPipeline.mapZIO({
       case ((batch, other), batchNumber) =>
-        for _ <- jdbcConsumer.applyBatch(batch)
+        for _ <- ZIO.log(s"Applying batch $batchNumber")
+            _ <- jdbcConsumer.applyBatch(batch)
             _ <- jdbcConsumer.optimizeTarget(targetTableSettings.targetTableFullName, batchNumber,
                   targetTableSettings.targetOptimizeSettings.batchThreshold,
                   targetTableSettings.targetOptimizeSettings.fileSizeThreshold)

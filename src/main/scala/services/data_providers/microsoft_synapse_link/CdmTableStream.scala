@@ -72,7 +72,7 @@ class CdmTableStream(
 
     if streamContext.IsBackfilling then backfillStream else repeatStream
 
-  def getStream(blob: StoredBlob): ZIO[Any, IOException, (BufferedReader, AdlsStoragePath)] = 
+  def getStream(blob: StoredBlob): ZIO[Any, IOException, (BufferedReader, AdlsStoragePath)] =
     reader.getBlobContent(storagePath + blob.name)
           .map(javaReader => (javaReader, storagePath + blob.name))
           .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
@@ -83,7 +83,7 @@ class CdmTableStream(
     else
       for {
         line <- ZIO.attemptBlocking(Option(stream.readLine()))
-        continuation <- tryGetContinuation(stream, line.getOrElse("").count(_ == '"'), accum.append(s"\n$line"))
+        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(s"\n$line"))
       }
       yield continuation
 
@@ -95,7 +95,7 @@ class CdmTableStream(
     yield {
       dataLine match
         case None => None
-        case Some(dataLine) if dataLine == "" => Some(s"")
+        case Some(dataLine) if dataLine == "" => None
         case Some(dataLine) => Some(s"$dataLine\n$continuation")
     }
 

@@ -19,7 +19,8 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
   override def process: ZPipeline[Any, Throwable, InFlightBatch, CompletedBatch] =
     ZPipeline.mapZIO({
       case ((batch, other), batchNumber) => 
-        for result <- jdbcConsumer.archiveBatch(batch)
+        for _ <- ZIO.log(s"Archiving batch $batchNumber")
+            result <- jdbcConsumer.archiveBatch(batch)
             _ <- jdbcConsumer.optimizeTarget(archiveTableSettings.archiveTableFullName, batchNumber,
                 archiveTableSettings.archiveOptimizeSettings.batchThreshold,
                 archiveTableSettings.archiveOptimizeSettings.fileSizeThreshold)
