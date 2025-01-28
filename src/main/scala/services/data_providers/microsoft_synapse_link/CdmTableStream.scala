@@ -41,7 +41,7 @@ class CdmTableStream(
    * @param endDate Date to stop at when looking for prefixes. In production use None for this value to always look data up to current moment.
    * @return A stream of rows for this table
    */
-  def snapshotPrefixes(lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
+  def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
     val backfillStream = ZStream.fromZIO(reader.getFirstBlob(storagePath + "/"))
         .flatMap(startDate => {
           ZStream.fromIterable(getListPrefixes(Some(startDate)))
@@ -53,7 +53,7 @@ class CdmTableStream(
     val repeatStream = reader.getRootPrefixes(storagePath, lookBackInterval)
       .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + fix_name(name) + "/"))
       .filter(blob => blob.name.endsWith(".csv"))
-      .repeat(Schedule.spaced(Duration.ofSeconds(5)))
+      .repeat(Schedule.spaced(changeCaptureInterval))
 
     if streamContext.IsBackfilling then backfillStream else repeatStream
 
