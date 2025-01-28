@@ -104,7 +104,9 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
   def getRootPrefixes(storagePath: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
     for startFrom <- ZStream.succeed(OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval))
         _ <- ZStream.log("Getting root prefixes stating from " + startFrom)
-        prefixes <- ZStream.fromZIO(ZIO.attemptBlocking { streamPrefixes(storagePath) })
+        list <- ZStream.succeed(CdmTableStream.getListPrefixes(Some(startFrom)))
+        listZIO = ZIO.foreach(list)(prefix => ZIO.attemptBlocking { streamPrefixes(storagePath + prefix) })
+        prefixes <- ZStream.fromIterableZIO(listZIO)
         zippedWithDate <- prefixes.map(blob => (interpretAsDate(blob), blob))
         eligibleToProcess <- zippedWithDate match
           case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)
