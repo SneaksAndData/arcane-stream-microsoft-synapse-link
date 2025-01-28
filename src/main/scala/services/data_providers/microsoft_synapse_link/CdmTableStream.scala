@@ -80,14 +80,14 @@ class CdmTableStream(
       ZIO.succeed(accum.toString())
     else
       for {
-        line <- ZIO.attempt(Option(stream.readLine()))
+        line <- ZIO.attemptBlocking(Option(stream.readLine()))
         continuation <- tryGetContinuation(stream, line.getOrElse("").count(_ == '"'), accum.append(s"\n$line"))
       }
       yield continuation
 
   def getLine(stream: BufferedReader): ZIO[Any, Throwable, Option[String]] =
     for {
-      dataLine <- ZIO.attempt(Option(stream.readLine()))
+      dataLine <- ZIO.attemptBlocking(Option(stream.readLine()))
       continuation <- tryGetContinuation(stream, dataLine.getOrElse("").count(_ == '"'), new StringBuilder())
     }
     yield {
