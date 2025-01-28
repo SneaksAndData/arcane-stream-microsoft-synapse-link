@@ -64,7 +64,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
    * @tparam Result The type of the result.
    *  @return The result of applying the function to the content of the blob.
    */
-  def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Task[Reader] =
+  def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Task[BufferedReader] =
     val client = getBlobClient(blobPath)
     for
       _ <- ZIO.log("Downloading blob content from data file: " + blobPath.toHdfsPath)

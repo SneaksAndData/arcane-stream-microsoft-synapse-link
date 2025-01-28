@@ -72,8 +72,10 @@ class CdmTableStream(
 
     if streamContext.IsBackfilling then backfillStream else repeatStream
 
-  def getStream(blob: StoredBlob): ZIO[Any, IOException, (Reader, AdlsStoragePath)] = 
-    reader.getBlobContent(storagePath + blob.name).map(javaReader => (javaReader, storagePath + blob.name)).mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
+  def getStream(blob: StoredBlob): ZIO[Any, IOException, (BufferedReader, AdlsStoragePath)] = 
+    reader.getBlobContent(storagePath + blob.name)
+          .map(javaReader => (javaReader, storagePath + blob.name))
+          .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
   def tryGetContinuation(stream: BufferedReader, quotes: Int, accum: StringBuilder): ZIO[Any, Throwable, String] =
     if quotes % 2 == 0 then
@@ -97,10 +99,11 @@ class CdmTableStream(
         case Some(dataLine) => Some(s"$dataLine\n$continuation")
     }
 
-  def getData(streamData: (Reader, AdlsStoragePath)): ZStream[Any, IOException, DataStreamElement] =
+  def getData(streamData: (BufferedReader, AdlsStoragePath)): ZStream[Any, IOException, DataStreamElement] =
       val (javaStream, fileName) = streamData
-      val javaReader = new BufferedReader(javaStream)
-      val dataStream = ZStream.fromZIO(getLine(javaReader))
+      val dataStream =
+        ZStream.acquireReleaseWith(ZIO.attempt(javaStream))(stream => ZIO.succeed(stream.close()))
+        .flatMap(javaReader => ZStream.fromZIO(getLine(javaReader)))
         .takeUntil(_.isEmpty)
         .map(_.get)
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
