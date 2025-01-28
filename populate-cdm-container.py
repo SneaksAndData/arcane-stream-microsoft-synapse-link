@@ -659,6 +659,7 @@ def create_blobs():
     blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
     for folder in FOLDERS:
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", MODEL_JSON)
 
     upload_blob_file(blob_service_client, CONTAINER, "model.json", MODEL_JSON)
 
