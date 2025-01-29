@@ -20,7 +20,8 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
     ZPipeline.mapZIO({
       case ((batch, other), batchNumber) => 
         for _ <- ZIO.log(s"Archiving batch $batchNumber")
-            result <- jdbcConsumer.archiveBatch(batch)
+            _ <- jdbcConsumer.archiveBatch(batch)
+            result <- jdbcConsumer.dropTempTable(batch)
             _ <- jdbcConsumer.optimizeTarget(archiveTableSettings.archiveTableFullName, batchNumber,
                 archiveTableSettings.archiveOptimizeSettings.batchThreshold,
                 archiveTableSettings.archiveOptimizeSettings.fileSizeThreshold)
