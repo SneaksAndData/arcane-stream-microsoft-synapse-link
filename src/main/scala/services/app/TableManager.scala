@@ -64,7 +64,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
     yield result
 
   def cleanupStagingTables: Task[Unit] =
-    val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} LIKE '${streamContext.stagingTableNamePrefix}%'"
+    val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} LIKE '${streamContext.stagingTableNamePrefix}_%'"
     val statement = ZIO.attemptBlocking {
       sqlConnection.prepareStatement(sql)
     }
