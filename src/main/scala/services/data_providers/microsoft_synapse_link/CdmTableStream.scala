@@ -4,7 +4,7 @@ package services.data_providers.microsoft_synapse_link
 import models.app.{AzureConnectionSettings, ParallelismSettings}
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.cdm.CSVParser.{parseCsvLine, replaceQuotedNewlines}
+import com.sneaksanddata.arcane.framework.models.cdm.CSVParser.{parseCsvLine}
 import com.sneaksanddata.arcane.framework.models.cdm.{SimpleCdmEntity, given_Conversion_SimpleCdmEntity_ArcaneSchema, given_Conversion_String_ArcaneSchema_DataRow}
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
@@ -18,6 +18,8 @@ import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
 import java.io.{BufferedReader, IOException, Reader}
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
+import java.util.regex.Matcher
+import scala.util.matching.Regex
 
 type DataStreamElement = DataRow | SourceCleanupRequest
 
@@ -83,6 +85,11 @@ class CdmTableStream(
         case Some(dataLine) if dataLine == "" => None
         case Some(dataLine) => Some(s"$dataLine\n$continuation")
     }
+    
+  private def replaceQuotedNewlines(csvLine: String): String = {
+    val regex = new Regex("\"[^\"]*(?:\"\"[^\"]*)*\"")
+    regex.replaceSomeIn(csvLine, m => Some(Matcher.quoteReplacement(m.matched.replace("\n", "")))).replace("\r", "")
+  }
 
   def getData(streamData: (BufferedReader, AdlsStoragePath)): ZStream[Any, IOException, DataStreamElement] =
       val (javaStream, fileName) = streamData
