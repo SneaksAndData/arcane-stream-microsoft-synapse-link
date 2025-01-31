@@ -86,7 +86,7 @@ object main extends ZIOAppDefault {
       JdbcTableManager.layer)
       .catchAllTrace {
         case (e, trace) =>
-          logger.error("Application failed", e)
+          logger.error(s"Application failed: ${e.getMessage}", e)
           ZIO.fail(e)
       }
 }

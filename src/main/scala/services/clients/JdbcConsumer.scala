@@ -1,10 +1,10 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.clients
 
-import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
+import models.app.ArchiveTableSettings
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ArchiveTableSettings
+import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
 import org.slf4j.{Logger, LoggerFactory}
 import zio.{Schedule, Task, ZIO, ZLayer}
 
@@ -41,8 +41,6 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
-  val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(5)
-  
   def getPartitionValues(batchName: String, partitionFields: List[String]): Future[Map[String, List[String]]] =
     Future.sequence(partitionFields
       .map(partitionField =>
@@ -54,14 +52,16 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
 
   
   def applyBatch(batch: Batch): Task[BatchApplicationResult] =
-    val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) retry  retryPolicy
+    val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) 
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())){ statement =>
       for
         applicationResult <- ZIO.attemptBlocking{ statement.execute() }
       yield applicationResult
     }
 
-  def archiveBatch(batch: Batch): Task[BatchArchivationResult] = executeArchivationQuery(batch).map(_ => new BatchArchivationResult)
+  def archiveBatch(batch: Batch): Task[BatchArchivationResult] =
+    for _ <- executeArchivationQuery(batch)
+    yield new BatchArchivationResult
 
   def optimizeTarget(tableName: String, batchNumber: Long, optimizeThreshold: Long, fileSizeThreshold: String): Task[BatchApplicationResult] =
     if (batchNumber+1) % optimizeThreshold == 0 then
@@ -106,7 +106,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       ZIO.succeed(false)
 
   private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
-    val expression = s"${batch.archiveExpr(archiveTableSettings.archiveTableFullName)}; DROP TABLE ${batch.name}"
+    val expression = batch.archiveExpr(archiveTableSettings.archiveTableFullName)
     val ack = ZIO.blocking {
       ZIO.succeed(sqlConnection.prepareStatement(expression))
     }
@@ -118,7 +118,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       yield new BatchArchivationResult
     }
 
-  private def dropTempTable(batch: Batch): Task[BatchArchivationResult] =
+  def dropTempTable(batch: Batch): Task[BatchArchivationResult] =
     val ack = ZIO.blocking {
       ZIO.succeed(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}"))
     }

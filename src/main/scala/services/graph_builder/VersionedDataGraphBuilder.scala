@@ -47,7 +47,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
   def consume: ZSink[Any, Throwable, Chunk[DataStreamElement], Any, Unit] = batchConsumer.consume
 
   private def createStream = cdmTableStream
-    .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval)
+    .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval, versionedDataGraphBuilderSettings.changeCaptureInterval)
     .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
     .flatMap(reader => cdmTableStream.getData(reader))
 
