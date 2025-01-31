@@ -1,22 +1,21 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.data_providers.microsoft_synapse_link
 
+import models.app.streaming.SourceCleanupRequest
 import models.app.{AzureConnectionSettings, ParallelismSettings}
+import services.data_providers.microsoft_synapse_link.CdmTableStream.getListPrefixes
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.cdm.CSVParser.{parseCsvLine}
 import com.sneaksanddata.arcane.framework.models.cdm.{SimpleCdmEntity, given_Conversion_SimpleCdmEntity_ArcaneSchema, given_Conversion_String_ArcaneSchema_DataRow}
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.CdmTableStream.getListPrefixes
 import org.slf4j.{Logger, LoggerFactory}
-import zio.stream.{ZPipeline, ZStream}
-import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
+import zio.stream.ZStream
+import zio.{Schedule, ZIO, ZLayer}
 
-import java.io.{BufferedReader, IOException, Reader}
+import java.io.{BufferedReader, IOException}
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import java.util.regex.Matcher
 import scala.util.matching.Regex
@@ -34,26 +33,23 @@ class CdmTableStream(
   private val schema: ArcaneSchema = implicitly(entityModel)
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  def fix_name(name: String): String =
-    if name.endsWith("/") then name.dropRight(1) else name
-
   /**
    * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
-   * @param startDate Folders from Synapse export to include in the snapshot, based on the start date provided. If not provided, ALL folders from now - defaultFromYears will be included
-   * @param endDate Date to stop at when looking for prefixes. In production use None for this value to always look data up to current moment.
+   * @param lookBackInterval The look back interval to start from
+   * @param changeCaptureInterval Interval to capture changes
    * @return A stream of rows for this table
    */
   def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
     val backfillStream = ZStream.fromZIO(reader.getFirstBlob(storagePath + "/"))
         .flatMap(startDate => {
           ZStream.fromIterable(getListPrefixes(Some(startDate)))
-            .flatMap(prefix => reader.streamPrefixes(storagePath + fix_name(prefix)))
-            .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + fix_name(name) + "/"))
+            .flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
+            .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
             .filter(blob => blob.name.endsWith(".csv"))
         })
 
     val repeatStream = reader.getRootPrefixes(storagePath, lookBackInterval)
-      .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + fix_name(name) + "/"))
+      .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
       .filter(blob => blob.name.endsWith(".csv"))
       .repeat(Schedule.spaced(changeCaptureInterval))
 
