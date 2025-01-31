@@ -40,10 +40,10 @@ object main extends ZIOAppDefault {
     }
   )
 
-  private val appLayer  = for
+  private val streamRunnerLayer  = for
     _ <- ZIO.log("Application starting")
-    context <- ZIO.service[StreamContext].debug("initialized stream context")
-    streamRunner <- ZIO.service[StreamRunnerService].debug("initialized stream runner")
+    context <- ZIO.service[StreamContext]
+    streamRunner <- ZIO.service[StreamRunnerService]
     _ <- streamRunner.run
   yield ()
 
@@ -63,31 +63,43 @@ object main extends ZIOAppDefault {
   }
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
+  
+  
+  private val streamRunner = streamRunnerLayer.provide(
+    storageExplorerLayer,
+    storageExplorerLayerZio,
+    CdmTableStream.layer,
+    CdmSchemaProvider.layer,
+    MicrosoftSynapseLinkStreamContext.layer,
+    PosixStreamLifetimeService.layer,
+    StreamRunnerServiceCdm.layer,
+    StreamGraphBuilderFactory.layer,
+    IcebergS3CatalogWriter.layer,
+    IcebergSynapseConsumer.layer,
+    MergeBatchProcessor.layer,
+    JdbcConsumer.layer,
+    CdmGroupingProcessor.layer,
+    ArchivationProcessor.layer,
+    TypeAlignmentService.layer,
+    SourceDeleteProcessor.layer,
+    JdbcTableManager.layer)
+  
+  
+  private val garbageCollector =  storageExplorerLayerZio >>> StreamLifetimeService.layer
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
-    appLayer.provide(
-      storageExplorerLayer,
-      storageExplorerLayerZio,
-      CdmTableStream.layer,
-      CdmSchemaProvider.layer,
-      MicrosoftSynapseLinkStreamContext.layer,
-      PosixStreamLifetimeService.layer, 
-      StreamRunnerServiceCdm.layer,
-      StreamGraphBuilderFactory.layer,
-      IcebergS3CatalogWriter.layer,
-      IcebergSynapseConsumer.layer,
-      MergeBatchProcessor.layer,
-      JdbcConsumer.layer,
-      CdmGroupingProcessor.layer,
-      ArchivationProcessor.layer,
-      TypeAlignmentService.layer,
-      SourceDeleteProcessor.layer,
-      JdbcTableManager.layer)
-      .catchAllTrace {
-        case (e, trace) =>
-          logger.error("Application failed", e)
-          ZIO.fail(e)
-      }
+    val app = for
+      mode <- System.env("ARCANE__MODE")
+      _ <- mode match
+        case "garbage-collector" => ZIO.log("Garbage collector mode")
+        case None => streamRunner
+    yield ()
+    
+    app.catchAllTrace {
+      case (e, trace) =>
+        logger.error("Application failed", e)
+        ZIO.fail(e)
+    }
 }
 
