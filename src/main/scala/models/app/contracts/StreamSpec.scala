@@ -1,7 +1,8 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app.contracts
 
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.OptimizeSettings
+import models.app.OptimizeSettings
+
 import upickle.default.*
 
 /**

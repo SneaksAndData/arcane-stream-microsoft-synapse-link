@@ -1,7 +1,9 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.data_providers.microsoft_synapse_link
 
+import models.app.streaming.SourceCleanupRequest
 import models.app.{AzureConnectionSettings, ParallelismSettings}
+import services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO.iterateByDates
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.cdm.CSVParser.{parseCsvLine, replaceQuotedNewlines}
@@ -10,7 +12,6 @@ import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
 import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
@@ -28,27 +29,9 @@ class CdmTableStream(
                       parallelismSettings: ParallelismSettings,
                       streamContext: StreamContext):
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  private val defaultFromYears: Int = 1
   private val schema: ArcaneSchema = implicitly(entityModel)
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  /**
-   * Read top-level virtual directories to allow pre-filtering blobs
-   * @param startDate Baseline date to start search from
-   * @return A list of yyyy-MM-ddTHH prefixes to apply as filters
-   */
-  private def getListPrefixes(startDate: Option[OffsetDateTime], endDate: Option[OffsetDateTime] = None): Seq[String] =
-    System.out.println(s"Getting prefixes for $name starting from $startDate to $endDate")
-    val currentMoment = endDate.getOrElse(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1))
-    val startMoment = startDate.getOrElse(currentMoment.minusYears(defaultFromYears))
-    Iterator.iterate(startMoment)(_.plusHours(1))
-      .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)
-      .map { moment =>
-        val monthString = s"00${moment.getMonth.getValue}".takeRight(2)
-        val dayString = s"00${moment.getDayOfMonth}".takeRight(2)
-        val hourString = s"00${moment.getHour}".takeRight(2)
-        s"${moment.getYear}-$monthString-${dayString}T$hourString"
-      }.to(LazyList)
 
   /**
    * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
@@ -59,7 +42,7 @@ class CdmTableStream(
   def snapshotPrefixes(lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
     val backfillStream = ZStream.fromZIO(reader.getFirstBlob(storagePath + "/"))
         .flatMap(startDate => {
-          ZStream.fromIterable(getListPrefixes(Some(startDate)))
+          ZStream.fromIterable(Some(startDate).iterateByDates())
             .flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
             .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
             .filter(blob => blob.name.endsWith(".csv"))

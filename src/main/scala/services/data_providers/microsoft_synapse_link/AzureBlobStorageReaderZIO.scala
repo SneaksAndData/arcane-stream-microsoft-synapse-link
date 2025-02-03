@@ -132,3 +132,21 @@ object AzureBlobStorageReaderZIO:
    * @return AzureBlobStorageReaderZIO instance
    */
   def apply(accountName: String, endpoint: String, credential: StorageSharedKeyCredential, deleteDryRun: Boolean): AzureBlobStorageReaderZIO = new AzureBlobStorageReaderZIO(accountName, Some(endpoint), None, Some(credential), None, deleteDryRun)
+
+
+  private val defaultFromYears: Int = 1
+  /**
+   * Iterate by dates from the start date to the end date.
+   * This method can be used to iterate over root prefixes in Azure Blob Storage if the prefixes are named by date.
+   */
+  extension (startDate: Option[OffsetDateTime]) def iterateByDates(endDate: Option[OffsetDateTime] = None): Seq[String] =
+    val currentMoment = endDate.getOrElse(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1))
+    val startMoment = startDate.getOrElse(currentMoment.minusYears(defaultFromYears))
+    Iterator.iterate(startMoment)(_.plusHours(1))
+      .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)
+      .map { moment =>
+        val monthString = s"00${moment.getMonth.getValue}".takeRight(2)
+        val dayString = s"00${moment.getDayOfMonth}".takeRight(2)
+        val hourString = s"00${moment.getHour}".takeRight(2)
+        s"${moment.getYear}-$monthString-${dayString}T$hourString"
+      }.to(LazyList)

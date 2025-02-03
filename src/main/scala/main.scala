@@ -1,9 +1,9 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 
-import models.app.{AzureConnectionSettings, MicrosoftSynapseLinkStreamContext}
+import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
 import services.StreamGraphBuilderFactory
 import services.app.logging.{JsonEnvironmentEnricher, StreamIdEnricher, StreamKindEnricher}
-import services.app.{JdbcTableManager, StreamRunnerServiceCdm}
+import services.app.{AzureBlobStorageGarbageCollector, GarbageCollectorStream, JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
 import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
 import services.streaming.consumers.IcebergSynapseConsumer
@@ -18,6 +18,7 @@ import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.contracts.EnvironmentGarbageCollectorSettings
 import org.slf4j.{Logger, LoggerFactory, MDC}
 import zio.*
 import zio.logging.LogFormat
@@ -40,19 +41,25 @@ object main extends ZIOAppDefault {
     }
   )
 
-  private val streamRunnerLayer  = for
-    _ <- ZIO.log("Application starting")
+  private val runStream  = for
+    _ <- ZIO.log("Starting the stream runner")
     context <- ZIO.service[StreamContext]
     streamRunner <- ZIO.service[StreamRunnerService]
     _ <- streamRunner.run
   yield ()
 
-  val storageExplorerLayerZio: ZLayer[AzureConnectionSettings & MicrosoftSynapseLinkStreamContext, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
+  private val runGarbageCollector = for
+    _ <- ZIO.log("Starting the garbage collector")
+    stream <- ZIO.service[GarbageCollectorStream]
+    _ <- stream.run
+  yield ()
+
+  val storageExplorerLayerZio: ZLayer[AzureConnectionSettings & GraphExecutionSettings, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
    for {
      connectionOptions <- ZIO.service[AzureConnectionSettings]
-     streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
+     graphExecutionSettings <- ZIO.service[GraphExecutionSettings]
      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
-   } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials, streamContext.sourceDeleteDryRun)
+   } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials, graphExecutionSettings.sourceDeleteDryRun)
   }
   
   val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
@@ -65,7 +72,7 @@ object main extends ZIOAppDefault {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   
   
-  private val streamRunner = streamRunnerLayer.provide(
+  private val streamRunner = runStream.provide(
     storageExplorerLayer,
     storageExplorerLayerZio,
     CdmTableStream.layer,
@@ -84,16 +91,19 @@ object main extends ZIOAppDefault {
     SourceDeleteProcessor.layer,
     JdbcTableManager.layer)
   
-  
-  private val garbageCollector =  storageExplorerLayerZio >>> StreamLifetimeService.layer
+  private val garbageCollector = runGarbageCollector.provide(
+    storageExplorerLayerZio,
+    EnvironmentGarbageCollectorSettings.layer,
+    AzureBlobStorageGarbageCollector.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
     val app = for
       mode <- System.env("ARCANE__MODE")
       _ <- mode match
-        case "garbage-collector" => ZIO.log("Garbage collector mode")
+        case Some("garbage-collector") => garbageCollector
         case None => streamRunner
+        case Some(_) => streamRunner
     yield ()
     
     app.catchAllTrace {
