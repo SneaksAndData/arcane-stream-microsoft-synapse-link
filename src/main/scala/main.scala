@@ -84,10 +84,9 @@ object main extends ZIOAppDefault {
       TypeAlignmentService.layer,
       SourceDeleteProcessor.layer,
       JdbcTableManager.layer)
-      .catchAllTrace {
-        case (e, trace) =>
-          logger.error(s"Application failed: ${e.getMessage}", e)
-          ZIO.fail(e)
-      }
+      .catchAllCause(cause => {
+        logger.error(s"Application failed: ${cause.squashTrace.getMessage}", cause)
+        ZIO.failCause(cause)
+      })
 }
 
