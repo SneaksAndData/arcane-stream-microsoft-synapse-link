@@ -49,6 +49,9 @@ class CdmTableStream(
         })
 
     val repeatStream = reader.getRootPrefixes(storagePath, lookBackInterval)
+      .filterZIO(prefix => {
+        reader.blobExists(storagePath + prefix.name + "model.json")
+      })
       .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name))
       .filter(blob => blob.name.endsWith(s"/$name/"))
       .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name))
