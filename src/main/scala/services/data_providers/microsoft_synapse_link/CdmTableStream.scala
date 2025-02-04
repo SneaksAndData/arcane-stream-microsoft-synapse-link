@@ -71,7 +71,7 @@ class CdmTableStream(
     else
       for {
         line <- ZIO.attemptBlocking(Option(stream.readLine()))
-        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(s"\n$line"))
+        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(line.map(l => s"\n$l").getOrElse("")))
       }
       yield continuation
 
@@ -93,7 +93,6 @@ class CdmTableStream(
   }
 
   def getData(streamData: (BufferedReader, AdlsStoragePath)): ZStream[Any, IOException, DataStreamElement] =
-      System.out.println("Getting data from directory: " + streamData._2)
       val (javaStream, fileName) = streamData
       val dataStream =
         ZStream.acquireReleaseWith(ZIO.attempt(javaStream))(stream => ZIO.succeed(stream.close()))
@@ -102,9 +101,7 @@ class CdmTableStream(
             ZStream.logDebug(s"Read line: $line")
             line
           }) 
-        .takeWhile(line => {
-          line.isDefined
-        })
+        .takeWhile(_.isDefined)
         .map(_.get)
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
         .mapZIO(content => ZIO.attempt(implicitly[DataRow](content, schema)))
