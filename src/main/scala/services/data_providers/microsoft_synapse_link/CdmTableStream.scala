@@ -49,7 +49,9 @@ class CdmTableStream(
         })
 
     val repeatStream = reader.getRootPrefixes(storagePath, lookBackInterval)
-      .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
+      .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name))
+      .filter(blob => blob.name.endsWith(s"/$name/"))
+      .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name))
       .filter(blob => blob.name.endsWith(".csv"))
       .repeat(Schedule.spaced(changeCaptureInterval))
 
@@ -88,11 +90,18 @@ class CdmTableStream(
   }
 
   def getData(streamData: (BufferedReader, AdlsStoragePath)): ZStream[Any, IOException, DataStreamElement] =
+      System.out.println("Getting data from directory: " + streamData._2)
       val (javaStream, fileName) = streamData
       val dataStream =
         ZStream.acquireReleaseWith(ZIO.attempt(javaStream))(stream => ZIO.succeed(stream.close()))
-        .flatMap(javaReader => ZStream.fromZIO(getLine(javaReader)))
-        .takeUntil(_.isEmpty)
+        .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))
+          .map(line => {
+            ZStream.logDebug(s"Read line: $line")
+            line
+          }) 
+        .takeWhile(line => {
+          line.isDefined
+        })
         .map(_.get)
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
         .mapZIO(content => ZIO.attempt(implicitly[DataRow](content, schema)))
