@@ -17,7 +17,6 @@ import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeServi
 import com.sneaksanddata.arcane.framework.services.app.logging.base.Enricher
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
 import org.slf4j.{Logger, LoggerFactory, MDC}
 import zio.*
 import zio.logging.LogFormat
@@ -40,9 +39,9 @@ object main extends ZIOAppDefault {
     }
   )
 
-  private val appLayer  = for
-    _ <- ZIO.log("Application starting")
-    context <- ZIO.service[StreamContext].debug("initialized stream context")
+  private lazy val appLayer  = for
+    _ <- ZIO.logInfo("Application starting")
+    _ <- ZIO.service[StreamContext].debug("initialized stream context")
     streamRunner <- ZIO.service[StreamRunnerService].debug("initialized stream runner")
     _ <- streamRunner.run
   yield ()
@@ -85,8 +84,8 @@ object main extends ZIOAppDefault {
       SourceDeleteProcessor.layer,
       JdbcTableManager.layer)
       .catchAllCause(cause => {
-        logger.error(s"Application failed: ${cause.squashTrace.getMessage}", cause)
-        ZIO.failCause(cause)
+        logger.error(s"Application failed: ${cause.squashTrace.getMessage}", cause.squashTrace)
+        exit(zio.ExitCode(1))
       })
 }
 
