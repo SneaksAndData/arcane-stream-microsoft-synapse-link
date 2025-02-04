@@ -430,8 +430,8 @@ MODEL_JSON = """{
                     },
                     {
                       "$type": "LocalEntity",
-                      "name": "dimensionattributelevelvalue",
-                      "description": "dimensionattributelevelvalue",
+                      "name": "synapsetable",
+                      "description": "synapsetable",
                       "annotations": [
                         {
                           "name": "Athena:PartitionGranularity",
@@ -658,7 +658,8 @@ def create_container():
 def create_blobs():
     blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
     for folder in FOLDERS:
-        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/dimensionattributelevelvalue/2020.csv", CONTENT)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable/2020.csv", CONTENT)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable_other/2020.csv", CONTENT)
 
     upload_blob_file(blob_service_client, CONTAINER, "model.json", MODEL_JSON)
 
