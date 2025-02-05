@@ -26,9 +26,9 @@ import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
-type InFlightBatch = ((StagedVersionedBatch, Seq[SourceCleanupRequest]), Long)
-type CompletedBatch = (BatchArchivationResult, Seq[SourceCleanupRequest])
-type PiplineResult = (BatchArchivationResult, Seq[SourceCleanupResult])
+type InFlightBatch = ((Iterable[StagedVersionedBatch], Seq[SourceCleanupRequest]), Long)
+type CompletedBatch = (Iterable[BatchArchivationResult], Seq[SourceCleanupRequest])
+type PipelineResult = (Iterable[BatchArchivationResult], Seq[SourceCleanupResult])
 
 class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
                              icebergCatalogSettings: IcebergCatalogSettings,
@@ -37,7 +37,7 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
                              schemaProvider: SchemaProvider[ArcaneSchema],
                              mergeProcessor: BatchProcessor[InFlightBatch, InFlightBatch],
                              archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
-                             sourceCleanupProcessor: BatchProcessor[CompletedBatch, PiplineResult])
+                             sourceCleanupProcessor: BatchProcessor[CompletedBatch, PipelineResult])
   extends BatchConsumer[Chunk[DataStreamElement]]:
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[IcebergStreamingConsumer])
@@ -53,7 +53,7 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
     writeStagingTable >>> mergeProcessor.process >>> archivationProcessor.process >>> sourceCleanupProcessor.process >>> logResults
 
 
-  private def logResults: ZSink[Any, Throwable, PiplineResult, Any, Unit] = ZSink.foreach {
+  private def logResults: ZSink[Any, Throwable, PipelineResult, Any, Unit] = ZSink.foreach {
     case (arch, results) =>
       ZIO.log(s"Processing completed: ${arch}") *>
         ZIO.foreach(results)(src => ZIO.log(s"Source cleanup completed for ${src.prefix}: ${src.success}"))
@@ -63,10 +63,8 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
     .mapZIO(elements =>
         val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(row => extractSchema(row))
         val deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
-        val stagedBatches = ZIO.foreach(groupedBySchema) {
-          case (schema, rows) => writeDataRows(rows, schema)
-        }
-        stagedBatches.map(stagedBatches => (stagedBatches.head._2, deleteRequests))
+        val batchesZIO = ZIO.foreach(groupedBySchema)({ case (schema, rows) => writeDataRows(rows, schema) })
+        batchesZIO.map(b => (b.values, deleteRequests))
     )
     .zipWithIndex
 
@@ -116,7 +114,7 @@ object IcebergSynapseConsumer:
             schemaProvider: SchemaProvider[ArcaneSchema],
             mergeProcessor: BatchProcessor[InFlightBatch, InFlightBatch],
             archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
-            sourceCleanupProcessor: BatchProcessor[CompletedBatch, PiplineResult]): IcebergSynapseConsumer =
+            sourceCleanupProcessor: BatchProcessor[CompletedBatch, PipelineResult]): IcebergSynapseConsumer =
     new IcebergSynapseConsumer(streamContext, icebergCatalogSettings, sinkSettings, catalogWriter, schemaProvider, mergeProcessor, archivationProcessor, sourceCleanupProcessor)
 
   /**
@@ -129,7 +127,7 @@ object IcebergSynapseConsumer:
     & TargetTableSettings
     & BatchProcessor[InFlightBatch, CompletedBatch]
     & IcebergCatalogSettings
-    & BatchProcessor[CompletedBatch, PiplineResult]
+    & BatchProcessor[CompletedBatch, PipelineResult]
 
   /**
    * The ZLayer that creates the IcebergConsumer.
@@ -144,6 +142,6 @@ object IcebergSynapseConsumer:
         schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
         mergeProcessor <- ZIO.service[BatchProcessor[InFlightBatch, InFlightBatch]]
         archivationProcessor <- ZIO.service[BatchProcessor[InFlightBatch, CompletedBatch]]
-        sourceCleanupProcessor <- ZIO.service[BatchProcessor[CompletedBatch, PiplineResult]]
+        sourceCleanupProcessor <- ZIO.service[BatchProcessor[CompletedBatch, PipelineResult]]
       yield IcebergSynapseConsumer(streamContext, icebergCatalogSettings, sinkSettings, catalogWriter, schemaProvider, mergeProcessor, archivationProcessor, sourceCleanupProcessor)
     }

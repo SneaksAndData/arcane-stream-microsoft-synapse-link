@@ -3,7 +3,7 @@ package services.streaming.processors
 
 import models.app.{ArchiveTableSettings, ParallelismSettings}
 import services.clients.{BatchArchivationResult, JdbcConsumer}
-import services.streaming.consumers.{CompletedBatch, InFlightBatch, PiplineResult}
+import services.streaming.consumers.{CompletedBatch, InFlightBatch, PipelineResult}
 
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
@@ -12,10 +12,12 @@ import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.m
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 
-class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO)
-  extends BatchProcessor[CompletedBatch, PiplineResult]:
+import scala.annotation.tailrec
 
-  override def process: ZPipeline[Any, Throwable, CompletedBatch, PiplineResult] =
+class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO)
+  extends BatchProcessor[CompletedBatch, PipelineResult]:
+
+  override def process: ZPipeline[Any, Throwable, CompletedBatch, PipelineResult] =
     ZPipeline.mapZIO({
       case (other, sourceCleanupRequest) => {
         val results = ZIO.foreach(sourceCleanupRequest)(r => azureBlobStorageReaderZIO.deleteSourceFile(r.prefix))
@@ -24,7 +26,7 @@ class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO
     })
 
   def processEffects[A, B](effects: List[ZIO[Any, Throwable, A]], process: A => Task[B]): Task[List[B]] = {
-    @scala.annotation.tailrec
+    @tailrec
     def loop(remaining: List[ZIO[Any, Throwable, A]], acc: Task[List[B]]): Task[List[B]] = remaining match {
       case Nil => acc
       case head :: tail =>
