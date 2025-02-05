@@ -6,7 +6,7 @@ import services.clients.BatchArchivationResult
 import services.streaming.consumers.IcebergSynapseConsumer.{getTableName, toStagedBatch}
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
+import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
@@ -24,6 +24,7 @@ import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneOffset, ZonedDateTime}
+import java.util.UUID
 
 type InFlightBatch = ((StagedVersionedBatch, Seq[SourceCleanupRequest]), Long)
 type CompletedBatch = (BatchArchivationResult, Seq[SourceCleanupRequest])
@@ -59,29 +60,36 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
   }
 
   private def writeStagingTable = ZPipeline[Chunk[DataStreamElement]]()
-    .mapAccum(0L) { (acc, chunk) => (acc + 1, (chunk, acc.getTableName(streamContext.stagingTableNamePrefix))) }
-    .mapZIO({
-      case (elements, tableName) => writeDataRows(elements, tableName)
-    })
+    .mapZIO(elements =>
+        val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(row => extractSchema(row))
+        val deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
+        val stagedBatches = ZIO.foreach(groupedBySchema) {
+          case (schema, rows) => writeDataRows(rows, schema)
+        }
+        stagedBatches.map(stagedBatches => (stagedBatches.head._2, deleteRequests))
+    )
     .zipWithIndex
 
 
-  private def writeDataRows(elements: Chunk[DataStreamElement], name: String): Task[(StagedVersionedBatch, Seq[SourceCleanupRequest])] =
+  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[(ArcaneSchema, StagedVersionedBatch)] =
+    val tableName = getTableName(streamContext.stagingTableNamePrefix)
     for
-      arcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
-      rows = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow])
-      deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
-      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, name, arcaneSchema)) retry retryPolicy
-      batch = table.toStagedBatch( icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, sinkSettings.targetTableFullName, Map())
-    yield (batch, deleteRequests)
+      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, tableName, arcaneSchema))
+      batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, sinkSettings.targetTableFullName, Map())
+    yield (arcaneSchema, batch)
 
+  private def extractSchema(row: DataRow): ArcaneSchema =
+    row.foldRight(ArcaneSchema.empty()) {
+      case (cell, schema) if cell.name == MergeKeyField.name => schema ++ Seq(MergeKeyField)
+      case (cell, schema) => schema ++ Seq(Field(cell.name, cell.Type))
+    }
 
 object IcebergSynapseConsumer:
 
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
 
-  extension (batchNumber: Long) def getTableName(streamId: String): String =
-    s"${streamId.replace('-', '_')}_${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$batchNumber"
+  def getTableName(streamId: String): String =
+    s"${streamId}_${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_${UUID.randomUUID().toString}".replace('-', '_')
 
   extension (table: Table) def toStagedBatch(namespace: String,
                                              warehouse: String,

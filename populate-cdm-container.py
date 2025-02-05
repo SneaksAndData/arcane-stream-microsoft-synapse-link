@@ -1267,8 +1267,11 @@ def create_blobs(model_json, content, folders):
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", model_json)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable/2020.csv", content)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable_other/2020.csv", content)
-    upload_blob_file(blob_service_client, CONTAINER, "model.json", model_json)
 
 create_container()
 create_blobs(MODEL_JSON_MODIFIED, CONTENT_MODIFIED, FOLDERS[:4])
 create_blobs(MODEL_JSON, CONTENT, FOLDERS[4:])
+
+blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
+upload_blob_file(blob_service_client, CONTAINER, "model.json", MODEL_JSON_MODIFIED)
+
