@@ -5,24 +5,18 @@ import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, Targ
 
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-
-import scala.jdk.CollectionConverters.*
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
-import org.apache.iceberg.Schema
-import org.slf4j.{Logger, LoggerFactory}
-import zio.{Scope, Task, UIO, ZIO, ZLayer}
-
-import java.sql.{Connection, DriverManager, ResultSet}
-import scala.concurrent.Future
+import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.NestedField
-import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
+import org.slf4j.{Logger, LoggerFactory}
+import zio.{Task, ZIO, ZLayer}
 
-import scala.annotation.tailrec
-import scala.util.{Try, Using}
+import java.sql.{Connection, DriverManager, ResultSet}
+import scala.concurrent.Future
+import scala.jdk.CollectionConverters.*
 
 trait TableManager:
   
