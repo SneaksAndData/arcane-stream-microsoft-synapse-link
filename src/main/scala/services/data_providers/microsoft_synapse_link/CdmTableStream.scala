@@ -48,7 +48,8 @@ class CdmTableStream(
             .filter(blob => blob.name.endsWith(".csv"))
         })
 
-    val repeatStream = reader.getRootPrefixes(storagePath, lookBackInterval)
+    val prefixes = dropLast(reader.getRootPrefixes(storagePath, lookBackInterval))
+    val repeatStream = ZStream.fromIterableZIO(prefixes)
       .filterZIO(prefix => {
         reader.blobExists(storagePath + prefix.name + "model.json")
       })
@@ -59,6 +60,11 @@ class CdmTableStream(
       .repeat(Schedule.spaced(changeCaptureInterval))
 
     if streamContext.IsBackfilling then backfillStream else repeatStream
+
+  private def dropLast(stream: ZStream[Any, Throwable, StoredBlob]): ZIO[Any, Throwable, Seq[StoredBlob]] =
+    for blobs <- stream.runCollect
+        _ <- ZIO.log(s"Dropping last element from from the blobs stream: ${blobs.last.name}")
+    yield blobs.dropRight(1)
 
   def getStream(blob: StoredBlob): ZIO[Any, IOException, (BufferedReader, AdlsStoragePath)] =
     reader.getBlobContent(storagePath + blob.name)
