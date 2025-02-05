@@ -5,6 +5,7 @@ import models.app.streaming.SourceCleanupRequest
 import models.app.{AzureConnectionSettings, ParallelismSettings}
 import services.data_providers.microsoft_synapse_link.CdmTableStream.getListPrefixes
 
+import com.azure.storage.blob.models.{BlobErrorCode, BlobStorageException}
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.cdm.{SimpleCdmEntity, given_Conversion_SimpleCdmEntity_ArcaneSchema, given_Conversion_String_ArcaneSchema_DataRow}
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
@@ -102,8 +103,10 @@ class CdmTableStream(
       val (javaStream, fileName) = streamData
       val dataStream =
         ZStream.acquireReleaseWith(ZIO.attempt(javaStream))(stream => ZIO.succeed(stream.close()))
-        .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))
-          .map(line => {
+        .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)).catchSome{
+          case e: BlobStorageException if e.getErrorCode == BlobErrorCode.BLOB_NOT_FOUND => ZStream.empty
+         })
+        .map(line => {
             ZStream.logDebug(s"Read line: $line")
             line
           }) 
