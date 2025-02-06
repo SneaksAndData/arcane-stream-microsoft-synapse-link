@@ -5,8 +5,10 @@ import com.sneaksanddata.arcane.framework.models.ArcaneType.*
 import com.sneaksanddata.arcane.framework.models.settings.GroupingSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneType, DataCell, DataRow}
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.DataStreamElement
+import models.app.streaming.SourceCleanupRequest
+import services.data_providers.microsoft_synapse_link.DataStreamElement
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
 import zio.stream.ZPipeline
 import zio.{Chunk, ZIO, ZLayer}
 
@@ -30,7 +32,7 @@ class CdmGroupingProcessor(groupingSettings: GroupingSettings, typeAlignmentProc
     .mapZIO(logBatchSize)
 
   private def logBatchSize(batch: Chunk[DataStreamElement]): ZIO[Any, Nothing, Chunk[DataStreamElement]] =
-    for _ <- ZIO.log(s"Received batch with ${batch.size} rows from streaming source") yield batch
+    for _ <- zlog(s"Received batch with ${batch.size} rows from streaming source") yield batch
     
 /**
  * The companion object for the LazyOutputDataProcessor class.

@@ -13,10 +13,9 @@ class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO
 
   override def process: ZPipeline[Any, Throwable, CompletedBatch, PipelineResult] =
     ZPipeline.mapZIO({
-      case (other, sourceCleanupRequest) => {
+      case (other, sourceCleanupRequest) =>
         val results = ZIO.foreach(sourceCleanupRequest)(r => azureBlobStorageReaderZIO.markForDeletion(r.prefix))
         results.map(r => (other, r))
-      }
     })
 
   def processEffects[A, B](effects: List[ZIO[Any, Throwable, A]], process: A => Task[B]): Task[List[B]] = {

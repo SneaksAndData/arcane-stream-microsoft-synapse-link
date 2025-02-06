@@ -2,6 +2,8 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
 import models.app.{ArchiveTableSettings, TargetTableSettings}
+import services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
+import services.graph_builder.VersionedDataGraphBuilder
 
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
@@ -10,8 +12,8 @@ import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.graph_builder.VersionedDataGraphBuilder
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
 import zio.Console.printLine
 import zio.{ZIO, ZLayer}
 
@@ -35,12 +37,12 @@ private class StreamRunnerServiceCdm(builder: VersionedDataGraphBuilder,
   def run: ZIO[Any, Throwable, Unit] =
     lifetimeService.start()
     for {
-      _ <- ZIO.log("Starting the stream runner")
-      _ <- ZIO.fromFuture(implicit ec => tableManager.createTargetTable)
-      _ <- ZIO.fromFuture(implicit ec => tableManager.createArchiveTable)
+      _ <- zlog("Starting the stream runner")
+      _ <- tableManager.createTargetTable
+      _ <- tableManager.createArchiveTable
       _ <- tableManager.cleanupStagingTables
       _ <- builder.create.run(builder.consume)
-      _ <- ZIO.log("Stream completed")
+      _ <- zlog("Stream completed")
     } yield ()
 
 /**
