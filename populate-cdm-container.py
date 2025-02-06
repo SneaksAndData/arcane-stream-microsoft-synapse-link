@@ -1266,6 +1266,8 @@ def create_blobs(model_json, content, folders):
     for folder in folders:
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/model.json", model_json)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable/2020.csv", content)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable/2021.csv", content)
+        upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable/2022.csv", content)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable_other/2020.csv", content)
 
 create_container()

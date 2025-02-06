@@ -52,6 +52,10 @@ class CdmTableStream(name: String,
         .flatMap({
           case (prefix, schema) => zioReader.streamPrefixes(storagePath + prefix.name).zip(ZStream.succeed(schema))
         })
+      .tap(
+        {
+          case (blob, schema) => zlog(s"Processing blob: ${blob.name} with schema: $schema")
+        })
         .filter({
           case (blob, _) => blob.name.endsWith(".csv")
         })
