@@ -107,7 +107,13 @@ class CdmTableStream(
         .mapZIO(content => ZIO.attempt(implicitly[DataRow](content, schema)))
         .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
 
-      dataStream.concat(ZStream.succeed(SourceCleanupRequest(fileName)))
+      dataStream
+        .concat(ZStream.succeed(SourceCleanupRequest(fileName)))
+        .zipWithIndex
+        .flatMap({
+          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received ${index} lines frm $fileName, completed processing") *> ZStream.succeed(e)
+          case (r: DataRow, _) => ZStream.succeed(r)
+        })
 
 object CdmTableStream:
   type Environment = AzureConnectionSettings
