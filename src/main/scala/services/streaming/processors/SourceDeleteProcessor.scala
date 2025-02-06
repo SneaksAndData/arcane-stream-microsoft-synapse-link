@@ -2,10 +2,7 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.processors
 
 import services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
-import services.streaming.consumers.{CompletedBatch, PiplineResult}
-import models.app.{ArchiveTableSettings, ParallelismSettings}
-import services.clients.{BatchArchivationResult, JdbcConsumer}
-import services.streaming.consumers.{CompletedBatch, InFlightBatch, PipelineResult}
+import services.streaming.consumers.{CompletedBatch, PipelineResult}
 
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
 import zio.stream.ZPipeline
