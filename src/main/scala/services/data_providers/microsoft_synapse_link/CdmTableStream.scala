@@ -34,18 +34,19 @@ class CdmTableStream(
 
   /**
    * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
-   * @param lookBackInterval The look back interval to start from
+   *
+   * @param lookBackInterval      The look back interval to start from
    * @param changeCaptureInterval Interval to capture changes
    * @return A stream of rows for this table
    */
   def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
     val backfillStream = ZStream.fromZIO(reader.getFirstBlob(storagePath + "/"))
-        .flatMap(startDate => {
-          ZStream.fromIterable(getListPrefixes(Some(startDate)))
-            .flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
-            .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
-            .filter(blob => blob.name.endsWith(".csv"))
-        })
+      .flatMap(startDate => {
+        ZStream.fromIterable(getListPrefixes(Some(startDate)))
+          .flatMap(prefix => reader.streamPrefixes(storagePath + prefix))
+          .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name + "/"))
+          .filter(blob => blob.name.endsWith(".csv"))
+      })
 
     val repeatStream = reader.getRootPrefixes(storagePath, lookBackInterval)
       .flatMap(prefix => reader.streamPrefixes(storagePath + prefix.name + name))
@@ -58,8 +59,8 @@ class CdmTableStream(
 
   def getStream(blob: StoredBlob): ZIO[Any, IOException, (BufferedReader, AdlsStoragePath)] =
     reader.getBlobContent(storagePath + blob.name)
-          .map(javaReader => (javaReader, storagePath + blob.name))
-          .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
+      .map(javaReader => (javaReader, storagePath + blob.name))
+      .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
   def tryGetContinuation(stream: BufferedReader, quotes: Int, accum: StringBuilder): ZIO[Any, Throwable, String] =
     if quotes % 2 == 0 then
@@ -82,31 +83,23 @@ class CdmTableStream(
         case Some(dataLine) if dataLine == "" => None
         case Some(dataLine) => Some(s"$dataLine\n$continuation")
     }
-    
+
   private def replaceQuotedNewlines(csvLine: String): String = {
     val regex = new Regex("\"[^\"]*(?:\"\"[^\"]*)*\"")
     regex.replaceSomeIn(csvLine, m => Some(Matcher.quoteReplacement(m.matched.replace("\n", "")))).replace("\r", "")
   }
 
-  def getData(streamData: (BufferedReader, AdlsStoragePath)): ZStream[Any, IOException, DataStreamElement] =
-      System.out.println("Getting data from directory: " + streamData._2)
-      val (javaStream, fileName) = streamData
-      val dataStream =
-        ZStream.acquireReleaseWith(ZIO.attempt(javaStream))(stream => ZIO.succeed(stream.close()))
+  def getData(streamData: (BufferedReader, AdlsStoragePath)): ZStream[Any, IOException, DataStreamElement] = streamData match
+    case (javaStream, fileName) =>
+      ZStream.acquireReleaseWith(ZIO.attempt(javaStream))(stream => ZIO.succeed(stream.close()))
+        .tap(_ => zlog(s"Getting data from directory: $fileName"))
         .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))
-          .map(line => {
-            ZStream.logDebug(s"Read line: $line")
-            line
-          }) 
-        .takeWhile(line => {
-          line.isDefined
-        })
+        .takeWhile(_.isDefined)
         .map(_.get)
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
         .mapZIO(content => ZIO.attempt(implicitly[DataRow](content, schema)))
         .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
-
-      dataStream.concat(ZStream.succeed(SourceCleanupRequest(fileName)))
+        .concat(ZStream.succeed(SourceCleanupRequest(fileName)))
 
 object CdmTableStream:
   type Environment = AzureConnectionSettings

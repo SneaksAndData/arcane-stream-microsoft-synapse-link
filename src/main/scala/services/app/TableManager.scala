@@ -48,14 +48,14 @@ class JdbcTableManager(options: JdbcConsumerOptions,
 
   def createTargetTable: Task[TableCreationResult] =
     for
-      _ <- zlog("Creating target table", Some(Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName))))
+      _ <- zlog("Creating target table", Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)))
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
       created <- ZIO.fromFuture(implicit ec => createTable(targetTableSettings.targetTableFullName, schema))
     yield created
 
   def createArchiveTable: Task[TableCreationResult] =
     for
-      _ <- zlog("Creating archive table", Some(Seq(getAnnotation("archiveTableName", archiveTableSettings.archiveTableFullName))))
+      _ <- zlog("Creating archive table", Seq(getAnnotation("archiveTableName", archiveTableSettings.archiveTableFullName)))
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
       created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, schema))
     yield created

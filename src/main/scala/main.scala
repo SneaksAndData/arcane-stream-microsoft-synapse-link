@@ -68,7 +68,7 @@ object main extends ZIOAppDefault {
       JdbcTableManager.layer)
       .catchAllCause {cause =>
         for {
-          _ <- zlogError(s"Application failed: ${cause.squashTrace.getMessage}", cause)
+          _ <- zlog(s"Application failed: ${cause.squashTrace.getMessage}", cause)
           _ <- exit(zio.ExitCode(1))
         } yield ()
       }
