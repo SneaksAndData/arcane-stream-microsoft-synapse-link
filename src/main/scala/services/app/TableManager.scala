@@ -2,25 +2,23 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
 import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, TargetTableSettings}
+import services.app.JdbcTableManager.generateAlterTableSQL
+import services.clients.BatchArchivationResult
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
-import scala.jdk.CollectionConverters.*
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
+import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
+import org.apache.iceberg.Schema
+import org.apache.iceberg.types.Type
+import org.apache.iceberg.types.Type.TypeID
+import org.apache.iceberg.types.Types.TimestampType
 import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
 import scala.concurrent.Future
-import org.apache.iceberg.Schema
-import org.apache.iceberg.types.Type
-import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.{NestedField, TimestampType}
-import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
-import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.JdbcTableManager.generateAlterTableSQL
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
+import scala.jdk.CollectionConverters.*
 
 
 trait TableManager:
@@ -80,7 +78,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
   def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
     for _ <- ZIO.foreach(missingFields)(field => {
       val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
-      ZIO.log(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+      zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
         *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
     })
     yield ()
