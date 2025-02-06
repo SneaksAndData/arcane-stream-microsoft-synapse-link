@@ -2,22 +2,23 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
 import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, TargetTableSettings}
+import services.app.JdbcTableManager.generateAlterTableSQL
+import services.clients.BatchArchivationResult
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
-import scala.jdk.CollectionConverters.*
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
+import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
+import org.apache.iceberg.Schema
+import org.apache.iceberg.types.Type
+import org.apache.iceberg.types.Type.TypeID
+import org.apache.iceberg.types.Types.TimestampType
 import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
 import scala.concurrent.Future
-import org.apache.iceberg.Schema
-import org.apache.iceberg.types.Type
-import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.{NestedField, TimestampType}
-import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
+import scala.jdk.CollectionConverters.*
 
 
 trait TableManager:
@@ -74,6 +75,14 @@ class JdbcTableManager(options: JdbcConsumerOptions,
       yield ()
     }
 
+  def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
+    for _ <- ZIO.foreach(missingFields)(field => {
+      val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+      zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
+    })
+    yield ()
+
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
     val statement = ZIO.attemptBlocking {
@@ -125,6 +134,9 @@ object JdbcTableManager:
         yield JdbcTableManager(connectionOptions, targetTableSettings, archiveTableSettings, schemaProvider, streamContext)
       }
     }
+
+  def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
+    s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
 
   private def generateCreateTableSQL(tableName: String, schema: Schema): String =
     val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")
