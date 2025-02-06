@@ -68,7 +68,7 @@ class CdmTableStream(
     else
       for {
         line <- ZIO.attemptBlocking(Option(stream.readLine()))
-        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(s"\n$line"))
+        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(line.map(l => s"\n$l").getOrElse("")))
       }
       yield continuation
 
@@ -100,6 +100,11 @@ class CdmTableStream(
         .mapZIO(content => ZIO.attempt(implicitly[DataRow](content, schema)))
         .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
         .concat(ZStream.succeed(SourceCleanupRequest(fileName)))
+        .zipWithIndex
+        .flatMap({
+          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm $fileName, completed processing") *> ZStream.succeed(e)
+          case (r: DataRow, _) => ZStream.succeed(r)
+        })
 
 object CdmTableStream:
   type Environment = AzureConnectionSettings

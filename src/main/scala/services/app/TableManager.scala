@@ -16,7 +16,7 @@ import scala.concurrent.Future
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.NestedField
+import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
 
 
@@ -61,7 +61,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
     yield created
 
   def cleanupStagingTables: Task[Unit] =
-    val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} LIKE '${streamContext.stagingTableNamePrefix}_%'"
+    val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} LIKE '${streamContext.stagingTableNamePrefix}__%'"
     val statement = ZIO.attemptBlocking {
       sqlConnection.prepareStatement(sql)
     }
@@ -127,11 +127,11 @@ object JdbcTableManager:
     }
 
   private def generateCreateTableSQL(tableName: String, schema: Schema): String =
-    val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.convertType}" }.mkString(", ")
+    val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")
     s"CREATE TABLE IF NOT EXISTS $tableName ($columns)"
 
   // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
-  extension (field: NestedField) def convertType: String = field.`type`().typeId() match {
+  extension (icebergType: Type) def convertType: String = icebergType.typeId() match {
     case TypeID.BOOLEAN => "BOOLEAN"
     case TypeID.INTEGER => "INTEGER"
     case TypeID.LONG => "BIGINT"
@@ -140,9 +140,10 @@ object JdbcTableManager:
     case TypeID.DECIMAL => "DECIMAL(1, 2)"
     case TypeID.DATE => "DATE"
     case TypeID.TIME => "TIME(6)"
-    case TypeID.TIMESTAMP => "TIMESTAMP(6)"
+    case TypeID.TIMESTAMP if icebergType.isInstanceOf[TimestampType] && icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6) WITH TIME ZONE"
+    case TypeID.TIMESTAMP if icebergType.isInstanceOf[TimestampType] && !icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6)"
     case TypeID.STRING => "VARCHAR"
     case TypeID.UUID => "UUID"
     case TypeID.BINARY => "VARBINARY"
-    case _ => throw new IllegalArgumentException(s"Unsupported type: ${field.`type`()}")
+    case _ => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
   }
