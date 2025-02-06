@@ -28,7 +28,7 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
       case ((batches, other), batchNumber) =>
         for _ <- zlog(s"Archiving batch $batchNumber")
 
-            targetSchema <- jdbcConsumer.getTargetSchema(archiveTableSettings.archiveTableFullName)
+            targetSchema <- tableManager.getTargetSchema(archiveTableSettings.archiveTableFullName)
 
             updatingFields = tableManager.getUpdatingFields(targetSchema, batches.map(_.schema)).flatten.toSeq
             _ <- tableManager.modifyColumns(archiveTableSettings.archiveTableFullName, updatingFields)

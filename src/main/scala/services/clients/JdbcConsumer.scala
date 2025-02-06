@@ -4,17 +4,15 @@ package services.clients
 import models.app.ArchiveTableSettings
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 
-import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField, ArcaneType, DatePartitionField, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-import com.sneaksanddata.arcane.framework.Utils.SqlUtils.readArcaneSchema
 
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
 import java.time.Duration
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 
 /**
@@ -51,16 +49,6 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
           .map(collectPartitionColumn(_, partitionField))
           .map(values => partitionField -> values.toList)
       )).map(_.toMap)
-
-  def getTargetSchema(tableName: String): Task[ArcaneSchema] =
-    val query = s"SELECT * FROM $tableName where true and false"
-    val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
-    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
-      for
-        schemaResult <- ZIO.attemptBlocking(statement.executeQuery())
-        fields <- ZIO.attemptBlocking(schemaResult.readArcaneSchema)
-      yield fields.get
-    }
 
   def applyBatch(batch: Batch): Task[BatchApplicationResult] =
     val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) 

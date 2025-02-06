@@ -19,6 +19,7 @@ import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
+import com.sneaksanddata.arcane.framework.Utils.SqlUtils.readArcaneSchema
 
 import java.sql.{Connection, DriverManager, ResultSet}
 import scala.concurrent.Future
@@ -32,6 +33,8 @@ trait TableManager:
   def createArchiveTable: Task[TableCreationResult]
 
   def cleanupStagingTables: Task[Unit]
+  
+  def getTargetSchema(tableName: String): Task[ArcaneSchema]
 
   def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit]
 
@@ -100,6 +103,16 @@ class JdbcTableManager(options: JdbcConsumerOptions,
         _ <- ZIO.foreach(strings)(tableName => zlog("Found lost staging table: " + tableName))
         _ <- ZIO.foreach(strings)(dropTable)
       yield ()
+    }
+
+  def getTargetSchema(tableName: String): Task[ArcaneSchema] =
+    val query = s"SELECT * FROM $tableName where true and false"
+    val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
+    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
+      for
+        schemaResult <- ZIO.attemptBlocking(statement.executeQuery())
+        fields <- ZIO.attemptBlocking(schemaResult.readArcaneSchema)
+      yield fields.get
     }
 
   def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
