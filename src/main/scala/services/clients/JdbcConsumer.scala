@@ -4,6 +4,7 @@ package services.clients
 import models.app.ArchiveTableSettings
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 
+import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField, ArcaneType, DatePartitionField, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
 import org.slf4j.{Logger, LoggerFactory}
 import zio.{Schedule, Task, ZIO, ZLayer}
@@ -11,7 +12,7 @@ import zio.{Schedule, Task, ZIO, ZLayer}
 import java.sql.{Connection, DriverManager, ResultSet}
 import java.time.Duration
 import scala.concurrent.Future
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 
 /**
@@ -50,7 +51,45 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
           .map(values => partitionField -> values.toList)
       )).map(_.toMap)
 
-  
+  def getTargetSchema(tableName: String): ZIO[Any, Throwable, ArcaneSchema] =
+    val query = s"SELECT * FROM $tableName where true and false"
+    val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
+    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
+      for
+        applicationResult <- ZIO.attemptBlocking(statement.executeQuery())
+        fields <- ZIO.attemptBlocking(readSchema(applicationResult))
+      yield
+          fields.map{ case(name, sqlType) => (name, toArcaneType(sqlType).get) }.map({
+            case (MergeKeyField.name, _) => MergeKeyField
+            case (DatePartitionField.name, _) => DatePartitionField
+            case (name, arcaneType) => Field(name, arcaneType)
+          })
+    }
+
+  def toArcaneType(sqlType: Int): Try[ArcaneType] = sqlType match
+    case java.sql.Types.BIGINT => Success(ArcaneType.LongType)
+    case java.sql.Types.BINARY => Success(ArcaneType.ByteArrayType)
+    case java.sql.Types.BIT => Success(ArcaneType.BooleanType)
+    case java.sql.Types.BOOLEAN => Success(ArcaneType.BooleanType)
+    case java.sql.Types.CHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.DATE => Success(ArcaneType.DateType)
+    case java.sql.Types.TIMESTAMP => Success(ArcaneType.TimestampType)
+    case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => Success(ArcaneType.DateTimeOffsetType)
+    case java.sql.Types.DECIMAL => Success(ArcaneType.BigDecimalType)
+    case java.sql.Types.DOUBLE => Success(ArcaneType.DoubleType)
+    case java.sql.Types.INTEGER => Success(ArcaneType.IntType)
+    case java.sql.Types.FLOAT => Success(ArcaneType.FloatType)
+    case java.sql.Types.SMALLINT => Success(ArcaneType.ShortType)
+    case java.sql.Types.TIME => Success(ArcaneType.TimeType)
+    case java.sql.Types.NCHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.NVARCHAR => Success(ArcaneType.StringType)
+    case java.sql.Types.VARCHAR => Success(ArcaneType.StringType)
+    case _ => Failure(new IllegalArgumentException(s"Unsupported SQL type: $sqlType"))
+
+  def readSchema(resultSet: ResultSet): Seq[(String, Int)] =
+    for i <- 1 to resultSet.getMetaData.getColumnCount
+   yield (resultSet.getMetaData.getColumnName(i), resultSet.getMetaData.getColumnType(i))
+
   def applyBatch(batch: Batch): Task[BatchApplicationResult] =
     val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) 
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())){ statement =>

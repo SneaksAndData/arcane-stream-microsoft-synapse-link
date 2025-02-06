@@ -3,20 +3,27 @@ package services.app
 
 import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, TargetTableSettings}
 
-import com.sneaksanddata.arcane.framework.models.ArcaneSchema
+import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
+
+import scala.jdk.CollectionConverters.*
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
-import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import org.apache.iceberg.Schema
-import org.apache.iceberg.types.Type
-import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.NestedField
 import org.slf4j.{Logger, LoggerFactory}
-import zio.{Task, ZIO, ZLayer}
+import zio.{Scope, Task, UIO, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters.*
+import org.apache.iceberg.Schema
+import org.apache.iceberg.types.Type
+import org.apache.iceberg.types.Type.TypeID
+import org.apache.iceberg.types.Types.{NestedField, TimestampType}
+import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.JdbcTableManager.{generateAlterTableSQL, generateUpdateTableSQL}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
+
+import scala.annotation.tailrec
+import scala.util.{Try, Using}
 
 trait TableManager:
   
@@ -26,10 +33,33 @@ trait TableManager:
 
   def cleanupStagingTables: Task[Unit]
 
+  def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit]
+
+  def modifyColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit]
+
+  def getMissingFields(targetSchema: ArcaneSchema, bathes: Iterable[ArcaneSchema]): Iterable[Seq[ArcaneSchemaField]] =
+    bathes.map {
+      batch => batch.filter{
+        batchField => !targetSchema.exists(targetField => targetField.name.toLowerCase() == batchField.name.toLowerCase() && targetField.fieldType == batchField.fieldType)
+      }
+    }
+
+  def getUpdatingFields(targetSchema: ArcaneSchema, bathes: Iterable[ArcaneSchema]): Iterable[Seq[ArcaneSchemaField]] =
+    bathes.map {
+      batch => batch.filter{
+        batchField => targetSchema.exists(targetField => targetField.name.toLowerCase() == batchField.name.toLowerCase() && targetField.fieldType != batchField.fieldType)
+      }
+    }
+
 /**
  * The result of applying a batch.
  */
 type TableCreationResult = Boolean
+
+/**
+ * The result of applying a batch.
+ */
+type TableModificationResult = Boolean
 
 class JdbcTableManager(options: JdbcConsumerOptions,
                        targetTableSettings: TargetTableSettings,
@@ -70,6 +100,22 @@ class JdbcTableManager(options: JdbcConsumerOptions,
         _ <- ZIO.foreach(strings)(dropTable)
       yield ()
     }
+
+  def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
+    for _ <- ZIO.foreach(missingFields)(field => {
+        val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+        ZIO.log(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+          *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
+      })
+    yield ()
+
+  def modifyColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
+    for _ <- ZIO.foreach(missingFields)(field => {
+      val query = generateUpdateTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+      ZIO.log(s"Modifing column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
+    })
+    yield ()
 
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
@@ -123,12 +169,18 @@ object JdbcTableManager:
       }
     }
 
+  def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
+    s"ALTER TABLE ${tableName} ADD COLUMN ${fieldName} ${fieldType.convertType}"
+
+  def generateUpdateTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
+    s"ALTER TABLE ${tableName} ALTER COLUMN ${fieldName} SET DATA TYPE ${fieldType.convertType}"
+
   private def generateCreateTableSQL(tableName: String, schema: Schema): String =
-    val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.convertType}" }.mkString(", ")
+    val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")
     s"CREATE TABLE IF NOT EXISTS $tableName ($columns)"
 
   // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
-  extension (field: NestedField) def convertType: String = field.`type`().typeId() match {
+  extension (field: Type) def convertType: String = field.typeId() match {
     case TypeID.BOOLEAN => "BOOLEAN"
     case TypeID.INTEGER => "INTEGER"
     case TypeID.LONG => "BIGINT"
@@ -137,9 +189,10 @@ object JdbcTableManager:
     case TypeID.DECIMAL => "DECIMAL(1, 2)"
     case TypeID.DATE => "DATE"
     case TypeID.TIME => "TIME(6)"
-    case TypeID.TIMESTAMP => "TIMESTAMP(6)"
+    case TypeID.TIMESTAMP if field.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6) WITH TIME ZONE"
+    case TypeID.TIMESTAMP if !field.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6)"
     case TypeID.STRING => "VARCHAR"
     case TypeID.UUID => "UUID"
     case TypeID.BINARY => "VARBINARY"
-    case _ => throw new IllegalArgumentException(s"Unsupported type: ${field.`type`()}")
+    case _ => throw new IllegalArgumentException(s"Unsupported type: ${field}")
   }
