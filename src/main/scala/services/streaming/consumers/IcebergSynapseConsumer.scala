@@ -6,7 +6,7 @@ import services.clients.BatchArchivationResult
 import services.streaming.consumers.IcebergSynapseConsumer.{getTableName, toStagedBatch}
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, Field, MergeKeyField}
+import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
@@ -26,9 +26,9 @@ import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
-type InFlightBatch = ((Iterable[StagedVersionedBatch], Seq[SourceCleanupRequest]), Long)
-type CompletedBatch = (Iterable[BatchArchivationResult], Seq[SourceCleanupRequest])
-type PipelineResult = (Iterable[BatchArchivationResult], Seq[SourceCleanupResult])
+type InFlightBatch = ((StagedVersionedBatch, Seq[SourceCleanupRequest]), Long)
+type CompletedBatch = (BatchArchivationResult, Seq[SourceCleanupRequest])
+type PiplineResult = (BatchArchivationResult, Seq[SourceCleanupResult])
 
 class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
                              icebergCatalogSettings: IcebergCatalogSettings,
