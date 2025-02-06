@@ -1,14 +1,13 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.processors
 
+import services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
+import services.streaming.consumers.{CompletedBatch, PiplineResult}
 import models.app.{ArchiveTableSettings, ParallelismSettings}
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 import services.streaming.consumers.{CompletedBatch, InFlightBatch, PipelineResult}
 
-import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupRequest
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 
@@ -20,7 +19,7 @@ class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO
   override def process: ZPipeline[Any, Throwable, CompletedBatch, PipelineResult] =
     ZPipeline.mapZIO({
       case (other, sourceCleanupRequest) => {
-        val results = ZIO.foreach(sourceCleanupRequest)(r => azureBlobStorageReaderZIO.deleteSourceFile(r.prefix))
+        val results = ZIO.foreach(sourceCleanupRequest)(r => azureBlobStorageReaderZIO.markForDeletion(r.prefix))
         results.map(r => (other, r))
       }
     })
