@@ -24,6 +24,7 @@ import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneOffset, ZonedDateTime}
+import java.util.UUID
 
 type InFlightBatch = ((StagedVersionedBatch, Seq[SourceCleanupRequest]), Long)
 type CompletedBatch = (BatchArchivationResult, Seq[SourceCleanupRequest])
@@ -59,10 +60,7 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
   }
 
   private def writeStagingTable = ZPipeline[Chunk[DataStreamElement]]()
-    .mapAccum(0L) { (acc, chunk) => (acc + 1, (chunk, acc.getTableName(streamContext.stagingTableNamePrefix))) }
-    .mapZIO({
-      case (elements, tableName) => writeDataRows(elements, tableName)
-    })
+    .mapZIO(elements => writeDataRows(elements, streamContext.stagingTableNamePrefix.getTableName))
     .zipWithIndex
 
 
@@ -80,8 +78,8 @@ object IcebergSynapseConsumer:
 
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
 
-  extension (batchNumber: Long) def getTableName(streamId: String): String =
-    s"${streamId.replace('-', '_')}_${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_$batchNumber"
+  extension (stagingTablePrefix: String) def getTableName: String =
+    s"${stagingTablePrefix}__${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_${UUID.randomUUID().toString}".replace('-', '_')
 
   extension (table: Table) def toStagedBatch(namespace: String,
                                              warehouse: String,
