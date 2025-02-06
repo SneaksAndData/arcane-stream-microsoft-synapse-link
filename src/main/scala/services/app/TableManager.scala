@@ -2,21 +2,19 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
 import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, TargetTableSettings}
+import services.app.JdbcTableManager.generateAlterTableSQL
+import services.clients.BatchArchivationResult
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-
-import scala.jdk.CollectionConverters.*
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
-import org.apache.iceberg.Schema
-import org.slf4j.{Logger, LoggerFactory}
-import zio.{Scope, Task, UIO, ZIO, ZLayer}
-
-import java.sql.{Connection, DriverManager, ResultSet}
-import scala.concurrent.Future
+import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
+import org.apache.iceberg.types.Types.TimestampType
+import zio.{Task, ZIO, ZLayer}
 import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import org.apache.iceberg.types.Types.{NestedField, TimestampType}
@@ -24,14 +22,16 @@ import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions,
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.JdbcTableManager.{generateAlterTableSQL, generateUpdateTableSQL}
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
 
-import scala.annotation.tailrec
-import scala.util.{Try, Using}
+import java.sql.{Connection, DriverManager, ResultSet}
+import scala.concurrent.Future
+import scala.jdk.CollectionConverters.*
+
 
 trait TableManager:
   
-  def createTargetTable: Future[TableCreationResult]
+  def createTargetTable: Task[TableCreationResult]
 
-  def createArchiveTable: Future[TableCreationResult]
+  def createArchiveTable: Task[TableCreationResult]
 
   def cleanupStagingTables: Task[Unit]
 
@@ -74,20 +74,21 @@ class JdbcTableManager(options: JdbcConsumerOptions,
 
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
-  def createTargetTable: Future[TableCreationResult] =
-    logger.info(s"Creating target table ${targetTableSettings.targetTableFullName}")
-    for schema <- schemaProvider.getSchema
-        result <- createTable(targetTableSettings.targetTableFullName, schema)
-    yield result
+  def createTargetTable: Task[TableCreationResult] =
+    for
+      _ <- zlog("Creating target table", Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)))
+      schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
+      created <- ZIO.fromFuture(implicit ec => createTable(targetTableSettings.targetTableFullName, schema))
+    yield created
 
-  def createArchiveTable: Future[TableCreationResult] = 
-    logger.info(s"Creating target table ${archiveTableSettings.archiveTableFullName}")
-    for schema <- schemaProvider.getSchema
-        result <- createTable(archiveTableSettings.archiveTableFullName, schema)
-    yield result
+  def createArchiveTable: Task[TableCreationResult] =
+    for
+      _ <- zlog("Creating archive table", Seq(getAnnotation("archiveTableName", archiveTableSettings.archiveTableFullName)))
+      schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
+      created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, schema))
+    yield created
 
   def cleanupStagingTables: Task[Unit] =
     val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} LIKE '${streamContext.stagingTableNamePrefix}__%'"
@@ -98,7 +99,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
       for
         resultSet <- ZIO.attemptBlocking { statement.executeQuery() }
         strings <- ZIO.attemptBlocking { readStrings(resultSet) }
-        _ <- ZIO.foreach(strings)(tableName => ZIO.log("Found lost staging table: " + tableName))
+        _ <- ZIO.foreach(strings)(tableName => zlog("Found lost staging table: " + tableName))
         _ <- ZIO.foreach(strings)(dropTable)
       yield ()
     }
@@ -119,6 +120,14 @@ class JdbcTableManager(options: JdbcConsumerOptions,
     })
     yield ()
 
+  def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
+    for _ <- ZIO.foreach(missingFields)(field => {
+      val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+      zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
+    })
+    yield ()
+
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
     val statement = ZIO.attemptBlocking {
@@ -126,7 +135,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
     }
     ZIO.acquireReleaseWith(statement)(st => ZIO.succeed(st.close())) { statement =>
       for
-        _ <- ZIO.log("Dropping table: " + tableName)
+        _ <- zlog("Dropping table: " + tableName)
         _ <- ZIO.attemptBlocking { statement.execute() }
       yield ()
     }
@@ -143,7 +152,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
 
 
 object JdbcTableManager:
-  type Environemnt = JdbcConsumerOptions
+  type Environment = JdbcConsumerOptions
     & TargetTableSettings
     & ArchiveTableSettings
     & SchemaProvider[ArcaneSchema]
@@ -159,7 +168,7 @@ object JdbcTableManager:
   /**
    * The ZLayer that creates the JdbcConsumer.
    */
-  val layer: ZLayer[Environemnt, Nothing, TableManager] =
+  val layer: ZLayer[Environment, Nothing, TableManager] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for connectionOptions <- ZIO.service[JdbcConsumerOptions]
@@ -170,6 +179,9 @@ object JdbcTableManager:
         yield JdbcTableManager(connectionOptions, targetTableSettings, archiveTableSettings, schemaProvider, streamContext)
       }
     }
+
+  def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
+    s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
 
   def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
     s"ALTER TABLE ${tableName} ADD COLUMN ${fieldName} ${fieldType.convertType}"
@@ -196,5 +208,5 @@ object JdbcTableManager:
     case TypeID.STRING => "VARCHAR"
     case TypeID.UUID => "UUID"
     case TypeID.BINARY => "VARBINARY"
-    case _ => throw new IllegalArgumentException(s"Unsupported type: ${icebergType}")
+    case _ => throw new IllegalArgumentException(s"Unsupported type: $icebergType")
   }

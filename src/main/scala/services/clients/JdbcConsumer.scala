@@ -6,7 +6,8 @@ import services.clients.{BatchArchivationResult, JdbcConsumer}
 
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField, ArcaneType, DatePartitionField, Field, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
-import org.slf4j.{Logger, LoggerFactory}
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -39,7 +40,6 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
 
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
   def getPartitionValues(batchName: String, partitionFields: List[String]): Future[Map[String, List[String]]] =
@@ -109,7 +109,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       }
       ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
         for
-          _ <- ZIO.log(s"Optimizing table $tableName. Batch number: $batchNumber. fileSizeThreshold: $fileSizeThreshold")
+          _ <- zlog(s"Optimizing table $tableName. Batch number: $batchNumber. fileSizeThreshold: $fileSizeThreshold")
           _ <- ZIO.attemptBlocking { statement.execute() }
         yield true
       }
@@ -123,7 +123,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       }
       ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
         for
-          _ <- ZIO.log(s"Run expire_snapshots for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
+          _ <- zlog(s"Run expire_snapshots for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
           _ <- ZIO.attemptBlocking { statement.execute() }
         yield true
       }
@@ -137,7 +137,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       }
       ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
         for
-          _ <- ZIO.log(s"Run remove_orphan_files for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
+          _ <- zlog(s"Run remove_orphan_files for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
           _ <- ZIO.attemptBlocking { statement.execute() }
         yield true
       }
@@ -151,9 +151,9 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
     }
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
       for
-        _ <- ZIO.log(s"archiving batch ${batch.name}")
+        _ <- zlog(s"archiving batch ${batch.name}")
         _ <- ZIO.blocking { ZIO.succeed(statement.execute()) }
-        _ <- ZIO.log(s"archivation completed ${batch.name}")
+        _ <- zlog(s"archivation completed ${batch.name}")
       yield new BatchArchivationResult
     }
 
@@ -163,7 +163,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
     }
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
       for
-        _ <- ZIO.log(s"archiving batch ${batch.name}")
+        _ <- zlog(s"archiving batch ${batch.name}")
         _ <- ZIO.blocking { ZIO.succeed(statement.execute()) }
       yield new BatchArchivationResult
     }

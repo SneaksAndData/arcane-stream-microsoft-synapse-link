@@ -8,6 +8,8 @@ import services.streaming.consumers.InFlightBatch
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.TableManager
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
@@ -31,7 +33,7 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
   override def process: ZPipeline[Any, Throwable, InFlightBatch, InFlightBatch] =
     ZPipeline.mapZIO({
       case ((batches, other), batchNumber) =>
-        for _ <- ZIO.log(s"Applying batch $batchNumber")
+        for _ <- zlog(s"Applying batch $batchNumber")
             targetSchema <- jdbcConsumer.getTargetSchema(targetTableSettings.targetTableFullName)
             missingFields = tableManager.getMissingFields(targetSchema, batches.map(_.schema)).flatten.toSeq
             _ <- tableManager.addColumns(targetTableSettings.targetTableFullName, missingFields)
@@ -55,11 +57,8 @@ object MergeBatchProcessor:
    * @param jdbcConsumer The JDBC consumer.
    * @return The initialized MergeProcessor instance
    */
-  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
-            parallelismSettings: ParallelismSettings,
-            targetTableSettings: TargetTableSettings,
-            tableManager: TableManager): MergeBatchProcessor =
-    new MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings, tableManager)
+  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings, targetTableSettings: TargetTableSettings): MergeBatchProcessor =
+    new MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings)
 
   /**
    * The required environment for the MergeProcessor.
