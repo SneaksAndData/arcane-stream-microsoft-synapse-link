@@ -41,7 +41,8 @@ class CdmTableStream(name: String,
    * @return A stream of rows for this table
    */
   def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, (StoredBlob, CdmSchemaProvider)] =
-    getRootDropPrefixes(storagePath, lookBackInterval)
+    val prefixes = dropLast(getRootDropPrefixes(storagePath, lookBackInterval))
+    ZStream.fromIterableZIO(prefixes)
       .flatMap({
           case (prefix, schemaProvider) => zioReader.streamPrefixes(storagePath + prefix.name + name).zip(ZStream.succeed(schemaProvider))
         })
@@ -56,6 +57,11 @@ class CdmTableStream(name: String,
         })
         .repeat(Schedule.spaced(changeCaptureInterval))
 
+
+  private def dropLast(stream: ZStream[Any, Throwable, (StoredBlob, CdmSchemaProvider)]): ZIO[Any, Throwable, Seq[(StoredBlob, CdmSchemaProvider)]] =
+    for blobs <- stream.runCollect
+        _ <- ZIO.log(s"Dropping last element from from the blobs stream: ${blobs.last._1.name}")
+    yield blobs.dropRight(1)
 
   private def getRootDropPrefixes(storageRoot: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, (StoredBlob, CdmSchemaProvider)] =
     for prefix <- zioReader.getRootPrefixes(storagePath, lookBackInterval).filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json"))
