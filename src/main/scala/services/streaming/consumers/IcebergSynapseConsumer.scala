@@ -66,6 +66,7 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
         val batchesZIO = ZIO.foreach(groupedBySchema)({ case (schema, rows) => writeDataRows(rows, schema) })
         batchesZIO.map(b => (b.values, deleteRequests))
     )
+    .mapZIO(elements => writeDataRows(elements, streamContext.stagingTableNamePrefix.getTableName))
     .zipWithIndex
 
 
@@ -86,8 +87,8 @@ object IcebergSynapseConsumer:
 
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm_ss")
 
-  def getTableName(streamId: String): String =
-    s"${streamId}_${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_${UUID.randomUUID().toString}".replace('-', '_')
+  extension (stagingTablePrefix: String) def getTableName: String =
+    s"${stagingTablePrefix}__${ZonedDateTime.now(ZoneOffset.UTC).format(formatter)}_${UUID.randomUUID().toString}".replace('-', '_')
 
   extension (table: Table) def toStagedBatch(namespace: String,
                                              warehouse: String,
