@@ -6,7 +6,7 @@ import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
 import services.clients.BatchArchivationResult
 import services.streaming.consumers.IcebergSynapseConsumer.{getTableName, toStagedBatch}
 import services.data_providers.microsoft_synapse_link.DataStreamElement
-import services.streaming.extensions.DataRowExtensions.schema
+import com.sneaksanddata.arcane.microsoft_synapse_link.extensions.DataRowExtensions.schema
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, MergeKeyField}

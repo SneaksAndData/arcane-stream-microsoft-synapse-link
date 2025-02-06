@@ -34,19 +34,22 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
     ZPipeline.mapZIO({
       case ((batches, other), batchNumber) =>
         for _ <- zlog(s"Applying batch $batchNumber")
-            targetSchema <- jdbcConsumer.getTargetSchema(targetTableSettings.targetTableFullName)
-            missingFields = tableManager.getMissingFields(targetSchema, batches.map(_.schema)).flatten.toSeq
-            _ <- tableManager.addColumns(targetTableSettings.targetTableFullName, missingFields)
+        
+            _ <- ZIO.foreach(batches)(batch => tableManager.migrateSchema(batch.schema, targetTableSettings.targetTableFullName))
             _ <- ZIO.foreach(batches)(batch => jdbcConsumer.applyBatch(batch))
+        
             _ <- jdbcConsumer.optimizeTarget(targetTableSettings.targetTableFullName, batchNumber,
                   targetTableSettings.targetOptimizeSettings.batchThreshold,
                   targetTableSettings.targetOptimizeSettings.fileSizeThreshold)
+        
             _ <- jdbcConsumer.expireSnapshots(targetTableSettings.targetTableFullName, batchNumber,
                   targetTableSettings.targetSnapshotExpirationSettings.batchThreshold,
                   targetTableSettings.targetSnapshotExpirationSettings.retentionThreshold)
+        
             _ <- jdbcConsumer.expireOrphanFiles(targetTableSettings.targetTableFullName, batchNumber,
-              targetTableSettings.targetOrphanFilesExpirationSettings.batchThreshold,
-              targetTableSettings.targetOrphanFilesExpirationSettings.retentionThreshold)
+                targetTableSettings.targetOrphanFilesExpirationSettings.batchThreshold,
+                targetTableSettings.targetOrphanFilesExpirationSettings.retentionThreshold)
+          
         yield ((batches, other), batchNumber)
     })
 

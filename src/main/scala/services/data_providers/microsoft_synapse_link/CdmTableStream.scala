@@ -95,8 +95,8 @@ class CdmTableStream(name: String,
     regex.replaceSomeIn(csvLine, m => Some(Matcher.quoteReplacement(m.matched.replace("\n", "")))).replace("\r", "")
   }
 
-  def getData(streamData: (BufferedReader, AdlsStoragePath)): ZStream[Any, IOException, DataStreamElement] = streamData match
-    case (javaStream, fileName) =>
+  def getData(streamData: (BufferedReader, AdlsStoragePath, CdmSchemaProvider)): ZStream[Any, IOException, DataStreamElement] = streamData match
+    case (javaStream, fileName, schemaProvider: CdmSchemaProvider) =>
       ZStream.acquireReleaseWith(ZIO.attempt(javaStream))(stream => ZIO.succeed(stream.close()))
         .tap(_ => zlog(s"Getting data from directory: $fileName"))
         .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))

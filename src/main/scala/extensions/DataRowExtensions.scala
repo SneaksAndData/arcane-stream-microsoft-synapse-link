@@ -1,5 +1,5 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
-package services.streaming.extensions
+package extensions
 
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, DatePartitionField, Field, MergeKeyField}
 

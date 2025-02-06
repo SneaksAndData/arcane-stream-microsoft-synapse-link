@@ -27,18 +27,10 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
     ZPipeline.mapZIO({
       case ((batches, other), batchNumber) =>
         for _ <- zlog(s"Archiving batch $batchNumber")
-
-            targetSchema <- tableManager.getTargetSchema(archiveTableSettings.archiveTableFullName)
-
-            updatingFields = tableManager.getUpdatingFields(targetSchema, batches.map(_.schema)).flatten.toSeq
-            _ <- tableManager.modifyColumns(archiveTableSettings.archiveTableFullName, updatingFields)
-
-            targetSchema <- jdbcConsumer.getTargetSchema(archiveTableSettings.archiveTableFullName)
-            missingFields = tableManager.getMissingFields(targetSchema, batches.map(_.schema)).flatten.toSeq
-            _ <- tableManager.addColumns(archiveTableSettings.archiveTableFullName, missingFields)
-
-            _ <- ZIO.foreach(batches)(batch => jdbcConsumer.archiveBatch(batch))
-
+            _ <- ZIO.foreach(batches){
+              batch => tableManager.migrateSchema(batch.schema, archiveTableSettings.archiveTableFullName) *>
+                tableManager.getTargetSchema(batch.name).flatMap(schema => jdbcConsumer.archiveBatch(batch, schema))
+            }
             results <- ZIO.foreach(batches)(batch => jdbcConsumer.dropTempTable(batch))
             _ <- jdbcConsumer.optimizeTarget(archiveTableSettings.archiveTableFullName, batchNumber,
                 archiveTableSettings.archiveOptimizeSettings.batchThreshold,
