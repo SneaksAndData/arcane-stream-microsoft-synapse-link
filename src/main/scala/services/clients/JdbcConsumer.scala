@@ -49,7 +49,8 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
           .map(collectPartitionColumn(_, partitionField))
           .map(values => partitionField -> values.toList)
       )).map(_.toMap)
-
+    
+    
   def applyBatch(batch: Batch): Task[BatchApplicationResult] =
     val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) 
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())){ statement =>
