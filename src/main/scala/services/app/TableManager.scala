@@ -19,8 +19,6 @@ import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.JdbcTableManager.{generateAlterTableSQL, generateUpdateTableSQL}
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
 
 import java.sql.{Connection, DriverManager, ResultSet}
 import scala.concurrent.Future
@@ -112,22 +110,6 @@ class JdbcTableManager(options: JdbcConsumerOptions,
       })
     yield ()
 
-  def modifyColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
-    for _ <- ZIO.foreach(missingFields)(field => {
-      val query = generateUpdateTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
-      ZIO.log(s"Modifing column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
-        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
-    })
-    yield ()
-
-  def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
-    for _ <- ZIO.foreach(missingFields)(field => {
-      val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
-      zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
-        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
-    })
-    yield ()
-
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
     val statement = ZIO.attemptBlocking {
@@ -182,12 +164,6 @@ object JdbcTableManager:
 
   def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
     s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
-
-  def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
-    s"ALTER TABLE ${tableName} ADD COLUMN ${fieldName} ${fieldType.convertType}"
-
-  def generateUpdateTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
-    s"ALTER TABLE ${tableName} ALTER COLUMN ${fieldName} SET DATA TYPE ${fieldType.convertType}"
 
   private def generateCreateTableSQL(tableName: String, schema: Schema): String =
     val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")

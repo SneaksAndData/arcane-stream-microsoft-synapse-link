@@ -6,9 +6,10 @@ import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
 import services.clients.BatchArchivationResult
 import services.streaming.consumers.IcebergSynapseConsumer.{getTableName, toStagedBatch}
 import services.data_providers.microsoft_synapse_link.DataStreamElement
+import services.streaming.extensions.DataRowExtensions.schema
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
+import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
@@ -16,8 +17,6 @@ import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, giv
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchConsumer, BatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.{IcebergStreamingConsumer, StreamingConsumer}
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
-
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.apache.zookeeper.proto.DeleteRequest
@@ -28,9 +27,9 @@ import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
-type InFlightBatch = ((StagedVersionedBatch, Seq[SourceCleanupRequest]), Long)
-type CompletedBatch = (BatchArchivationResult, Seq[SourceCleanupRequest])
-type PiplineResult = (BatchArchivationResult, Seq[SourceCleanupResult])
+type InFlightBatch = ((Iterable[StagedVersionedBatch], Seq[SourceCleanupRequest]), Long)
+type CompletedBatch = (Iterable[BatchArchivationResult], Seq[SourceCleanupRequest])
+type PipelineResult = (Iterable[BatchArchivationResult], Seq[SourceCleanupResult])
 
 class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
                              icebergCatalogSettings: IcebergCatalogSettings,
@@ -61,27 +60,22 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
 
   private def writeStagingTable = ZPipeline[Chunk[DataStreamElement]]()
     .mapZIO(elements =>
-        val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(row => extractSchema(row))
+        val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(_.schema)
         val deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
-        val batchesZIO = ZIO.foreach(groupedBySchema)({ case (schema, rows) => writeDataRows(rows, schema) })
-        batchesZIO.map(b => (b.values, deleteRequests))
+        val batchResults = ZIO.foreach(groupedBySchema){
+          case (schema, rows) => writeDataRows(rows, schema)
+        }
+        batchResults.map(b => (b.values, deleteRequests))
     )
-    .mapZIO(elements => writeDataRows(elements, streamContext.stagingTableNamePrefix.getTableName))
     .zipWithIndex
 
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[(ArcaneSchema, StagedVersionedBatch)] =
-    val tableName = getTableName(streamContext.stagingTableNamePrefix)
     for
-      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, tableName, arcaneSchema))
+      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, streamContext.stagingTableNamePrefix.getTableName, arcaneSchema))
       batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, sinkSettings.targetTableFullName, Map())
     yield (arcaneSchema, batch)
 
-  private def extractSchema(row: DataRow): ArcaneSchema =
-    row.foldRight(ArcaneSchema.empty()) {
-      case (cell, schema) if cell.name == MergeKeyField.name => schema ++ Seq(MergeKeyField)
-      case (cell, schema) => schema ++ Seq(Field(cell.name, cell.Type))
-    }
 
 object IcebergSynapseConsumer:
 

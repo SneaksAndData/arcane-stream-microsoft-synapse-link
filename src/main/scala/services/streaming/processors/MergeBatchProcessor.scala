@@ -57,8 +57,8 @@ object MergeBatchProcessor:
    * @param jdbcConsumer The JDBC consumer.
    * @return The initialized MergeProcessor instance
    */
-  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings, targetTableSettings: TargetTableSettings): MergeBatchProcessor =
-    new MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings)
+  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings, targetTableSettings: TargetTableSettings, tableManager: TableManager): MergeBatchProcessor =
+    new MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings, tableManager)
 
   /**
    * The required environment for the MergeProcessor.

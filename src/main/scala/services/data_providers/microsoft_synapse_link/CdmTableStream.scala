@@ -22,16 +22,15 @@ import scala.util.matching.Regex
 
 type DataStreamElement = DataRow | SourceCleanupRequest
 
-class CdmTableStream(
-                      name: String,
+class CdmTableStream(name: String,
                       storagePath: AdlsStoragePath,
                       entityModel: SimpleCdmEntity,
                       zioReader: AzureBlobStorageReaderZIO,
                       reader: AzureBlobStorageReader,
                       parallelismSettings: ParallelismSettings,
-                      streamContext: StreamContext):
+                      streamContext: StreamContext,
+                      schemaProvider: CdmSchemaProvider):
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private val schema: ArcaneSchema = implicitly(entityModel)
 
   /**
@@ -130,14 +129,16 @@ object CdmTableStream:
             zioReader: AzureBlobStorageReaderZIO,
             reader: AzureBlobStorageReader,
             parallelismSettings: ParallelismSettings,
-            streamContext: StreamContext): CdmTableStream = new CdmTableStream(
+            streamContext: StreamContext,
+            schemaProvider: CdmSchemaProvider): CdmTableStream = new CdmTableStream(
     name = settings.name,
     storagePath = AdlsStoragePath(settings.rootPath).get,
     entityModel = entityModel,
     zioReader = zioReader,
     reader = reader,
     parallelismSettings = parallelismSettings,
-    streamContext = streamContext
+    streamContext = streamContext,
+    schemaProvider = schemaProvider
   )
 
   /**
@@ -155,7 +156,8 @@ object CdmTableStream:
         parSettings <- ZIO.service[ParallelismSettings]
         l <- ZIO.fromFuture(_ => schemaProvider.getEntity)
         sc <- ZIO.service[StreamContext]
-      } yield CdmTableStream(tableSettings, l, readerZIO, reader, parSettings, sc)
+        schemaProvider <- ZIO.service[CdmSchemaProvider]
+      } yield CdmTableStream(tableSettings, l, readerZIO, reader, parSettings, sc, schemaProvider)
     }
 
 
