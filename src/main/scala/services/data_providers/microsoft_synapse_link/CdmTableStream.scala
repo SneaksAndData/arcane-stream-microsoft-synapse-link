@@ -61,7 +61,7 @@ class CdmTableStream(name: String,
   private def dropLast(stream: ZStream[Any, Throwable, (StoredBlob, CdmSchemaProvider)]): ZIO[Any, Throwable, Seq[(StoredBlob, CdmSchemaProvider)]] =
     for blobs <- stream.runCollect
         _ <- ZIO.log(s"Dropping last element from from the blobs stream: ${blobs.last._1.name}")
-    yield blobs.dropRight(1)
+    yield if blobs.nonEmpty then blobs.dropRight(1) else blobs
 
   private def getRootDropPrefixes(storageRoot: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, (StoredBlob, CdmSchemaProvider)] =
     for prefix <- zioReader.getRootPrefixes(storagePath, lookBackInterval).filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json"))
