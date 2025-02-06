@@ -18,6 +18,8 @@ import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.{NestedField, TimestampType}
+import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
+import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.JdbcTableManager.{generateAlterTableSQL, generateUpdateTableSQL}
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
@@ -180,7 +182,7 @@ object JdbcTableManager:
     s"CREATE TABLE IF NOT EXISTS $tableName ($columns)"
 
   // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
-  extension (field: Type) def convertType: String = field.typeId() match {
+  extension (icebergType: Type) def convertType: String = icebergType.typeId() match {
     case TypeID.BOOLEAN => "BOOLEAN"
     case TypeID.INTEGER => "INTEGER"
     case TypeID.LONG => "BIGINT"
@@ -189,10 +191,10 @@ object JdbcTableManager:
     case TypeID.DECIMAL => "DECIMAL(1, 2)"
     case TypeID.DATE => "DATE"
     case TypeID.TIME => "TIME(6)"
-    case TypeID.TIMESTAMP if field.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6) WITH TIME ZONE"
-    case TypeID.TIMESTAMP if !field.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6)"
+    case TypeID.TIMESTAMP if icebergType.isInstanceOf[TimestampType] && icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6) WITH TIME ZONE"
+    case TypeID.TIMESTAMP if icebergType.isInstanceOf[TimestampType] && !icebergType.asInstanceOf[TimestampType].shouldAdjustToUTC() => "TIMESTAMP(6)"
     case TypeID.STRING => "VARCHAR"
     case TypeID.UUID => "UUID"
     case TypeID.BINARY => "VARBINARY"
-    case _ => throw new IllegalArgumentException(s"Unsupported type: ${field}")
+    case _ => throw new IllegalArgumentException(s"Unsupported type: ${icebergType}")
   }
