@@ -54,8 +54,8 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
 
   private def logResults: ZSink[Any, Throwable, PiplineResult, Any, Unit] = ZSink.foreach {
     case (arch, results) =>
-      ZIO.log(s"Processing completed: ${arch}") *>
-        ZIO.foreach(results)(src => ZIO.log(s"Source cleanup completed for ${src.prefix}: ${src.success}"))
+      ZIO.log(s"Processing completed: $arch") *>
+        ZIO.foreach(results)(src => ZIO.log(s"Marked prefix for deletion: ${src.blobName} with marker ${src.deleteMarker}"))
   }
 
   private def writeStagingTable = ZPipeline[Chunk[DataStreamElement]]()

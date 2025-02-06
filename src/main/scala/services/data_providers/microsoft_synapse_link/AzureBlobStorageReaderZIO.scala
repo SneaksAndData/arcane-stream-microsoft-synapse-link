@@ -3,6 +3,7 @@ package services.data_providers.microsoft_synapse_link
 
 import com.azure.core.credential.TokenCredential
 import com.azure.core.http.rest.PagedResponse
+import com.azure.core.util.BinaryData
 import com.azure.identity.DefaultAzureCredentialBuilder
 import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
@@ -113,15 +114,15 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
           case _ => ZStream.empty
     yield eligibleToProcess
     
-  def deleteSourceFile(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
-    if deleteDryRun then
-      ZIO.log("Dry run: Deleting source file: " + fileName).map(_ => SourceCleanupResult(fileName, true))
-    else
-      ZIO.log("Deleting source file: " + fileName) *>
+  def markForDeletion(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
+      val deleteMarker = fileName.copy(blobPrefix = fileName.blobPrefix + ".delete")
+      ZIO.log(s"Marking source file for deletion: $fileName with marker: $deleteMarker") *>
         ZIO.attemptBlocking {
-            serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists()
+            serviceClient.getBlobContainerClient(fileName.container)
+              .getBlobClient(deleteMarker.blobPrefix)
+              .upload(BinaryData.fromString(""), true)
         }
-        .map(result => SourceCleanupResult(fileName, result))
+        .map(result => SourceCleanupResult(fileName, deleteMarker))
 
 object AzureBlobStorageReaderZIO:
 

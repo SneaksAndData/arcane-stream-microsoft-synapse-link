@@ -68,7 +68,7 @@ class CdmTableStream(
     else
       for {
         line <- ZIO.attemptBlocking(Option(stream.readLine()))
-        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(s"\n$line"))
+        continuation <- tryGetContinuation(stream, quotes + line.getOrElse("").count(_ == '"'), accum.append(line.map(l => s"\n$l").getOrElse("")))
       }
       yield continuation
 
