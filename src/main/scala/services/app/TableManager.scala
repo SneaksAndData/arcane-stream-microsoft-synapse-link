@@ -18,7 +18,8 @@ import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
 import org.apache.iceberg.types.Types.{NestedField, TimestampType}
-import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
+import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.JdbcTableManager.generateAlterTableSQL
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.clients.BatchArchivationResult
 
 import scala.annotation.tailrec
@@ -77,6 +78,14 @@ class JdbcTableManager(options: JdbcConsumerOptions,
       yield ()
     }
 
+  def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
+    for _ <- ZIO.foreach(missingFields)(field => {
+      val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+      ZIO.log(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
+    })
+    yield ()
+
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
     val statement = ZIO.attemptBlocking {
@@ -129,6 +138,9 @@ object JdbcTableManager:
       }
     }
 
+  def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
+    s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
+    
   private def generateCreateTableSQL(tableName: String, schema: Schema): String =
     val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")
     s"CREATE TABLE IF NOT EXISTS $tableName ($columns)"
