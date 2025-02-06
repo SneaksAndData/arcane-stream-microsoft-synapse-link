@@ -1,9 +1,11 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.consumers
 
+import models.app.streaming.{SourceCleanupRequest, SourceCleanupResult}
 import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
 import services.clients.BatchArchivationResult
 import services.streaming.consumers.IcebergSynapseConsumer.{getTableName, toStagedBatch}
+import services.data_providers.microsoft_synapse_link.DataStreamElement
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
@@ -13,12 +15,12 @@ import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalog
 import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchConsumer, BatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.{IcebergStreamingConsumer, StreamingConsumer}
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.{SourceCleanupRequest, SourceCleanupResult}
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.DataStreamElement
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
+
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.apache.zookeeper.proto.DeleteRequest
-import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
 
@@ -39,8 +41,6 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
                              sourceCleanupProcessor: BatchProcessor[CompletedBatch, PiplineResult])
   extends BatchConsumer[Chunk[DataStreamElement]]:
 
-  private val logger: Logger = LoggerFactory.getLogger(classOf[IcebergStreamingConsumer])
-
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(5)
 
   /**
@@ -54,8 +54,8 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
 
   private def logResults: ZSink[Any, Throwable, PiplineResult, Any, Unit] = ZSink.foreach {
     case (arch, results) =>
-      ZIO.log(s"Processing completed: ${arch}") *>
-        ZIO.foreach(results)(src => ZIO.log(s"Source cleanup completed for ${src.prefix}: ${src.success}"))
+      zlog(s"Processing completed: ${arch}") *>
+        ZIO.foreach(results)(src => zlog(s"Source cleanup completed for ${src.prefix}: ${src.success}"))
   }
 
   private def writeStagingTable = ZPipeline[Chunk[DataStreamElement]]()

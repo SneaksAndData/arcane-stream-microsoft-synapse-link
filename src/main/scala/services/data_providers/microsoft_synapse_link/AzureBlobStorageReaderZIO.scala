@@ -8,10 +8,14 @@ import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
+
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureModelConversions.given_Conversion_BlobItem_StoredBlob
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupResult
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
+import models.app.streaming.SourceCleanupResult
+
 import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
 
@@ -67,7 +71,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
   def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Task[BufferedReader] =
     val client = getBlobClient(blobPath)
     for
-      _ <- ZIO.log("Downloading blob content from data file: " + blobPath.toHdfsPath)
+      _ <- zlog("Downloading blob content from data file: " + blobPath.toHdfsPath)
       stream <- ZIO.attemptBlocking { 
         val stream = client.openInputStream() 
         new BufferedReader(new InputStreamReader(stream))
@@ -115,9 +119,9 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     
   def deleteSourceFile(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
     if deleteDryRun then
-      ZIO.log("Dry run: Deleting source file: " + fileName).map(_ => SourceCleanupResult(fileName, true))
+      zlog("Dry run: Deleting source file: " + fileName).map(_ => SourceCleanupResult(fileName, true))
     else
-      ZIO.log("Deleting source file: " + fileName) *>
+      zlog("Deleting source file: " + fileName) *>
         ZIO.attemptBlocking {
             serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists()
         }

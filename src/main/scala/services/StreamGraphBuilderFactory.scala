@@ -6,6 +6,8 @@ import services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuild
 import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
 import zio.{ZIO, ZLayer}
 
 import java.time.OffsetDateTime
@@ -23,7 +25,7 @@ object StreamGraphBuilderFactory:
   private def getGraphBuilder =
     for
       context <- ZIO.service[StreamContext]
-      _ <- ZIO.log("Start the graph builder type resolution")
+      _ <- zlog("Start the graph builder type resolution")
       builder <- VersionedDataGraphBuilder.layer
     yield builder
 

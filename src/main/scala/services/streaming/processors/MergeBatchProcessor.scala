@@ -7,6 +7,8 @@ import services.streaming.consumers.InFlightBatch
 
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 
@@ -28,7 +30,7 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
   override def process: ZPipeline[Any, Throwable, InFlightBatch, InFlightBatch] =
     ZPipeline.mapZIO({
       case ((batch, other), batchNumber) =>
-        for _ <- ZIO.log(s"Applying batch $batchNumber")
+        for _ <- zlog(s"Applying batch $batchNumber")
             _ <- jdbcConsumer.applyBatch(batch)
             _ <- jdbcConsumer.optimizeTarget(targetTableSettings.targetTableFullName, batchNumber,
                   targetTableSettings.targetOptimizeSettings.batchThreshold,

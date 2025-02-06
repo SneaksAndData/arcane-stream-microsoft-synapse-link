@@ -4,6 +4,7 @@ package services.data_providers.microsoft_synapse_link
 import models.app.streaming.SourceCleanupRequest
 import models.app.{AzureConnectionSettings, ParallelismSettings}
 import services.data_providers.microsoft_synapse_link.CdmTableStream.getListPrefixes
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.cdm.{SimpleCdmEntity, given_Conversion_SimpleCdmEntity_ArcaneSchema, given_Conversion_String_ArcaneSchema_DataRow}
@@ -11,7 +12,6 @@ import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.ZStream
 import zio.{Schedule, ZIO, ZLayer}
 
@@ -31,7 +31,6 @@ class CdmTableStream(
                       streamContext: StreamContext):
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   private val schema: ArcaneSchema = implicitly(entityModel)
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   /**
    * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
@@ -130,14 +129,13 @@ object CdmTableStream:
     streamContext = streamContext
   )
 
-
   /**
    * The ZLayer that creates the CdmDataProvider.
    */
   val layer: ZLayer[Environment, Throwable, CdmTableStream] =
     ZLayer {
       for {
-        _ <- ZIO.log("Creating the CDM data provider")
+        _ <- zlog("Creating the CDM data provider")
         connectionSettings <- ZIO.service[AzureConnectionSettings]
         tableSettings <- ZIO.service[CdmTableSettings]
         reader <- ZIO.service[AzureBlobStorageReaderZIO]

@@ -7,6 +7,7 @@ import services.clients.JdbcConsumer
 import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
 import services.streaming.consumers.IcebergSynapseConsumer
 import services.streaming.processors.{ArchivationProcessor, CdmGroupingProcessor, MergeBatchProcessor, SourceDeleteProcessor, TypeAlignmentService}
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
@@ -24,9 +25,9 @@ object main extends ZIOAppDefault {
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   private val appLayer = for {
-    _ <- ZIO.log("Application starting")
-    _ <- ZIO.service[StreamContext].debug("initialized stream context")
-    streamRunner <- ZIO.service[StreamRunnerService].debug("initialized stream runner")
+    _ <- zlog("Application starting")
+    _ <- ZIO.service[StreamContext]
+    streamRunner <- ZIO.service[StreamRunnerService]
     _ <- streamRunner.run
   } yield ()
 
@@ -67,7 +68,7 @@ object main extends ZIOAppDefault {
       JdbcTableManager.layer)
       .catchAllCause {cause =>
         for {
-          _ <- ZIO.logErrorCause(s"Application failed: ${cause.squashTrace.getMessage}", cause)
+          _ <- zlogError(s"Application failed: ${cause.squashTrace.getMessage}", cause)
           _ <- exit(zio.ExitCode(1))
         } yield ()
       }
