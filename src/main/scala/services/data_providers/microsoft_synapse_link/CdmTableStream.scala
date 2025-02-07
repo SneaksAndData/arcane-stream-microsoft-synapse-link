@@ -3,12 +3,13 @@ package services.data_providers.microsoft_synapse_link
 
 import models.app.streaming.SourceCleanupRequest
 import models.app.{AzureConnectionSettings, ParallelismSettings}
-import services.data_providers.microsoft_synapse_link.CdmTableStream.getListPrefixes
-import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+import services.data_providers.microsoft_synapse_link.CdmTableStream.withSchema
 
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.cdm.{SimpleCdmEntity, given_Conversion_SimpleCdmEntity_ArcaneSchema, given_Conversion_String_ArcaneSchema_DataRow}
+import com.sneaksanddata.arcane.framework.models.cdm.given_Conversion_String_ArcaneSchema_DataRow
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
+import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
@@ -22,16 +23,22 @@ import scala.util.matching.Regex
 
 type DataStreamElement = DataRow | SourceCleanupRequest
 
+type BlobStream = ZStream[Any, Throwable, StoredBlob]
+
+type SchemaEnrichedBlobStream = ZStream[Any, Throwable, SchemaEnrichedBlob]
+
+case class SchemaEnrichedBlob(blob: StoredBlob, schemaProvider: SchemaProvider[ArcaneSchema])
+
+case class MetadataEnrichedReader(javaStream: BufferedReader, filePath: AdlsStoragePath, schemaProvider: SchemaProvider[ArcaneSchema])
+
+case class SchemaEnrichedContent[TContent](content: TContent, schema: ArcaneSchema)
+
 class CdmTableStream(name: String,
                       storagePath: AdlsStoragePath,
-                      entityModel: SimpleCdmEntity,
                       zioReader: AzureBlobStorageReaderZIO,
                       reader: AzureBlobStorageReader,
                       parallelismSettings: ParallelismSettings,
-                      streamContext: StreamContext,
-                      schemaProvider: CdmSchemaProvider):
-  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  private val schema: ArcaneSchema = implicitly(entityModel)
+                      streamContext: StreamContext):
 
   /**
    * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
@@ -40,42 +47,30 @@ class CdmTableStream(name: String,
    * @param changeCaptureInterval Interval to capture changes
    * @return A stream of rows for this table
    */
-  def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, (StoredBlob, CdmSchemaProvider)] =
-    val prefixes = dropLast(getRootDropPrefixes(storagePath, lookBackInterval))
-    ZStream.fromIterableZIO(prefixes)
-      .flatMap({
-          case (prefix, schemaProvider) => zioReader.streamPrefixes(storagePath + prefix.name + name).zip(ZStream.succeed(schemaProvider))
-        })
-        .filter({
-          case (blob, _) => blob.name.endsWith(s"/$name/")
-        })
-        .flatMap({
-          case (prefix, schema) => zioReader.streamPrefixes(storagePath + prefix.name).zip(ZStream.succeed(schema))
-        })
-      .tap(
-        {
-          case (blob, schema) => zlog(s"Processing blob: ${blob.name} with schema: $schema")
-        })
-        .filter({
-          case (blob, _) => blob.name.endsWith(".csv")
-        })
-        .repeat(Schedule.spaced(changeCaptureInterval))
+  def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, SchemaEnrichedBlob] =
+    val rootPrefixes = dropLast(getRootDropPrefixes(storagePath, lookBackInterval))
+    ZStream.fromIterableZIO(rootPrefixes)
+      .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+      .filter(seb => seb.blob.name.endsWith(s"/$name/"))
+      .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+      .filter(seb => seb.blob.name.endsWith(".csv"))
+      .repeat(Schedule.spaced(changeCaptureInterval))
 
 
-  private def dropLast(stream: ZStream[Any, Throwable, (StoredBlob, CdmSchemaProvider)]): ZIO[Any, Throwable, Seq[(StoredBlob, CdmSchemaProvider)]] =
+  private def dropLast(stream: SchemaEnrichedBlobStream): ZIO[Any, Throwable, Seq[SchemaEnrichedBlob]] =
     for blobs <- stream.runCollect
-        _ <- ZIO.log(s"Dropping last element from from the blobs stream: ${if blobs.nonEmpty then blobs.last._1.name else "empty"}")
+        _ <- ZIO.log(s"Dropping last element from from the blobs stream: ${if blobs.nonEmpty then blobs.last.blob.name else "empty"}")
     yield if blobs.nonEmpty then blobs.dropRight(1) else blobs
 
-  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, (StoredBlob, CdmSchemaProvider)] =
+  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, lookBackInterval: Duration): SchemaEnrichedBlobStream =
     for prefix <- zioReader.getRootPrefixes(storagePath, lookBackInterval).filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json"))
       schemaProvider = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
-    yield (prefix, schemaProvider)
+    yield SchemaEnrichedBlob(prefix, schemaProvider)
 
 
-  def getStream(blob: (StoredBlob, CdmSchemaProvider)): ZIO[Any, IOException, (BufferedReader, AdlsStoragePath, CdmSchemaProvider)] =
-    zioReader.getBlobContent(storagePath + blob._1.name)
-      .map(javaReader => (javaReader, storagePath + blob._1.name, blob._2))
+  def getStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, MetadataEnrichedReader] =
+    zioReader.getBlobContent(storagePath + seb.blob.name)
+      .map(javaReader => MetadataEnrichedReader(javaReader, storagePath + seb.blob.name, seb.schemaProvider))
       .mapError(e => new IOException(s"Failed to get blob content: ${e.getMessage}", e))
 
   def tryGetContinuation(stream: BufferedReader, quotes: Int, accum: StringBuilder): ZIO[Any, Throwable, String] =
@@ -105,51 +100,45 @@ class CdmTableStream(name: String,
     regex.replaceSomeIn(csvLine, m => Some(Matcher.quoteReplacement(m.matched.replace("\n", "")))).replace("\r", "")
   }
 
-  def getData(streamData: (BufferedReader, AdlsStoragePath, CdmSchemaProvider)): ZStream[Any, IOException, DataStreamElement] = streamData match
-    case (javaStream, fileName, schemaProvider: CdmSchemaProvider) =>
-      ZStream.acquireReleaseWith(ZIO.attempt(javaStream))(stream => ZIO.succeed(stream.close()))
-        .tap(_ => zlog(s"Getting data from directory: $fileName"))
+  def getData(streamData: MetadataEnrichedReader): ZStream[Any, IOException, DataStreamElement] =
+      ZStream.acquireReleaseWith(ZIO.attempt(streamData.javaStream))(stream => ZIO.succeed(stream.close()))
         .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))
         .takeWhile(_.isDefined)
         .map(_.get)
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
-        .mapZIO(content => ZIO.fromFuture(sc => schemaProvider.getSchema).map(schema => (content, schema)))
-        .mapZIO({
-          case (content, schema) => ZIO.attempt(implicitly[DataRow](content, schema))
-        })
-        .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: $fileName", e))
-        .concat(ZStream.succeed(SourceCleanupRequest(fileName)))
+        .mapZIO(content => ZIO.fromFuture(sc => streamData.schemaProvider.getSchema).map(schema => SchemaEnrichedContent(content, schema)))
+        .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
+        .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${streamData.filePath} with", e))
+        .concat(ZStream.succeed(SourceCleanupRequest(streamData.filePath)))
         .zipWithIndex
         .flatMap({
-          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm $fileName, completed processing") *> ZStream.succeed(e)
+          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm ${streamData.filePath}, completed processing") *> ZStream.succeed(e)
           case (r: DataRow, _) => ZStream.succeed(r)
         })
 
 object CdmTableStream:
+
+  extension (stream: ZStream[Any, Throwable, StoredBlob]) def withSchema(schemaProvider: SchemaProvider[ArcaneSchema]): SchemaEnrichedBlobStream =
+    stream.map(blob => SchemaEnrichedBlob(blob, schemaProvider))
+
   type Environment = AzureConnectionSettings
     & CdmTableSettings
     & AzureBlobStorageReaderZIO
     & AzureBlobStorageReader
-    & CdmSchemaProvider
     & ParallelismSettings
     & StreamContext
 
   def apply(settings: CdmTableSettings,
-            entityModel: SimpleCdmEntity,
             zioReader: AzureBlobStorageReaderZIO,
             reader: AzureBlobStorageReader,
             parallelismSettings: ParallelismSettings,
-            streamContext: StreamContext,
-            schemaProvider: CdmSchemaProvider): CdmTableStream = new CdmTableStream(
+            streamContext: StreamContext): CdmTableStream = new CdmTableStream(
     name = settings.name,
     storagePath = AdlsStoragePath(settings.rootPath).get,
-    entityModel = entityModel,
     zioReader = zioReader,
     reader = reader,
     parallelismSettings = parallelismSettings,
-    streamContext = streamContext,
-    schemaProvider = schemaProvider
-  )
+    streamContext = streamContext)
 
   /**
    * The ZLayer that creates the CdmDataProvider.
@@ -162,12 +151,9 @@ object CdmTableStream:
         tableSettings <- ZIO.service[CdmTableSettings]
         readerZIO <- ZIO.service[AzureBlobStorageReaderZIO]
         reader <- ZIO.service[AzureBlobStorageReader]
-        schemaProvider <- ZIO.service[CdmSchemaProvider]
         parSettings <- ZIO.service[ParallelismSettings]
-        l <- ZIO.fromFuture(_ => schemaProvider.getEntity)
         sc <- ZIO.service[StreamContext]
-        schemaProvider <- ZIO.service[CdmSchemaProvider]
-      } yield CdmTableStream(tableSettings, l, readerZIO, reader, parSettings, sc, schemaProvider)
+      } yield CdmTableStream(tableSettings, readerZIO, reader, parSettings, sc)
     }
 
 
