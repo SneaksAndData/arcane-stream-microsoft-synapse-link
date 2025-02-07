@@ -6,7 +6,7 @@ import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, Targ
 import services.app.JdbcTableManager.generateAlterTableSQL
 import services.clients.BatchArchivationResult
 
-import com.sneaksanddata.arcane.framework.Utils.SqlUtils.readArcaneSchema
+import com.sneaksanddata.arcane.framework.utils.SqlUtils.readArcaneSchema
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
