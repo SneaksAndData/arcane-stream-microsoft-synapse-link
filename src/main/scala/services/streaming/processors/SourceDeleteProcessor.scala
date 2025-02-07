@@ -8,6 +8,8 @@ import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 
+import scala.annotation.tailrec
+
 class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO)
   extends BatchProcessor[CompletedBatch, PipelineResult]:
 
@@ -19,7 +21,7 @@ class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO
     })
 
   def processEffects[A, B](effects: List[ZIO[Any, Throwable, A]], process: A => Task[B]): Task[List[B]] = {
-    @scala.annotation.tailrec
+    @tailrec
     def loop(remaining: List[ZIO[Any, Throwable, A]], acc: Task[List[B]]): Task[List[B]] = remaining match {
       case Nil => acc
       case head :: tail =>

@@ -94,6 +94,9 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     val publisher = client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly)
     ZStream.fromIterable(publisher)
 
+  def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
+    ZIO.attemptBlocking(getBlobClient(blobPath).exists())
+      .flatMap(result => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} exists: $result") *> ZIO.succeed(result))
 
   def getFirstBlob(storagePath: AdlsStoragePath): Task[OffsetDateTime] =
     streamPrefixes(storagePath + "/").runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>

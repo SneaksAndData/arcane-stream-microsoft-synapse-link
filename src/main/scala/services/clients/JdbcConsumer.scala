@@ -6,7 +6,7 @@ import services.clients.{BatchArchivationResult, JdbcConsumer}
 
 import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
+import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -50,7 +50,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
           .map(values => partitionField -> values.toList)
       )).map(_.toMap)
 
-  
+
   def applyBatch(batch: Batch): Task[BatchApplicationResult] =
     val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) 
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())){ statement =>
@@ -59,8 +59,8 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       yield applicationResult
     }
 
-  def archiveBatch(batch: Batch): Task[BatchArchivationResult] =
-    for _ <- executeArchivationQuery(batch)
+  def archiveBatch(batch: Batch, actualSchema: ArcaneSchema): Task[BatchArchivationResult] =
+    for _ <- executeArchivationQuery(batch, actualSchema)
     yield new BatchArchivationResult
 
   def optimizeTarget(tableName: String, batchNumber: Long, optimizeThreshold: Long, fileSizeThreshold: String): Task[BatchApplicationResult] =
@@ -105,8 +105,18 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
     else
       ZIO.succeed(false)
 
-  private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
-    val expression = batch.archiveExpr(archiveTableSettings.archiveTableFullName)
+  private def archiveExpr(archiveTableName: String, reduceExpr: String, schema: ArcaneSchema): String =
+    val columns = schema.map(s => s.name).mkString(", ")
+    s"INSERT INTO $archiveTableName ($columns) $reduceExpr"
+
+  private def reduceExpr(batch: Batch): String =
+    val name = batch.name
+    s"""SELECT * FROM (
+       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+       |)""".stripMargin
+
+  private def executeArchivationQuery(batch: Batch, actualSchema: ArcaneSchema): Task[BatchArchivationResult] =
+    val expression = archiveExpr(archiveTableSettings.archiveTableFullName, reduceExpr(batch), actualSchema)
     val ack = ZIO.blocking {
       ZIO.succeed(sqlConnection.prepareStatement(expression))
     }

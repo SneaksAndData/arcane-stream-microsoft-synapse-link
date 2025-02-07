@@ -1,19 +1,21 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
+import extensions.ArcaneSchemaExtensions.getMissingFields
 import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, TargetTableSettings}
 import services.app.JdbcTableManager.generateAlterTableSQL
 import services.clients.BatchArchivationResult
 
+import com.sneaksanddata.arcane.framework.utils.SqlUtils.readArcaneSchema
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-import com.sneaksanddata.arcane.framework.models.ArcaneSchema
+import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
 import org.apache.iceberg.types.Type.TypeID
-import org.apache.iceberg.types.Types.TimestampType
+import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -26,13 +28,23 @@ trait TableManager:
   def createTargetTable: Task[TableCreationResult]
 
   def createArchiveTable: Task[TableCreationResult]
+  
+  def getTargetSchema(tableName: String): Task[ArcaneSchema]
 
   def cleanupStagingTables: Task[Unit]
+  
+  def migrateSchema(batchSchema: ArcaneSchema, tableName: String): Task[Unit]
+  
 
 /**
  * The result of applying a batch.
  */
 type TableCreationResult = Boolean
+
+/**
+ * The result of applying a batch.
+ */
+type TableModificationResult = Boolean
 
 class JdbcTableManager(options: JdbcConsumerOptions,
                        targetTableSettings: TargetTableSettings,
@@ -74,13 +86,29 @@ class JdbcTableManager(options: JdbcConsumerOptions,
         _ <- ZIO.foreach(strings)(dropTable)
       yield ()
     }
+    
+  def migrateSchema(batchSchema: ArcaneSchema, tableName: String): Task[Unit] =
+    for targetSchema <- getTargetSchema(tableName)
+        missingFields = targetSchema.getMissingFields(batchSchema)
+        _ <- addColumns(tableName, missingFields)
+    yield ()
+
+  def getTargetSchema(tableName: String): Task[ArcaneSchema] =
+    val query = s"SELECT * FROM $tableName where true and false"
+    val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
+    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
+      for
+        schemaResult <- ZIO.attemptBlocking(statement.executeQuery())
+        fields <- ZIO.attemptBlocking(schemaResult.readArcaneSchema)
+      yield fields.get
+    }
 
   def addColumns(targetTableName: String, missingFields: ArcaneSchema): Task[Unit] =
     for _ <- ZIO.foreach(missingFields)(field => {
-      val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
-      zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
-        *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
-    })
+        val query = generateAlterTableSQL(targetTableName, field.name, SchemaConversions.toIcebergType(field.fieldType))
+        zlog(s"Adding column to table $targetTableName: ${field.name} ${field.fieldType}, $query")
+          *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
+      })
     yield ()
 
   private def dropTable(tableName: String): Task[Unit] =
