@@ -105,7 +105,6 @@ class CdmTableStream(name: String,
         .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))
         .takeWhile(_.isDefined)
         .map(_.get)
-        .map(_.replaceAll("\n$", ""))
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
         .mapZIO(content => ZIO.fromFuture(sc => streamData.schemaProvider.getSchema).map(schema => SchemaEnrichedContent(content, schema)))
         .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
@@ -113,7 +112,7 @@ class CdmTableStream(name: String,
         .concat(ZStream.succeed(SourceCleanupRequest(streamData.filePath)))
         .zipWithIndex
         .flatMap({
-          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm ${streamData.filePath}, completed file I/O") *> ZStream.succeed(e)
+          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm ${streamData.filePath}, completed processing") *> ZStream.succeed(e)
           case (r: DataRow, _) => ZStream.succeed(r)
         })
 
