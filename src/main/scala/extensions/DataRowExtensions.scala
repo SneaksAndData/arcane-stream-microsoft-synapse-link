@@ -10,8 +10,8 @@ object DataRowExtensions:
    */
   extension (row: DataRow) def schema: ArcaneSchema =
     row.foldLeft(ArcaneSchema.empty()) {
-      case (cell, schema) if cell.name == MergeKeyField.name => schema ++ Seq(MergeKeyField)
-      case (cell, schema) if cell.name == DatePartitionField.name => schema ++ Seq(DatePartitionField)
-      case (cell, schema) => schema ++ Seq(Field(cell.name, cell.Type))
+      case (schema, cell) if cell.name == MergeKeyField.name => schema ++ Seq(MergeKeyField)
+      case (schema, cell) if cell.name == DatePartitionField.name => schema ++ Seq(DatePartitionField)
+      case (schema, cell) => schema ++ Seq(Field(cell.name, cell.Type))
     }
 
