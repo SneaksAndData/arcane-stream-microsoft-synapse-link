@@ -9,7 +9,7 @@ object DataRowExtensions:
    * Extension method to get the schema of a DataRow.
    */
   extension (row: DataRow) def schema: ArcaneSchema =
-    row.foldRight(ArcaneSchema.empty()) {
+    row.foldLeft(ArcaneSchema.empty()) {
       case (cell, schema) if cell.name == MergeKeyField.name => schema ++ Seq(MergeKeyField)
       case (cell, schema) if cell.name == DatePartitionField.name => schema ++ Seq(DatePartitionField)
       case (cell, schema) => schema ++ Seq(Field(cell.name, cell.Type))
