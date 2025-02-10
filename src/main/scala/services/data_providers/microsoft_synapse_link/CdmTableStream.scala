@@ -106,13 +106,14 @@ class CdmTableStream(name: String,
         .takeWhile(_.isDefined)
         .map(_.get)
         .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
+        .map(_.replaceAll("\n$", ""))
         .mapZIO(content => ZIO.fromFuture(sc => streamData.schemaProvider.getSchema).map(schema => SchemaEnrichedContent(content, schema)))
         .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
         .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${streamData.filePath} with", e))
         .concat(ZStream.succeed(SourceCleanupRequest(streamData.filePath)))
         .zipWithIndex
         .flatMap({
-          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm ${streamData.filePath}, completed processing") *> ZStream.succeed(e)
+          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm ${streamData.filePath}, completed file I/O") *> ZStream.succeed(e)
           case (r: DataRow, _) => ZStream.succeed(r)
         })
 
