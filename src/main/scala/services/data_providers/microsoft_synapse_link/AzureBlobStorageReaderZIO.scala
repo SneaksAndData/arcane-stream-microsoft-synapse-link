@@ -9,16 +9,14 @@ import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
-
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureModelConversions.given_Conversion_BlobItem_StoredBlob
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
 import models.app.streaming.SourceCleanupResult
 
 import zio.stream.ZStream
-import zio.{Chunk, Task, ZIO}
+import zio.{Chunk, Schedule, Task, ZIO}
 
 import java.io.{BufferedReader, InputStreamReader, Reader}
 import java.time.format.DateTimeFormatter
@@ -62,6 +60,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
 
   private val stringContentSerializer: Array[Byte] => String = _.map(_.toChar).mkString
 
+  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
   /**
    *
    * @param blobPath The path to the blob.
@@ -92,7 +91,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
       )
 
     val publisher = ZIO.attemptBlocking(client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly))
-    ZStream.fromIterableZIO(publisher)
+    ZStream.fromIterableZIO(publisher) retry retryPolicy
 
   def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
     ZIO.attemptBlocking(getBlobClient(blobPath).exists())
@@ -129,7 +128,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
               .getBlobClient(deleteMarker.blobPrefix)
               .upload(BinaryData.fromString(""), true)
         }
-        .map(result => SourceCleanupResult(fileName, deleteMarker))
+        .map(result => SourceCleanupResult(fileName, deleteMarker)).retry(retryPolicy)
 
 object AzureBlobStorageReaderZIO:
 
