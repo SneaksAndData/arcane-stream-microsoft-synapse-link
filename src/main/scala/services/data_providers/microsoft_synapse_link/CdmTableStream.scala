@@ -48,7 +48,7 @@ class CdmTableStream(name: String,
    * @return A stream of rows for this table
    */
   def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    val firstStream =     ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, lookBackInterval)))
+    val firstStream = ZStream.fromZIO(getRootDropPrefixes(storagePath, lookBackInterval).runCollect)
       .flatMap(x => ZStream.fromIterable(x))
       .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
       .filter(seb => seb.blob.name.endsWith(s"/$name/"))
