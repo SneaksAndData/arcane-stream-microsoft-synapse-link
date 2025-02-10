@@ -91,8 +91,8 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
           .setRetrieveVersions(false)
       )
 
-    val publisher = client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly)
-    ZStream.fromIterable(publisher)
+    val publisher = ZIO.attemptBlocking(client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly))
+    ZStream.fromIterableZIO(publisher)
 
   def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
     ZIO.attemptBlocking(getBlobClient(blobPath).exists())
