@@ -105,7 +105,7 @@ class CdmTableStream(name: String,
         .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))
         .takeWhile(_.isDefined)
         .map(_.get)
-        .map(_.replaceAll("\n", ""))
+        .map(_.replace("\n", ""))
         .mapZIO(content => ZIO.fromFuture(sc => streamData.schemaProvider.getSchema).map(schema => SchemaEnrichedContent(content, schema)))
         .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
         .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${streamData.filePath} with", e))
