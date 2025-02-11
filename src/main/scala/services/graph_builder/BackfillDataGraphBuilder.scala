@@ -5,8 +5,8 @@ import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BackfillDataProvider, BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.BackfillConsumer
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 
-import org.slf4j.{Logger, LoggerFactory}
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, ZIO}
 
@@ -16,8 +16,6 @@ class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
                                batchConsumer: BackfillConsumer)
   extends StreamGraphBuilder:
 
-
-  private val logger: Logger = LoggerFactory.getLogger(classOf[BackfillDataGraphBuilder])
 
   override type StreamElementType = Chunk[DataRow]
 
@@ -59,7 +57,7 @@ object BackfillDataGraphBuilder:
    */
   def apply(): ZIO[Environment, Nothing, BackfillDataGraphBuilder] =
     for
-      _ <- ZIO.log("Running in backfill mode")
+      _ <- zlog("Running in backfill mode")
       dp <- ZIO.service[BackfillDataProvider]
       ls <- ZIO.service[StreamLifetimeService]
       bp <- ZIO.service[BatchProcessor[DataRow, Chunk[DataRow]]]

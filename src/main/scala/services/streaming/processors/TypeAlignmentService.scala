@@ -45,7 +45,7 @@ class TypeAlignmentServiceImpl extends TypeAlignmentService:
   private def convertSome(cellName: String, arcaneType: ArcaneType, value: Any): Any = arcaneType match
     case LongType => value.toString.toLong
     case ByteArrayType => value.toString.getBytes
-    case BooleanType => Try(value.toString.toBoolean).getOrElse(null)
+    case BooleanType => value.toString.toBoolean
     case StringType => value.toString
     case DateType => java.sql.Date.valueOf(value.toString)
     case TimestampType => convertToTimeStamp(cellName, value)

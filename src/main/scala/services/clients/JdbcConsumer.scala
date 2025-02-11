@@ -1,11 +1,12 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.clients
 
-import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
+import models.app.ArchiveTableSettings
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.ArchiveTableSettings
-import org.slf4j.{Logger, LoggerFactory}
+import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -38,11 +39,8 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
 
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   
-  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
-  val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(5)
-  
   def getPartitionValues(batchName: String, partitionFields: List[String]): Future[Map[String, List[String]]] =
     Future.sequence(partitionFields
       .map(partitionField =>
@@ -52,16 +50,18 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
           .map(values => partitionField -> values.toList)
       )).map(_.toMap)
 
-  
+
   def applyBatch(batch: Batch): Task[BatchApplicationResult] =
-    val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) retry  retryPolicy
+    val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) 
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())){ statement =>
       for
         applicationResult <- ZIO.attemptBlocking{ statement.execute() }
       yield applicationResult
     }
 
-  def archiveBatch(batch: Batch): Task[BatchArchivationResult] = executeArchivationQuery(batch).map(_ => new BatchArchivationResult)
+  def archiveBatch(batch: Batch, actualSchema: ArcaneSchema): Task[BatchArchivationResult] =
+    for _ <- executeArchivationQuery(batch, actualSchema)
+    yield new BatchArchivationResult
 
   def optimizeTarget(tableName: String, batchNumber: Long, optimizeThreshold: Long, fileSizeThreshold: String): Task[BatchApplicationResult] =
     if (batchNumber+1) % optimizeThreshold == 0 then
@@ -70,7 +70,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       }
       ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
         for
-          _ <- ZIO.log(s"Optimizing table $tableName. Batch number: $batchNumber. fileSizeThreshold: $fileSizeThreshold")
+          _ <- zlog(s"Optimizing table $tableName. Batch number: $batchNumber. fileSizeThreshold: $fileSizeThreshold")
           _ <- ZIO.attemptBlocking { statement.execute() }
         yield true
       }
@@ -84,7 +84,7 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       }
       ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
         for
-          _ <- ZIO.log(s"Run expire_snapshots for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
+          _ <- zlog(s"Run expire_snapshots for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
           _ <- ZIO.attemptBlocking { statement.execute() }
         yield true
       }
@@ -98,33 +98,43 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
       }
       ZIO.acquireReleaseWith(query)(st => ZIO.succeed(st.close())) { statement =>
         for
-          _ <- ZIO.log(s"Run remove_orphan_files for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
+          _ <- zlog(s"Run remove_orphan_files for table $tableName. Batch number: $batchNumber. retentionThreshold: $retentionThreshold")
           _ <- ZIO.attemptBlocking { statement.execute() }
         yield true
       }
     else
       ZIO.succeed(false)
 
-  private def executeArchivationQuery(batch: Batch): Task[BatchArchivationResult] =
-    val expression = s"${batch.archiveExpr(archiveTableSettings.archiveTableFullName)}; DROP TABLE ${batch.name}"
+  private def archiveExpr(archiveTableName: String, reduceExpr: String, schema: ArcaneSchema): String =
+    val columns = schema.map(s => s.name).mkString(", ")
+    s"INSERT INTO $archiveTableName ($columns) $reduceExpr"
+
+  private def reduceExpr(batch: Batch): String =
+    val name = batch.name
+    s"""SELECT * FROM (
+       | SELECT * FROM $name ORDER BY ROW_NUMBER() OVER (PARTITION BY Id ORDER BY versionnumber DESC) FETCH FIRST 1 ROWS WITH TIES
+       |)""".stripMargin
+
+  private def executeArchivationQuery(batch: Batch, actualSchema: ArcaneSchema): Task[BatchArchivationResult] =
+    val expression = archiveExpr(archiveTableSettings.archiveTableFullName, reduceExpr(batch), actualSchema)
     val ack = ZIO.blocking {
       ZIO.succeed(sqlConnection.prepareStatement(expression))
     }
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
       for
-        _ <- ZIO.log(s"archiving batch ${batch.name}")
+        _ <- zlog(s"archiving batch ${batch.name}")
         _ <- ZIO.blocking { ZIO.succeed(statement.execute()) }
-        _ <- ZIO.log(s"archivation completed ${batch.name}")
+        _ <- zlog(s"archivation completed ${batch.name}")
       yield new BatchArchivationResult
     }
 
-  private def dropTempTable(batch: Batch): Task[BatchArchivationResult] =
+  def dropTempTable(batch: Batch): Task[BatchArchivationResult] =
     val ack = ZIO.blocking {
       ZIO.succeed(sqlConnection.prepareStatement(s"DROP TABLE ${batch.name}"))
     }
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
       for
-        _ <- ZIO.log(s"archiving batch ${batch.name}")
+        _ <- zlog(s"archiving batch ${batch.name}")
         _ <- ZIO.blocking { ZIO.succeed(statement.execute()) }
       yield new BatchArchivationResult
     }

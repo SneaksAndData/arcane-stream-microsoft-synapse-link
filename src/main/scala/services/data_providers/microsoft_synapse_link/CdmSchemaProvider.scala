@@ -17,7 +17,7 @@ class CdmSchemaProvider(azureBlobStorageReader: AzureBlobStorageReader, tableLoc
 
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
-  override def getSchema: Future[SchemaType] = getEntity.flatMap(toArcaneSchema)
+  override lazy val getSchema: Future[SchemaType] = getEntity.flatMap(toArcaneSchema)
 
   def getEntity: Future[SimpleCdmEntity] =
     SimpleCdmModel(tableLocation, azureBlobStorageReader).flatMap(_.entities.find(_.name == tableName) match

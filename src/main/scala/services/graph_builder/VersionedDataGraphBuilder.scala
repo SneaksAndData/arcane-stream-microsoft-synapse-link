@@ -10,7 +10,8 @@ import com.sneaksanddata.arcane.framework.models.settings.VersionedDataGraphBuil
 import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.StreamingConsumer
-import org.slf4j.{Logger, LoggerFactory}
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Schedule, ZIO}
 
@@ -47,7 +48,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
   def consume: ZSink[Any, Throwable, Chunk[DataStreamElement], Any, Unit] = batchConsumer.consume
 
   private def createStream = cdmTableStream
-    .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval)
+    .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval, versionedDataGraphBuilderSettings.changeCaptureInterval)
     .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
     .flatMap(reader => cdmTableStream.getData(reader))
 
@@ -92,7 +93,7 @@ object VersionedDataGraphBuilder:
    */
   def layer: ZIO[Environment, Nothing, VersionedDataGraphBuilder] =
     for
-      _ <- ZIO.log("Running in streaming mode")
+      _ <- zlog("Running in streaming mode")
       sss <- ZIO.service[VersionedDataGraphBuilderSettings]
       dp <- ZIO.service[CdmTableStream]
       ls <- ZIO.service[StreamLifetimeService]

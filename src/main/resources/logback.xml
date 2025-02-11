@@ -1,7 +1,11 @@
 <configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <layout>
+            <Pattern>%d [%thread] %-5level  %logger{35} - %msg%n</Pattern>
+        </layout>
+    </appender>
 
-    <root level="OFF">
-        <appender-ref ref="JSON_TCP" />
+    <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>
 

@@ -3,15 +3,20 @@ package services.data_providers.microsoft_synapse_link
 
 import com.azure.core.credential.TokenCredential
 import com.azure.core.http.rest.PagedResponse
+import com.azure.core.util.BinaryData
 import com.azure.identity.DefaultAzureCredentialBuilder
 import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
+
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureModelConversions.given_Conversion_BlobItem_StoredBlob
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.streaming.SourceCleanupResult
+import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+
+import models.app.streaming.SourceCleanupResult
+
 import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
 
@@ -67,7 +72,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
   def getBlobContent[Result](blobPath: AdlsStoragePath, deserializer: Array[Byte] => Result = stringContentSerializer): Task[BufferedReader] =
     val client = getBlobClient(blobPath)
     for
-      _ <- ZIO.log("Downloading blob content from data file: " + blobPath.toHdfsPath)
+      _ <- zlog("Downloading blob content from data file: " + blobPath.toHdfsPath)
       stream <- ZIO.attemptBlocking { 
         val stream = client.openInputStream() 
         new BufferedReader(new InputStreamReader(stream))
@@ -89,6 +94,9 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     val publisher = client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly)
     ZStream.fromIterable(publisher)
 
+  def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
+    ZIO.attemptBlocking(getBlobClient(blobPath).exists())
+      .flatMap(result => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} exists: $result") *> ZIO.succeed(result))
 
   def getFirstBlob(storagePath: AdlsStoragePath): Task[OffsetDateTime] =
     streamPrefixes(storagePath + "/").runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
@@ -103,23 +111,25 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
 
   def getRootPrefixes(storagePath: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
     for startFrom <- ZStream.succeed(OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval))
-        _ <- ZStream.log("Getting root prefixes stating from " + startFrom)
-        prefixes <- ZStream.fromZIO(ZIO.attemptBlocking { streamPrefixes(storagePath) })
+        _ <- zlogStream("Getting root prefixes stating from " + startFrom)
+        list <- ZStream.succeed(CdmTableStream.getListPrefixes(Some(startFrom)))
+        listZIO = ZIO.foreach(list)(prefix => ZIO.attemptBlocking { streamPrefixes(storagePath + prefix) })
+        prefixes <- ZStream.fromIterableZIO(listZIO)
         zippedWithDate <- prefixes.map(blob => (interpretAsDate(blob), blob))
         eligibleToProcess <- zippedWithDate match
           case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)
           case _ => ZStream.empty
     yield eligibleToProcess
     
-  def deleteSourceFile(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
-    if deleteDryRun then
-      ZIO.log("Dry run: Deleting source file: " + fileName).map(_ => SourceCleanupResult(fileName, true))
-    else
-      ZIO.log("Deleting source file: " + fileName) *>
+  def markForDeletion(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
+      val deleteMarker = fileName.copy(blobPrefix = fileName.blobPrefix + ".delete")
+      zlog(s"Marking source file for deletion: $fileName with marker: $deleteMarker") *>
         ZIO.attemptBlocking {
-            serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists()
+            serviceClient.getBlobContainerClient(fileName.container)
+              .getBlobClient(deleteMarker.blobPrefix)
+              .upload(BinaryData.fromString(""), true)
         }
-        .map(result => SourceCleanupResult(fileName, result))
+        .map(result => SourceCleanupResult(fileName, deleteMarker))
 
 object AzureBlobStorageReaderZIO:
 
