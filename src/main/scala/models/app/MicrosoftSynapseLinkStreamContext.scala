@@ -43,6 +43,9 @@ trait SnapshotExpirationSettings:
   val batchThreshold: Int
   val retentionThreshold: String
 
+trait GraphExecutionSettings:
+  val sourceDeleteDryRun: Boolean
+  
 
 trait OrphanFilesExpirationSettings:
   val batchThreshold: Int
@@ -67,7 +70,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with AzureConnectionSettings
   with TargetTableSettings
   with ArchiveTableSettings
-  with ParallelismSettings:
+  with ParallelismSettings
+  with GraphExecutionSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
@@ -140,6 +144,7 @@ object MicrosoftSynapseLinkStreamContext {
     & ArchiveTableSettings
     & TargetTableSettings
     & MicrosoftSynapseLinkStreamContext
+    & GraphExecutionSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.

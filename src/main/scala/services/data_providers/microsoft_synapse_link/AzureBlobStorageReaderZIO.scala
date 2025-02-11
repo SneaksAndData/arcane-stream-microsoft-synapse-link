@@ -9,13 +9,11 @@ import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
-
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureModelConversions.given_Conversion_BlobItem_StoredBlob
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
-import models.app.streaming.SourceCleanupResult
+import models.app.streaming.{SourceCleanupResult, SourceDeletionResult}
 
 import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
@@ -99,7 +97,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
       .flatMap(result => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} exists: $result") *> ZIO.succeed(result))
 
   def getFirstBlob(storagePath: AdlsStoragePath): Task[OffsetDateTime] =
-    streamPrefixes(storagePath + "/").runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
+    streamPrefixes(storagePath).runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
       val current = interpretAsDate(blob).getOrElse(date)
       if current.isBefore(date) then current else date
     }
@@ -131,6 +129,14 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
         }
         .map(result => SourceCleanupResult(fileName, deleteMarker))
 
+  def deleteBlob(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceDeletionResult] =
+    if deleteDryRun then
+      ZIO.log("Dry run: Deleting blob: " + fileName).map(_ => SourceDeletionResult(fileName, true))
+    else
+      ZIO.log("Deleting blob: " + fileName) *>
+      ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists())
+         .map(result => SourceDeletionResult(fileName, result))
+
 object AzureBlobStorageReaderZIO:
 
   /**
@@ -142,3 +148,21 @@ object AzureBlobStorageReaderZIO:
    * @return AzureBlobStorageReaderZIO instance
    */
   def apply(accountName: String, endpoint: String, credential: StorageSharedKeyCredential, deleteDryRun: Boolean): AzureBlobStorageReaderZIO = new AzureBlobStorageReaderZIO(accountName, Some(endpoint), None, Some(credential), None, deleteDryRun)
+
+
+  private val defaultFromYears: Int = 1
+  /**
+   * Iterate by dates from the start date to the end date.
+   * This method can be used to iterate over root prefixes in Azure Blob Storage if the prefixes are named by date.
+   */
+  extension (startDate: Option[OffsetDateTime]) def iterateByDates(endDate: Option[OffsetDateTime] = None): Seq[String] =
+    val currentMoment = endDate.getOrElse(OffsetDateTime.now(ZoneOffset.UTC).plusHours(1))
+    val startMoment = startDate.getOrElse(currentMoment.minusYears(defaultFromYears))
+    Iterator.iterate(startMoment)(_.plusHours(1))
+      .takeWhile(_.toEpochSecond < currentMoment.toEpochSecond)
+      .map { moment =>
+        val monthString = s"00${moment.getMonth.getValue}".takeRight(2)
+        val dayString = s"00${moment.getDayOfMonth}".takeRight(2)
+        val hourString = s"00${moment.getHour}".takeRight(2)
+        s"${moment.getYear}-$monthString-${dayString}T$hourString"
+      }.to(LazyList)
