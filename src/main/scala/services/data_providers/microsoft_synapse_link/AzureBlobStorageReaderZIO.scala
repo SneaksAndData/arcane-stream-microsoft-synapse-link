@@ -99,7 +99,6 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
   def getFirstBlob(storagePath: AdlsStoragePath): Task[OffsetDateTime] =
     streamPrefixes(storagePath).runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
       val current = interpretAsDate(blob).getOrElse(date)
-      System.out.println(s"current: $current, date: $date")
       if current.isBefore(date) then current else date
     }
 
@@ -132,7 +131,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
 
   def deleteBlob(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceDeletionResult] =
     if deleteDryRun then
-      ZIO.log("Dry run: Deleting source file: " + fileName).map(_ => SourceDeletionResult(fileName, true))
+      ZIO.log("Dry run: Deleting blob: " + fileName).map(_ => SourceDeletionResult(fileName, true))
     else
       ZIO.log("Deleting blob: " + fileName) *>
       ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists())

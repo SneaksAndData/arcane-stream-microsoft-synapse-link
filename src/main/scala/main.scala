@@ -25,29 +25,27 @@ object main extends ZIOAppDefault {
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
-  private val appLayer = for {
+  private val streamApplication = for {
     _ <- zlog("Application starting")
     _ <- ZIO.service[StreamContext]
     streamRunner <- ZIO.service[StreamRunnerService]
     _ <- streamRunner.run
   } yield ()
 
-  private val storageExplorerLayerZio: ZLayer[AzureConnectionSettings & MicrosoftSynapseLinkStreamContext, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
-    for {
-      connectionOptions <- ZIO.service[AzureConnectionSettings]
-      streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
-      streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
-      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
-    } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials, streamContext.sourceDeleteDryRun)
-  }
-
-
-  private val runGarbageCollector = for
+  private val garbageCollectorApplication = for
     _ <- ZIO.log("Starting the garbage collector")
     stream <- ZIO.service[GarbageCollectorStream]
     _ <- stream.run
   yield ()
 
+
+  private val storageExplorerLayerZio: ZLayer[AzureConnectionSettings & GraphExecutionSettings, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
+    for {
+      connectionOptions <- ZIO.service[AzureConnectionSettings]
+      executionSettings <- ZIO.service[GraphExecutionSettings]
+      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
+    } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials, executionSettings.sourceDeleteDryRun)
+  }
 
   private val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
     for {
@@ -56,13 +54,12 @@ object main extends ZIOAppDefault {
     } yield AzureBlobStorageReader(connectionOptions.account, connectionOptions.endpoint, credentials)
   }
 
-  private val garbageCollector = runGarbageCollector.provide(
+  private lazy val garbageCollector = garbageCollectorApplication.provide(
     storageExplorerLayerZio,
     EnvironmentGarbageCollectorSettings.layer,
-    MicrosoftSynapseLinkStreamContext.layer,
     AzureBlobStorageGarbageCollector.layer)
 
-  private val streamRunner = appLayer.provide(
+  private lazy val streamRunner = streamApplication.provide(
     storageExplorerLayer,
     storageExplorerLayerZio,
     CdmTableStream.layer,

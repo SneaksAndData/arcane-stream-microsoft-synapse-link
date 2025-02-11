@@ -14,7 +14,7 @@ trait GarbageCollectorSettings:
 
 class EnvironmentGarbageCollectorSettings(override val rootPath: String,
                                            override val deleteLimit: OffsetDateTime,
-                                           override val sourceDeleteDryRun: Boolean = true)
+                                          override val sourceDeleteDryRun: Boolean)
   extends GarbageCollectorSettings with GraphExecutionSettings with AzureConnectionSettings:
   
   override val endpoint: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ENDPOINT")
@@ -24,15 +24,18 @@ class EnvironmentGarbageCollectorSettings(override val rootPath: String,
 
 
 object EnvironmentGarbageCollectorSettings:
-  def apply(rootPath: String, deleteLimit: OffsetDateTime): EnvironmentGarbageCollectorSettings =
-    new EnvironmentGarbageCollectorSettings(rootPath, deleteLimit)
+  def apply(rootPath: String, deleteLimit: OffsetDateTime, sourceDeleteDryRun: Boolean): EnvironmentGarbageCollectorSettings =
+    new EnvironmentGarbageCollectorSettings(rootPath, deleteLimit, sourceDeleteDryRun)
 
   val layer: ZLayer[Any, SecurityException, GarbageCollectorSettings & GraphExecutionSettings & AzureConnectionSettings] =
     ZLayer {
       for rootPath <- System.env("ARCANE_GARBAGE_COLLECTOR_ROOT_PATH")
           deleteLimit <- System.env("ARCANE_GARBAGE_COLLECTOR_DELETE_LIMIT")
+          sourceDeleteDryRun = sys.env.get("ARCANE_FRAMEWORK__SOURCE_DELETE_DRY_RUN").exists(v => v.toLowerCase == "true")
       yield (rootPath, deleteLimit) match
-        case (Some(rp), Some(dt)) => EnvironmentGarbageCollectorSettings(rp, OffsetDateTime.now(ZoneOffset.UTC).minusHours(dt.toLong))
+        case (Some(rp), Some(dt)) =>
+          EnvironmentGarbageCollectorSettings(rp, OffsetDateTime.now(ZoneOffset.UTC).minusHours(dt.toLong), sourceDeleteDryRun)
+
         case (None, _) => throw new Exception("ARCANE_GARBAGE_COLLECTOR_ROOT_PATH is not set")
         case (_, None) => throw new Exception("ARCANE_GARBAGE_COLLECTOR_DELETE_LIMIT is not set")
     }
