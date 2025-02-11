@@ -9,13 +9,11 @@ import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
-
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureModelConversions.given_Conversion_BlobItem_StoredBlob
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReaderSettings}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
-import models.app.streaming.SourceCleanupResult
+import models.app.streaming.{SourceCleanupResult, SourceDeletionResult}
 
 import zio.stream.ZStream
 import zio.{Chunk, Task, ZIO}
@@ -99,8 +97,9 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
       .flatMap(result => ZIO.logDebug(s"Blob ${blobPath.toHdfsPath} exists: $result") *> ZIO.succeed(result))
 
   def getFirstBlob(storagePath: AdlsStoragePath): Task[OffsetDateTime] =
-    streamPrefixes(storagePath + "/").runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
+    streamPrefixes(storagePath).runFold(OffsetDateTime.now(ZoneOffset.UTC)){ (date, blob) =>
       val current = interpretAsDate(blob).getOrElse(date)
+      System.out.println(s"current: $current, date: $date")
       if current.isBefore(date) then current else date
     }
 
@@ -130,6 +129,14 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
               .upload(BinaryData.fromString(""), true)
         }
         .map(result => SourceCleanupResult(fileName, deleteMarker))
+
+  def deleteBlob(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceDeletionResult] =
+    if deleteDryRun then
+      ZIO.log("Dry run: Deleting source file: " + fileName).map(_ => SourceDeletionResult(fileName, true))
+    else
+      ZIO.log("Deleting blob: " + fileName) *>
+      ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists())
+         .map(result => SourceDeletionResult(fileName, result))
 
 object AzureBlobStorageReaderZIO:
 

@@ -5,3 +5,4 @@ import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStor
 
 case class SourceCleanupRequest(prefix: AdlsStoragePath)
 case class SourceCleanupResult(blobName: AdlsStoragePath, deleteMarker: AdlsStoragePath)
+case class SourceDeletionResult(blobName: AdlsStoragePath, succeed: Boolean)

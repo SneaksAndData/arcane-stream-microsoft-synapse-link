@@ -5,11 +5,16 @@ import models.app.{AzureConnectionSettings, GraphExecutionSettings}
 
 import zio.{System, ZIO, ZLayer}
 
+import java.time.{OffsetDateTime, ZoneOffset}
+
 trait GarbageCollectorSettings:
   val rootPath: String
+  val deleteLimit: OffsetDateTime
 
 
-class EnvironmentGarbageCollectorSettings(override val rootPath: String, override val sourceDeleteDryRun: Boolean = true)
+class EnvironmentGarbageCollectorSettings(override val rootPath: String,
+                                           override val deleteLimit: OffsetDateTime,
+                                           override val sourceDeleteDryRun: Boolean = true)
   extends GarbageCollectorSettings with GraphExecutionSettings with AzureConnectionSettings:
   
   override val endpoint: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ENDPOINT")
@@ -19,12 +24,15 @@ class EnvironmentGarbageCollectorSettings(override val rootPath: String, overrid
 
 
 object EnvironmentGarbageCollectorSettings:
-  def apply(rootPath: String): EnvironmentGarbageCollectorSettings = new EnvironmentGarbageCollectorSettings(rootPath)
+  def apply(rootPath: String, deleteLimit: OffsetDateTime): EnvironmentGarbageCollectorSettings =
+    new EnvironmentGarbageCollectorSettings(rootPath, deleteLimit)
 
   val layer: ZLayer[Any, SecurityException, GarbageCollectorSettings & GraphExecutionSettings & AzureConnectionSettings] =
     ZLayer {
       for rootPath <- System.env("ARCANE_GARBAGE_COLLECTOR_ROOT_PATH")
-      yield rootPath match
-        case Some(value) => EnvironmentGarbageCollectorSettings(value)
-        case None => throw new Exception("ARCANE_GARBAGE_COLLECTOR_ROOT_PATH is not set")
+          deleteLimit <- System.env("ARCANE_GARBAGE_COLLECTOR_DELETE_LIMIT")
+      yield (rootPath, deleteLimit) match
+        case (Some(rp), Some(dt)) => EnvironmentGarbageCollectorSettings(rp, OffsetDateTime.now(ZoneOffset.UTC).minusHours(dt.toLong))
+        case (None, _) => throw new Exception("ARCANE_GARBAGE_COLLECTOR_ROOT_PATH is not set")
+        case (_, None) => throw new Exception("ARCANE_GARBAGE_COLLECTOR_DELETE_LIMIT is not set")
     }
