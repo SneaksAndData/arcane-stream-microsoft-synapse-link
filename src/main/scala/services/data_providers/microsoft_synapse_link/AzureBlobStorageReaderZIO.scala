@@ -16,7 +16,7 @@ import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import models.app.streaming.{SourceCleanupResult, SourceDeletionResult}
 
 import zio.stream.ZStream
-import zio.{Chunk, Task, ZIO}
+import zio.{Chunk, Schedule, Task, ZIO}
 
 import java.io.{BufferedReader, InputStreamReader, Reader}
 import java.time.format.DateTimeFormatter
@@ -60,6 +60,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
 
   private val stringContentSerializer: Array[Byte] => String = _.map(_.toChar).mkString
 
+  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
   /**
    *
    * @param blobPath The path to the blob.
@@ -89,8 +90,8 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
           .setRetrieveVersions(false)
       )
 
-    val publisher = client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly)
-    ZStream.fromIterable(publisher)
+    val publisher = ZIO.attemptBlocking(client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly))
+    ZStream.fromIterableZIO(publisher) retry retryPolicy
 
   def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
     ZIO.attemptBlocking(getBlobClient(blobPath).exists())
@@ -127,7 +128,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
               .getBlobClient(deleteMarker.blobPrefix)
               .upload(BinaryData.fromString(""), true)
         }
-        .map(result => SourceCleanupResult(fileName, deleteMarker))
+        .map(result => SourceCleanupResult(fileName, deleteMarker)).retry(retryPolicy)
 
   def deleteBlob(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceDeletionResult] =
     if deleteDryRun then

@@ -48,7 +48,16 @@ class CdmTableStream(name: String,
    * @return A stream of rows for this table
    */
   def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, lookBackInterval)))
+    val firstStream = ZStream.fromZIO(getRootDropPrefixes(storagePath, lookBackInterval).runCollect)
+      .flatMap(x => ZStream.fromIterable(x))
+      .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+      .filter(seb => seb.blob.name.endsWith(s"/$name/"))
+      .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+      .filter(seb => seb.blob.name.endsWith(".csv"))
+
+
+
+    val repeatStream = ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, changeCaptureInterval)))
       .flatMap(x => ZStream.fromIterable(x))
       .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
       .filter(seb => seb.blob.name.endsWith(s"/$name/"))
@@ -56,14 +65,16 @@ class CdmTableStream(name: String,
       .filter(seb => seb.blob.name.endsWith(".csv"))
       .repeat(Schedule.spaced(changeCaptureInterval))
 
+    firstStream.concat(repeatStream)
+
 
   private def dropLast(stream: SchemaEnrichedBlobStream): ZIO[Any, Throwable, Seq[SchemaEnrichedBlob]] =
     for blobs <- stream.runCollect
         _ <- ZIO.log(s"Dropping last element from from the blobs stream: ${if blobs.nonEmpty then blobs.last.blob.name else "empty"}")
     yield if blobs.nonEmpty then blobs.dropRight(1) else blobs
 
-  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, lookBackInterval: Duration): SchemaEnrichedBlobStream =
-    for prefix <- zioReader.getRootPrefixes(storagePath, lookBackInterval).filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json"))
+  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, interval: Duration): SchemaEnrichedBlobStream =
+    for prefix <- zioReader.getRootPrefixes(storagePath, interval).filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json"))
       schemaProvider = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
     yield SchemaEnrichedBlob(prefix, schemaProvider)
 
@@ -105,8 +116,7 @@ class CdmTableStream(name: String,
         .flatMap(javaReader => ZStream.repeatZIO(getLine(javaReader)))
         .takeWhile(_.isDefined)
         .map(_.get)
-        .mapZIO(content => ZIO.attempt(replaceQuotedNewlines(content)))
-        .map(_.replaceAll("\n$", ""))
+        .map(_.replace("\n", ""))
         .mapZIO(content => ZIO.fromFuture(sc => streamData.schemaProvider.getSchema).map(schema => SchemaEnrichedContent(content, schema)))
         .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
         .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${streamData.filePath} with", e))

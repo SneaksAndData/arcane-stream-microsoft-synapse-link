@@ -41,7 +41,7 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
                              sourceCleanupProcessor: BatchProcessor[CompletedBatch, PipelineResult])
   extends BatchConsumer[Chunk[DataStreamElement]]:
 
-  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(5)
+  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
 
   /**
    * Returns the sink that consumes the batch.
@@ -71,8 +71,11 @@ class IcebergSynapseConsumer(streamContext: MicrosoftSynapseLinkStreamContext,
 
 
   private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[(ArcaneSchema, StagedVersionedBatch)] =
+    val tableWriterEffect =
+      zlog("Attempting to write data to staging table") *>
+      ZIO.fromFuture(implicit ec => catalogWriter.write(rows, streamContext.stagingTableNamePrefix.getTableName, arcaneSchema))
     for
-      table <- ZIO.fromFuture(implicit ec => catalogWriter.write(rows, streamContext.stagingTableNamePrefix.getTableName, arcaneSchema))
+      table <- tableWriterEffect.retry(retryPolicy)
       batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, sinkSettings.targetTableFullName, Map())
     yield (arcaneSchema, batch)
 
