@@ -138,7 +138,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
       ZIO.log("Dry run: Deleting blob: " + fileName.blobPrefix).map(_ => SourceDeletionResult(fileName, true))
     else
       ZIO.log("Deleting blob: " + fileName.blobPrefix) *>
-      ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists())
+      ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).delete())
          .map(result => SourceDeletionResult(fileName, result))
 
 object AzureBlobStorageReaderZIO:
