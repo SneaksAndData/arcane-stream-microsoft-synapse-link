@@ -39,14 +39,17 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
         })
     yield ()
 
+  private val ignoredFiles = Set("model.json", "Microsoft.Athena.TrickleFeedService/", "OptionsetMetadata/")
   private def deleteEmptyFolders(rootPath: AdlsStoragePath): Task[Unit] =
     for startDate <- storageService.getFirstBlob(rootPath)
         _ <- ZStream.fromIterable(Some(startDate).iterateByDates())
           .flatMap(prefix => storageService.streamPrefixes(rootPath + prefix))
           .filterZIO(prefix => {
             for
-              contents <- storageService.streamPrefixes(rootPath + prefix.name).filter(f => !f.name.endsWith("model.json")).runCollect
-              _ <- zlog(s"Directory prefix: $prefix has ${contents.length} files (model.json not included)")
+              contents <- storageService.streamPrefixes(rootPath + prefix.name)
+                .filter(f => ignoredFiles.exists(e => f.name.endsWith(e))).runCollect
+              
+              _ <- zlog(s"Directory prefix: $prefix has ${contents.length} files (not included: $ignoredFiles)")
             yield contents.isEmpty
           })
           .runForeach(prefix => zlog(s"Deleting empty prefix $prefix") *> storageService.deleteBlob(rootPath + prefix.name))

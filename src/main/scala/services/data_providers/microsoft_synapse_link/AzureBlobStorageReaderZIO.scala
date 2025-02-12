@@ -134,12 +134,13 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
         .map(result => SourceCleanupResult(fileName, deleteMarker)).retry(retryPolicy)
 
   def deleteBlob(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceDeletionResult] =
+    val prefix = if fileName.blobPrefix.endsWith("/") then fileName.blobPrefix.dropRight(1) else fileName.blobPrefix
     if deleteDryRun then
-      ZIO.log("Dry run: Deleting blob: " + fileName.blobPrefix).map(_ => SourceDeletionResult(fileName, true))
+      ZIO.log("Dry run: Deleting blob: " + prefix).map(_ => SourceDeletionResult(fileName, true))
     else
-      ZIO.log("Deleting blob: " + fileName.blobPrefix) *>
-      ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).delete())
-         .map(result => SourceDeletionResult(fileName, result))
+      ZIO.log("Deleting blob: " + prefix) *>
+      ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(prefix).delete())
+         .map(result => SourceDeletionResult(fileName, false))
 
 object AzureBlobStorageReaderZIO:
 
