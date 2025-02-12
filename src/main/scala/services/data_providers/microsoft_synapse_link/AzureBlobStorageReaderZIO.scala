@@ -15,6 +15,7 @@ import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlo
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import models.app.streaming.{SourceCleanupResult, SourceDeletionResult}
 
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO.deleteSuffix
 import zio.stream.ZStream
 import zio.{Chunk, Schedule, Task, ZIO}
 
@@ -33,6 +34,7 @@ import scala.util.Try
  * @param sharedKeyCredential Optional access key credential
  */
 final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[String], tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings], deleteDryRun: Boolean):
+
   private val serviceClientSettings = settings.getOrElse(AzureBlobStorageReaderSettings())
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val clientBuilder =
@@ -124,7 +126,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     yield eligibleToProcess
 
   def markForDeletion(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
-      val deleteMarker = fileName.copy(blobPrefix = fileName.blobPrefix + ".delete")
+      val deleteMarker = fileName.copy(blobPrefix = fileName.blobPrefix + deleteSuffix)
       zlog(s"Marking source file for deletion: $fileName with marker: $deleteMarker") *>
         ZIO.attemptBlocking {
             serviceClient.getBlobContainerClient(fileName.container)
@@ -143,6 +145,11 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
          .map(result => SourceDeletionResult(fileName, false))
 
 object AzureBlobStorageReaderZIO:
+
+  /**
+   * Suffix to mark files for deletion
+   */
+  val deleteSuffix: String = ".delete"
 
   /**
    * Create AzureBlobStorageReaderZIO for the account using StorageSharedKeyCredential and custom endpoint

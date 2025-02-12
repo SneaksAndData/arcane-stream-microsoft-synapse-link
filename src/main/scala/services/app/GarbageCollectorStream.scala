@@ -28,9 +28,11 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
         .filterZIO(prefix => {
           for
             contents <- storageService.streamPrefixes(rootPath + prefix.name).runCollect
-            groups = contents.groupBy(_.name.endsWith(".deleted"))
-            needDelete = groups.getOrElse(false, Seq.empty).length == groups.getOrElse(true, Seq.empty).length
-            _ <- zlog(s"Directory prefix: ${prefix.name} will be deleted: $needDelete")
+            groups = contents.groupBy(_.name.endsWith(AzureBlobStorageReaderZIO.deleteSuffix))
+            filesCount = groups.getOrElse(false, Seq.empty).length
+            deleteMarkersCount = groups.getOrElse(true, Seq.empty).length
+            needDelete = filesCount == deleteMarkersCount
+            _ <- zlog(s"Directory prefix: ${prefix.name} will be deleted: $needDelete. Files: $filesCount, delete markers: $deleteMarkersCount")
           yield needDelete
         })
         .runForeach(prefix => {
