@@ -109,8 +109,11 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     Try(OffsetDateTime.parse(name, formatter)).toOption
 
   def getRootPrefixes(storagePath: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
-    for startFrom <- ZStream.succeed(OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval))
-        _ <- zlogStream("Getting root prefixes stating from " + startFrom)
+    val startFrom = OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval)
+    getRootPrefixes(storagePath, startFrom)
+
+  def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime): ZStream[Any, Throwable, StoredBlob] =
+    for _ <- zlogStream("Getting root prefixes stating from " + startFrom)
         list <- ZStream.succeed(CdmTableStream.getListPrefixes(Some(startFrom)))
         listZIO = ZIO.foreach(list)(prefix => ZIO.attemptBlocking { streamPrefixes(storagePath + prefix) })
         prefixes <- ZStream.fromIterableZIO(listZIO)
@@ -119,7 +122,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
           case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)
           case _ => ZStream.empty
     yield eligibleToProcess
-    
+
   def markForDeletion(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
       val deleteMarker = fileName.copy(blobPrefix = fileName.blobPrefix + ".delete")
       zlog(s"Marking source file for deletion: $fileName with marker: $deleteMarker") *>
