@@ -152,6 +152,7 @@ object MicrosoftSynapseLinkStreamContext {
     & TargetTableSettings
     & MicrosoftSynapseLinkStreamContext
     & GraphExecutionSettings
+    & TablePropertiesSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
