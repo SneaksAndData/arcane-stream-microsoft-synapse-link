@@ -135,9 +135,9 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
 
   def deleteBlob(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceDeletionResult] =
     if deleteDryRun then
-      ZIO.log("Dry run: Deleting blob: " + fileName).map(_ => SourceDeletionResult(fileName, true))
+      ZIO.log("Dry run: Deleting blob: " + fileName.blobPrefix).map(_ => SourceDeletionResult(fileName, true))
     else
-      ZIO.log("Deleting blob: " + fileName) *>
+      ZIO.log("Deleting blob: " + fileName.blobPrefix) *>
       ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists())
          .map(result => SourceDeletionResult(fileName, result))
 
