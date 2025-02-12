@@ -57,8 +57,23 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
               _ <- zlog(s"Directory prefix: $prefix has ${contents.length} files (not included: $ignoredFiles)")
             yield contents.isEmpty
           })
-          .runForeach(prefix => zlog(s"Deleting empty prefix $prefix") *> storageService.deleteBlob(rootPath + prefix.name))
+          .runForeach(prefix => zlog(s"Deleting empty prefix $prefix") *> deleteFolderRecursively(rootPath + prefix.name))
     yield ()
+
+
+  private def deleteFolderRecursively(blob: AdlsStoragePath): Task[Unit] =
+    if ! blob.blobPrefix.endsWith("/")
+    then
+      storageService.breakLease(blob) *> storageService.deleteBlob(blob).map(_ => ())
+    else
+      for
+        _ <- zlog(s"Deleting folder $blob")
+        _ <- storageService.streamPrefixes(blob)
+            .mapZIO(prefix => deleteFolderRecursively(blob.copy(blobPrefix = prefix.name)))
+            .runCollect
+        _ <- storageService.breakLease(blob)
+        _ <- storageService.deleteBlob(blob)
+      yield ()
 
   def run: Task[Unit] =
       val rootPath = AdlsStoragePath(settings.rootPath).get
