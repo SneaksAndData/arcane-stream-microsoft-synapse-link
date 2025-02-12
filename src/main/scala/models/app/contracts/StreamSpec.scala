@@ -74,7 +74,7 @@ case class StreamSpec(sourceSettings: SourceSettings,
                      
                       // Iceberg table properties
 
-                      tablePropertiesSettings: TablePropertiesSettings)
+                      tableProperties: TablePropertiesSettings)
   derives ReadWriter
 
 object StreamSpec:
