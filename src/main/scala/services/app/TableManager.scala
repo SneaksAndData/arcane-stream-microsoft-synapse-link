@@ -3,7 +3,6 @@ package services.app
 
 import extensions.ArcaneSchemaExtensions.getMissingFields
 import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, TargetTableSettings}
-import models.app.given_Conversion_TablePropertiesSettings_Map
 import services.app.JdbcTableManager.generateAlterTableSQL
 import services.clients.BatchArchivationResult
 
@@ -62,18 +61,30 @@ class JdbcTableManager(options: JdbcConsumerOptions,
 
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
+  private val tableProperties = 
+    def serializeArrayProperty(prop: Array[String]): String =
+      val value = prop.map { expr => s"'$expr'" }.mkString(",")
+      s"ARRAY[$value]"
+
+    Map(
+      "partitioning" -> serializeArrayProperty(tablePropertiesSettings.partitionExpressions),
+      "format" -> s"'${tablePropertiesSettings.format.toString}'",
+      "sorted_by" -> serializeArrayProperty(tablePropertiesSettings.sortedBy),
+      "parquet_bloom_filter_columns" -> serializeArrayProperty(tablePropertiesSettings.parquetBloomFilterColumns)
+    )
+
   def createTargetTable: Task[TableCreationResult] =
     for
       _ <- zlog("Creating target table", Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)))
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
-      created <- ZIO.fromFuture(implicit ec => createTable(targetTableSettings.targetTableFullName, schema, tablePropertiesSettings))
+      created <- ZIO.fromFuture(implicit ec => createTable(targetTableSettings.targetTableFullName, schema, tableProperties))
     yield created
 
   def createArchiveTable: Task[TableCreationResult] =
     for
       _ <- zlog("Creating archive table", Seq(getAnnotation("archiveTableName", archiveTableSettings.archiveTableFullName)))
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
-      created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, schema, tablePropertiesSettings))
+      created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, schema, tableProperties))
     yield created
 
   def cleanupStagingTables: Task[Unit] =
