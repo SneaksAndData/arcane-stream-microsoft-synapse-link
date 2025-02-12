@@ -49,6 +49,23 @@ spec:
                       items:
                         type: string
                       default: []
+                    sortedBy:
+                      type: array
+                      items:
+                        type: string
+                      default: [ ]
+                    parquetBloomFilterColumns:
+                      type: array
+                      items:
+                        type: string
+                      default: [ ]
+                    format:
+                      type: string
+                      enum:
+                        - PARQUET
+                        - ORC
+                        - AVRO
+                      default: PARQUET
                 sourceSettings:
                   type: object
                   properties:

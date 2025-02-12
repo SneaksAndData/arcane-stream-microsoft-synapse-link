@@ -4,7 +4,8 @@ package models.app
 import models.app.contracts.{OptimizeSettingsSpec, StreamSpec}
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
+import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, TableFormat, TablePropertiesSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
@@ -71,6 +72,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with TargetTableSettings
   with ArchiveTableSettings
   with ParallelismSettings
+  with TablePropertiesSettings
   with GraphExecutionSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
@@ -127,6 +129,11 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
 
   val stagingTableNamePrefix: String = spec.stagingDataSettings.tableNamePrefix
   val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
+  
+  val partitionExpressions: Array[String] = spec.tablePropertiesSettings.partitionExpressions
+  val format: TableFormat = TableFormat.valueOf(spec.tablePropertiesSettings.format)
+  val sortedBy: Array[String] = spec.tablePropertiesSettings.sortedBy
+  val parquetBloomFilterColumns: Array[String] = spec.tablePropertiesSettings.parquetBloomFilterColumns
 
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
@@ -145,6 +152,7 @@ object MicrosoftSynapseLinkStreamContext {
     & TargetTableSettings
     & MicrosoftSynapseLinkStreamContext
     & GraphExecutionSettings
+    & TablePropertiesSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
