@@ -3,6 +3,8 @@ package models.app.contracts
 
 import models.app.OptimizeSettings
 
+import com.sneaksanddata.arcane.framework.models.settings.TableFormat
+import upickle.core.Types
 import upickle.default.*
 
 /**
@@ -49,16 +51,15 @@ case class SinkSettings(targetTableName: String,
  */
 case class SourceSettings(name: String, baseLocation: String, changeCaptureIntervalSeconds: Int) derives ReadWriter
 
+case class TablePropertiesSettings(partitionExpressions: Array[String], sortedBy: Array[String], parquetBloomFilterColumns: Array[String], format: String) derives ReadWriter
+
 /**
  * The specification for the stream.
  *
- * @param name                         The name of the CDM table
- * @param baseLocation                 The entity base location
  * @param rowsPerGroup                 The number of rows per group in the staging table
  * @param groupingIntervalSeconds      The grouping interval in seconds
  * @param groupsPerFile                The number of groups per file
  * @param lookBackInterval             The look back interval in seconds
- * @param partitionExpression          Partition expression for partitioning the data in the staging table (optional)
  */
 case class StreamSpec(sourceSettings: SourceSettings,
 
@@ -71,8 +72,10 @@ case class StreamSpec(sourceSettings: SourceSettings,
                       // Iceberg settings
                       stagingDataSettings: StagingDataSettings,
                       sinkSettings: SinkSettings,
+                     
+                      // Iceberg table properties
 
-                      partitionExpression: Option[String])
+                      tablePropertiesSettings: TablePropertiesSettings)
   derives ReadWriter
 
 object StreamSpec:
