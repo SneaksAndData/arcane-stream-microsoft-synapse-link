@@ -4,7 +4,6 @@ package models.app.contracts
 import models.app.OptimizeSettings
 
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat
-import upickle.core.Types
 import upickle.default.*
 
 /**
@@ -75,7 +74,7 @@ case class StreamSpec(sourceSettings: SourceSettings,
                      
                       // Iceberg table properties
 
-                      tablePropertiesSettings: TablePropertiesSettings)
+                      tableProperties: TablePropertiesSettings)
   derives ReadWriter
 
 object StreamSpec:

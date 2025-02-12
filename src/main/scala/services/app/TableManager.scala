@@ -8,6 +8,7 @@ import services.clients.BatchArchivationResult
 
 import com.sneaksanddata.arcane.framework.utils.SqlUtils.readArcaneSchema
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
@@ -49,6 +50,7 @@ type TableModificationResult = Boolean
 class JdbcTableManager(options: JdbcConsumerOptions,
                        targetTableSettings: TargetTableSettings,
                        archiveTableSettings: ArchiveTableSettings,
+                       tablePropertiesSettings: TablePropertiesSettings,
                        schemaProvider: SchemaProvider[ArcaneSchema],
                        streamContext: MicrosoftSynapseLinkStreamContext)
   extends TableManager with AutoCloseable:
@@ -59,18 +61,30 @@ class JdbcTableManager(options: JdbcConsumerOptions,
 
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
+  private val tableProperties = 
+    def serializeArrayProperty(prop: Array[String]): String =
+      val value = prop.map { expr => s"'$expr'" }.mkString(",")
+      s"ARRAY[$value]"
+
+    Map(
+      "partitioning" -> serializeArrayProperty(tablePropertiesSettings.partitionExpressions),
+      "format" -> s"'${tablePropertiesSettings.format.toString}'",
+      "sorted_by" -> serializeArrayProperty(tablePropertiesSettings.sortedBy),
+      "parquet_bloom_filter_columns" -> serializeArrayProperty(tablePropertiesSettings.parquetBloomFilterColumns)
+    )
+
   def createTargetTable: Task[TableCreationResult] =
     for
       _ <- zlog("Creating target table", Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)))
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
-      created <- ZIO.fromFuture(implicit ec => createTable(targetTableSettings.targetTableFullName, schema))
+      created <- ZIO.fromFuture(implicit ec => createTable(targetTableSettings.targetTableFullName, schema, tableProperties))
     yield created
 
   def createArchiveTable: Task[TableCreationResult] =
     for
       _ <- zlog("Creating archive table", Seq(getAnnotation("archiveTableName", archiveTableSettings.archiveTableFullName)))
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
-      created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, schema))
+      created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, schema, tableProperties))
     yield created
 
   def cleanupStagingTables: Task[Unit] =
@@ -128,8 +142,8 @@ class JdbcTableManager(options: JdbcConsumerOptions,
       .takeWhile(identity)
       .map(_ => row.getString(1)).toList
 
-  private def createTable(name: String, schema: Schema): Future[TableCreationResult] =
-    Future(sqlConnection.prepareStatement(JdbcTableManager.generateCreateTableSQL(name, schema)).execute())
+  private def createTable(name: String, schema: Schema, properties: Map[String, String]): Future[TableCreationResult] =
+    Future(sqlConnection.prepareStatement(JdbcTableManager.generateCreateTableSQL(name, schema, properties)).execute())
 
   override def close(): Unit = sqlConnection.close()
 
@@ -144,9 +158,10 @@ object JdbcTableManager:
   def apply(options: JdbcConsumerOptions,
             targetTableSettings: TargetTableSettings,
             archiveTableSettings: ArchiveTableSettings,
+            tablePropertiesSettings: TablePropertiesSettings,
             schemaProvider: SchemaProvider[ArcaneSchema],
             streamContext: MicrosoftSynapseLinkStreamContext): JdbcTableManager =
-    new JdbcTableManager(options, targetTableSettings, archiveTableSettings, schemaProvider, streamContext)
+    new JdbcTableManager(options, targetTableSettings, archiveTableSettings, tablePropertiesSettings, schemaProvider, streamContext)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -157,18 +172,20 @@ object JdbcTableManager:
         for connectionOptions <- ZIO.service[JdbcConsumerOptions]
             targetTableSettings <- ZIO.service[TargetTableSettings]
             archiveTableSettings <- ZIO.service[ArchiveTableSettings]
+            tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
             schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
             streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
-        yield JdbcTableManager(connectionOptions, targetTableSettings, archiveTableSettings, schemaProvider, streamContext)
+        yield JdbcTableManager(connectionOptions, targetTableSettings, archiveTableSettings, tablePropertiesSettings, schemaProvider, streamContext)
       }
     }
 
   def generateAlterTableSQL(tableName: String, fieldName: String, fieldType: Type): String =
     s"ALTER TABLE $tableName ADD COLUMN $fieldName ${fieldType.convertType}"
 
-  private def generateCreateTableSQL(tableName: String, schema: Schema): String =
+  private def generateCreateTableSQL(tableName: String, schema: Schema, properties: Map[String, String]): String =
     val columns = schema.columns().asScala.map { field => s"${field.name()} ${field.`type`().convertType}" }.mkString(", ")
-    s"CREATE TABLE IF NOT EXISTS $tableName ($columns)"
+    val supportedProperties = properties.map { (propertyKey, propertyValue) => s"$propertyKey=$propertyValue" }.mkString(", ")
+    s"CREATE TABLE IF NOT EXISTS $tableName ($columns) WITH ($supportedProperties)"
 
   // See: https://trino.io/docs/current/connector/iceberg.html#iceberg-to-trino-type-mapping
   extension (icebergType: Type) def convertType: String = icebergType.typeId() match {

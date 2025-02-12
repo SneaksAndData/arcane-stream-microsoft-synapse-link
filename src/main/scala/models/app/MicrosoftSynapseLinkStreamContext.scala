@@ -129,11 +129,11 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
 
   val stagingTableNamePrefix: String = spec.stagingDataSettings.tableNamePrefix
   val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
-  
-  val partitionExpressions: Array[String] = spec.tablePropertiesSettings.partitionExpressions
-  val format: TableFormat = TableFormat.valueOf(spec.tablePropertiesSettings.format)
-  val sortedBy: Array[String] = spec.tablePropertiesSettings.sortedBy
-  val parquetBloomFilterColumns: Array[String] = spec.tablePropertiesSettings.parquetBloomFilterColumns
+
+  val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
+  val format: TableFormat = TableFormat.valueOf(spec.tableProperties.format)
+  val sortedBy: Array[String] = spec.tableProperties.sortedBy
+  val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
 
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
