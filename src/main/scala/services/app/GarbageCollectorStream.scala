@@ -37,7 +37,10 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
         })
         .runForeach(prefix => {
           val path = rootPath + prefix.name
-          storageService.deleteBlob(path).map(result => zlog(s"Source directory $path was deleted: $result"))
+          for filesToDelete <- storageService.streamPrefixes(path).runCollect
+              _ <- ZIO.foreachDiscard(filesToDelete)(file => storageService.deleteBlob(AdlsStoragePath(path.accountName, path.container, file.name)))
+              _ <- storageService.deleteBlob(path).map(result => zlog(s"Source directory $path was deleted: $result"))
+          yield ()
         })
     yield ()
 
@@ -50,7 +53,7 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
             for
               contents <- storageService.streamPrefixes(rootPath + prefix.name)
                 .filter(f => ignoredFiles.exists(e => f.name.endsWith(e))).runCollect
-              
+
               _ <- zlog(s"Directory prefix: $prefix has ${contents.length} files (not included: $ignoredFiles)")
             yield contents.isEmpty
           })
