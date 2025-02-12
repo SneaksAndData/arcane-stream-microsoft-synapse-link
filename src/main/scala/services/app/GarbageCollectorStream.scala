@@ -52,7 +52,7 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
           .filterZIO(prefix => {
             for
               contents <- storageService.streamPrefixes(rootPath + prefix.name)
-                .filter(f => ignoredFiles.exists(e => f.name.endsWith(e))).runCollect
+                .filter(f => !ignoredFiles.exists(e => f.name.endsWith(e))).runCollect
 
               _ <- zlog(s"Directory prefix: $prefix has ${contents.length} files (not included: $ignoredFiles)")
             yield contents.isEmpty
@@ -64,7 +64,7 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
       val rootPath = AdlsStoragePath(settings.rootPath).get
       for _ <- zlog(s"root path: $rootPath")
           _ <- deleteByDeleteMarkers(rootPath)
-//          _ <- deleteEmptyFolders(rootPath)
+          _ <- deleteEmptyFolders(rootPath)
       yield ()
 
 object AzureBlobStorageGarbageCollector:
