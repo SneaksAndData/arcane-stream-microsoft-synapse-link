@@ -20,6 +20,8 @@ import org.apache.iceberg.types.Types.{NestedField, TimestampType}
 import zio.{Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
+import java.time.{OffsetDateTime, ZoneOffset}
+import java.time.format.DateTimeFormatter
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 
@@ -35,7 +37,9 @@ trait TableManager:
   def cleanupStagingTables: Task[Unit]
   
   def migrateSchema(batchSchema: ArcaneSchema, tableName: String): Task[Unit]
-  
+
+  def getLastUpdateTime(tableName: String): Task[OffsetDateTime]
+
 
 /**
  * The result of applying a batch.
@@ -124,6 +128,23 @@ class JdbcTableManager(options: JdbcConsumerOptions,
           *> ZIO.attemptBlocking(sqlConnection.prepareStatement(query).execute())
       })
     yield ()
+
+  def getLastUpdateTime(tableName: String): Task[OffsetDateTime] =
+    val segments = tableName.split("\\.")
+    val historyTableName = s"${segments(0)}.${segments(1)}.\"${segments(2)}$$history\""
+    val query = s"SELECT MAX(made_current_at) FROM $historyTableName"
+    val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS XXX")
+
+    ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())) { statement =>
+      for
+        dateResult <- ZIO.attemptBlocking(statement.executeQuery())
+        date <- ZIO.attemptBlocking {
+          dateResult.next()
+          dateResult.getTimestamp(1).toInstant.atOffset(ZoneOffset.UTC)
+        }
+      yield date
+    }
 
   private def dropTable(tableName: String): Task[Unit] =
     val sql = s"DROP TABLE IF EXISTS $tableName"
