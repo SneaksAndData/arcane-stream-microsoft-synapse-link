@@ -107,9 +107,8 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
     Try(OffsetDateTime.parse(name, formatter)).toOption
 
-  def getRootPrefixes(storagePath: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
-    for startFrom <- ZStream.succeed(OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval))
-        _ <- zlogStream("Getting root prefixes stating from " + startFrom)
+  def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime): ZStream[Any, Throwable, StoredBlob] =
+    for _ <- zlogStream("Getting root prefixes stating from " + startFrom)
         list <- ZStream.succeed(CdmTableStream.getListPrefixes(Some(startFrom)))
         listZIO = ZIO.foreach(list)(prefix => ZIO.attemptBlocking { streamPrefixes(storagePath + prefix) })
         prefixes <- ZStream.fromIterableZIO(listZIO)
@@ -118,6 +117,10 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
           case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)
           case _ => ZStream.empty
     yield eligibleToProcess
+    
+  def getRootPrefixes(storagePath: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
+    val startFrom = OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval)
+    getRootPrefixes(storagePath, startFrom)
     
   def markForDeletion(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
       val deleteMarker = fileName.copy(blobPrefix = fileName.blobPrefix + ".delete")

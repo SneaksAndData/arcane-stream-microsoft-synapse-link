@@ -2,7 +2,6 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 
 import models.app.contracts.EnvironmentGarbageCollectorSettings
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
-import services.StreamGraphBuilderFactory
 import services.app.{AzureBlobStorageGarbageCollector, GarbageCollectorStream, JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
 import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
@@ -17,6 +16,7 @@ import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReader
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
 import zio.*
 import zio.logging.backend.SLF4J
 
@@ -67,7 +67,6 @@ object main extends ZIOAppDefault {
     MicrosoftSynapseLinkStreamContext.layer,
     PosixStreamLifetimeService.layer,
     StreamRunnerServiceCdm.layer,
-    StreamGraphBuilderFactory.layer,
     IcebergS3CatalogWriter.layer,
     IcebergSynapseConsumer.layer,
     MergeBatchProcessor.layer,
@@ -76,7 +75,9 @@ object main extends ZIOAppDefault {
     ArchivationProcessor.layer,
     TypeAlignmentService.layer,
     SourceDeleteProcessor.layer,
-    JdbcTableManager.layer)
+    JdbcTableManager.layer,
+    VersionedDataGraphBuilder.layer,
+    BackfillDataGraphBuilder.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =

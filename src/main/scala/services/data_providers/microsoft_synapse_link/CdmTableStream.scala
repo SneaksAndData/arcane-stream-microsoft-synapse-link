@@ -13,6 +13,7 @@ import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
+import com.sneaksanddata.arcane.framework.services.streaming.base.BackfillDataProvider
 import zio.stream.ZStream
 import zio.{Schedule, ZIO, ZLayer}
 
@@ -47,6 +48,24 @@ class CdmTableStream(name: String,
    * @param changeCaptureInterval Interval to capture changes
    * @return A stream of rows for this table
    */
+  def getPrefixesFromBeginning: ZStream[Any, Throwable, SchemaEnrichedBlob] =
+    ZStream.fromZIO(zioReader.getFirstBlob(storagePath)).flatMap( startDate =>
+      ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, startDate)))
+        .flatMap(x => ZStream.fromIterable(x))
+        .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+        .filter(seb => seb.blob.name.endsWith(s"/$name/"))
+        .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+        .filter(seb => seb.blob.name.endsWith(".csv"))
+    )
+
+
+  /**
+   * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
+   *
+   * @param lookBackInterval      The look back interval to start from
+   * @param changeCaptureInterval Interval to capture changes
+   * @return A stream of rows for this table
+   */
   def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, lookBackInterval)))
       .flatMap(x => ZStream.fromIterable(x))
@@ -61,6 +80,11 @@ class CdmTableStream(name: String,
     for blobs <- stream.runCollect
         _ <- ZIO.log(s"Dropping last element from from the blobs stream: ${if blobs.nonEmpty then blobs.last.blob.name else "empty"}")
     yield if blobs.nonEmpty then blobs.dropRight(1) else blobs
+
+  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, startFrom: OffsetDateTime): SchemaEnrichedBlobStream =
+    for prefix <- zioReader.getRootPrefixes(storagePath, startFrom).filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json"))
+        schemaProvider = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
+    yield SchemaEnrichedBlob(prefix, schemaProvider)
 
   private def getRootDropPrefixes(storageRoot: AdlsStoragePath, lookBackInterval: Duration): SchemaEnrichedBlobStream =
     for prefix <- zioReader.getRootPrefixes(storagePath, lookBackInterval).filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json"))
@@ -113,7 +137,7 @@ class CdmTableStream(name: String,
         .concat(ZStream.succeed(SourceCleanupRequest(streamData.filePath)))
         .zipWithIndex
         .flatMap({
-          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm ${streamData.filePath}, completed file I/O") *> ZStream.succeed(e)
+          case (e: SourceCleanupRequest, index: Long) => zlogStream(s"Received $index lines frm ${streamData.filePath}, completed file I/O") *> ZStream.succeed(e)
           case (r: DataRow, _) => ZStream.succeed(r)
         })
 

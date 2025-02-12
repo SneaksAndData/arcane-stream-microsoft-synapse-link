@@ -11,9 +11,8 @@ import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.StreamingConsumer
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
 import zio.stream.{ZSink, ZStream}
-import zio.{Chunk, Schedule, ZIO}
+import zio.{Chunk, Schedule, ZIO, ZLayer}
 
 import java.time.{OffsetDateTime, ZoneOffset}
 import scala.concurrent.Future
@@ -30,7 +29,10 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
                                 streamLifetimeService: StreamLifetimeService,
                                 batchProcessor: BatchProcessor[DataStreamElement, Chunk[DataStreamElement]],
                                 batchConsumer: IcebergSynapseConsumer,
-                                parallelismSettings: ParallelismSettings):
+                                parallelismSettings: ParallelismSettings) extends StreamGraphBuilder:
+
+
+  type StreamElementType = Chunk[DataStreamElement]
 
   /**
    * Builds a stream that reads the changes from the database.
@@ -91,15 +93,17 @@ object VersionedDataGraphBuilder:
    *
    * @return A new instance of the BackfillDataGraphBuilder class.
    */
-  def layer: ZIO[Environment, Nothing, VersionedDataGraphBuilder] =
-    for
-      _ <- zlog("Running in streaming mode")
-      sss <- ZIO.service[VersionedDataGraphBuilderSettings]
-      dp <- ZIO.service[CdmTableStream]
-      ls <- ZIO.service[StreamLifetimeService]
-      bp <- ZIO.service[BatchProcessor[DataStreamElement, Chunk[DataStreamElement]]]
-      bc <- ZIO.service[IcebergSynapseConsumer]
-      parallelismSettings <- ZIO.service[ParallelismSettings]
-    yield VersionedDataGraphBuilder(sss, dp, ls, bp, bc, parallelismSettings)
+  def layer: ZLayer[Environment, Nothing, VersionedDataGraphBuilder] =
+    ZLayer {
+      for
+        _ <- zlog("Running in streaming mode")
+        sss <- ZIO.service[VersionedDataGraphBuilderSettings]
+        dp <- ZIO.service[CdmTableStream]
+        ls <- ZIO.service[StreamLifetimeService]
+        bp <- ZIO.service[BatchProcessor[DataStreamElement, Chunk[DataStreamElement]]]
+        bc <- ZIO.service[IcebergSynapseConsumer]
+        parallelismSettings <- ZIO.service[ParallelismSettings]
+      yield VersionedDataGraphBuilder(sss, dp, ls, bp, bc, parallelismSettings)
+    }
     
 
