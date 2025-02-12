@@ -118,7 +118,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
   def getLastUpdateTime(tableName: String): Task[OffsetDateTime] =
     val segments = tableName.split("\\.")
     val historyTableName = s"${segments(0)}.${segments(1)}.\"${segments(2)}$$history\""
-    val query = s"select max(made_current_at) from $historyTableName"
+    val query = s"SELECT MAX(made_current_at) FROM $historyTableName"
     val ack = ZIO.attemptBlocking(sqlConnection.prepareStatement(query))
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS XXX")
 
