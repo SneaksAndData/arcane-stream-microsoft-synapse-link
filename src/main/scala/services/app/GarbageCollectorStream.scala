@@ -64,7 +64,7 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
       val rootPath = AdlsStoragePath(settings.rootPath).get
       for _ <- zlog(s"root path: $rootPath")
           _ <- deleteByDeleteMarkers(rootPath)
-          _ <- deleteEmptyFolders(rootPath)
+//          _ <- deleteEmptyFolders(rootPath)
       yield ()
 
 object AzureBlobStorageGarbageCollector:
