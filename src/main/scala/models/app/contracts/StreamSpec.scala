@@ -4,7 +4,6 @@ package models.app.contracts
 import models.app.OptimizeSettings
 
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat
-import upickle.core.Types
 import upickle.default.*
 
 /**

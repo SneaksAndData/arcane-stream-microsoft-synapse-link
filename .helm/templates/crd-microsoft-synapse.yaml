@@ -43,6 +43,11 @@ spec:
               properties:
                 tableProperties:
                   type: object
+                  default:
+                    partitionExpressions: []
+                    sortedBy: []
+                    parquetBloomFilterColumns: []
+                    format: PARQUET
                   properties:
                     partitionExpressions:
                       type: array
