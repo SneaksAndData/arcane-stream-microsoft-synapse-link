@@ -11,7 +11,6 @@ jobs:
   build_image:
     name: Build Docker Image and Helm Charts
     runs-on: ubuntu-latest
-    if: ${{ needs.validate_commit.result == 'success' || needs.validate_commit.result == 'skipped' }}
     env:
       TOKEN: '${{ secrets.MAVEN_PUBLISH_TOKEN }}'
     permissions:
