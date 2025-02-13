@@ -194,7 +194,7 @@ spec:
                     Number of seconds to look back when determining first set of changes to extract.
                     Can be set in interval from 1 second to 10 hours. Default is 1 hour.
                   minimum: 1
-                  maximum: 604800
+                  maximum: 1209600
                   default: 3600
                 catalogAuthSecretRef:
                   description: |
