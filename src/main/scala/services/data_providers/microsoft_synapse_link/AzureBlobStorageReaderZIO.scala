@@ -5,7 +5,7 @@ import com.azure.core.credential.TokenCredential
 import com.azure.core.http.rest.PagedResponse
 import com.azure.core.util.BinaryData
 import com.azure.identity.DefaultAzureCredentialBuilder
-import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
+import com.azure.storage.blob.models.{BlobListDetails, BlobStorageException, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
@@ -15,8 +15,10 @@ import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlo
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import models.app.streaming.{SourceCleanupResult, SourceDeletionResult}
 
+import com.azure.storage.blob.specialized.BlobLeaseClientBuilder
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO.deleteSuffix
 import zio.stream.ZStream
-import zio.{Chunk, Task, ZIO}
+import zio.{Chunk, Schedule, Task, ZIO}
 
 import java.io.{BufferedReader, InputStreamReader, Reader}
 import java.time.format.DateTimeFormatter
@@ -33,6 +35,7 @@ import scala.util.Try
  * @param sharedKeyCredential Optional access key credential
  */
 final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[String], tokenCredential: Option[TokenCredential], sharedKeyCredential: Option[StorageSharedKeyCredential], settings: Option[AzureBlobStorageReaderSettings], deleteDryRun: Boolean):
+
   private val serviceClientSettings = settings.getOrElse(AzureBlobStorageReaderSettings())
   private lazy val defaultCredential = new DefaultAzureCredentialBuilder().build()
   private lazy val clientBuilder =
@@ -60,6 +63,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
 
   private val stringContentSerializer: Array[Byte] => String = _.map(_.toChar).mkString
 
+  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
   /**
    *
    * @param blobPath The path to the blob.
@@ -89,8 +93,8 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
           .setRetrieveVersions(false)
       )
 
-    val publisher = client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly)
-    ZStream.fromIterable(publisher)
+    val publisher = ZIO.attemptBlocking(client.listBlobsByHierarchy("/", listOptions, defaultTimeout).stream().toList.asScala.map(implicitly))
+    ZStream.fromIterableZIO(publisher) retry retryPolicy
 
   def blobExists(blobPath: AdlsStoragePath): Task[Boolean] =
     ZIO.attemptBlocking(getBlobClient(blobPath).exists())
@@ -107,6 +111,10 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
     Try(OffsetDateTime.parse(name, formatter)).toOption
 
+  def getRootPrefixes(storagePath: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
+    val startFrom = OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval)
+    getRootPrefixes(storagePath, startFrom)
+
   def getRootPrefixes(storagePath: AdlsStoragePath, startFrom: OffsetDateTime): ZStream[Any, Throwable, StoredBlob] =
     for _ <- zlogStream("Getting root prefixes stating from " + startFrom)
         list <- ZStream.succeed(CdmTableStream.getListPrefixes(Some(startFrom)))
@@ -117,30 +125,42 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
           case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)
           case _ => ZStream.empty
     yield eligibleToProcess
-    
-  def getRootPrefixes(storagePath: AdlsStoragePath, lookBackInterval: Duration): ZStream[Any, Throwable, StoredBlob] =
-    val startFrom = OffsetDateTime.now(ZoneOffset.UTC).minus(lookBackInterval)
-    getRootPrefixes(storagePath, startFrom)
-    
+
   def markForDeletion(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceCleanupResult] =
-      val deleteMarker = fileName.copy(blobPrefix = fileName.blobPrefix + ".delete")
+      val deleteMarker = fileName.copy(blobPrefix = fileName.blobPrefix + deleteSuffix)
       zlog(s"Marking source file for deletion: $fileName with marker: $deleteMarker") *>
         ZIO.attemptBlocking {
             serviceClient.getBlobContainerClient(fileName.container)
               .getBlobClient(deleteMarker.blobPrefix)
               .upload(BinaryData.fromString(""), true)
         }
-        .map(result => SourceCleanupResult(fileName, deleteMarker))
+        .map(result => SourceCleanupResult(fileName, deleteMarker)).retry(retryPolicy)
 
   def deleteBlob(fileName: AdlsStoragePath): ZIO[Any, Throwable, SourceDeletionResult] =
+    val prefix = if fileName.blobPrefix.endsWith("/") then fileName.blobPrefix.dropRight(1) else fileName.blobPrefix
     if deleteDryRun then
-      ZIO.log("Dry run: Deleting blob: " + fileName).map(_ => SourceDeletionResult(fileName, true))
+      ZIO.log("Dry run: Deleting blob: " + prefix).map(_ => SourceDeletionResult(fileName, true))
     else
-      ZIO.log("Deleting blob: " + fileName) *>
-      ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(fileName.blobPrefix).deleteIfExists())
-         .map(result => SourceDeletionResult(fileName, result))
+      ZIO.log("Deleting blob: " + prefix) *>
+      ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(prefix).delete())
+         .map(result => SourceDeletionResult(fileName, false))
+
+  def breakLease(fileName: AdlsStoragePath): ZIO[Any, Throwable, Unit] =
+    val prefix = if fileName.blobPrefix.endsWith("/") then fileName.blobPrefix.dropRight(1) else fileName.blobPrefix
+    val client = serviceClient.getBlobContainerClient(fileName.container).getBlobClient(prefix)
+
+    val leaseClient = new BlobLeaseClientBuilder().blobClient(client).buildClient()
+
+    ZIO.attemptBlocking(leaseClient.breakLease()).catchSome({
+      case e: BlobStorageException if e.getStatusCode == 409 => ZIO.unit
+    }).map(_ => ())
 
 object AzureBlobStorageReaderZIO:
+
+  /**
+   * Suffix to mark files for deletion
+   */
+  val deleteSuffix: String = ".delete"
 
   /**
    * Create AzureBlobStorageReaderZIO for the account using StorageSharedKeyCredential and custom endpoint

@@ -28,29 +28,52 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
         .filterZIO(prefix => {
           for
             contents <- storageService.streamPrefixes(rootPath + prefix.name).runCollect
-            groups = contents.groupBy(_.name.endsWith(".deleted"))
-            needDelete = groups.getOrElse(false, Seq.empty).length == groups.getOrElse(true, Seq.empty).length
-            _ <- zlog(s"Directory prefix: ${prefix.name} will be deleted: $needDelete")
+            groups = contents.groupBy(_.name.endsWith(AzureBlobStorageReaderZIO.deleteSuffix))
+            filesCount = groups.getOrElse(false, Seq.empty).length
+            deleteMarkersCount = groups.getOrElse(true, Seq.empty).length
+            needDelete = filesCount == deleteMarkersCount
+            _ <- zlog(s"Directory prefix: ${prefix.name} will be deleted: $needDelete. Files: $filesCount, delete markers: $deleteMarkersCount")
           yield needDelete
         })
         .runForeach(prefix => {
           val path = rootPath + prefix.name
-          storageService.deleteBlob(path).map(result => zlog(s"Source directory $path was deleted: $result"))
+          for filesToDelete <- storageService.streamPrefixes(path).runCollect
+              _ <- ZIO.foreachDiscard(filesToDelete)(file => storageService.deleteBlob(AdlsStoragePath(path.accountName, path.container, file.name)))
+              _ <- storageService.deleteBlob(path).map(result => zlog(s"Source directory $path was deleted: $result"))
+          yield ()
         })
     yield ()
 
+  private val ignoredFiles = Set("model.json", "Microsoft.Athena.TrickleFeedService/", "OptionsetMetadata/")
   private def deleteEmptyFolders(rootPath: AdlsStoragePath): Task[Unit] =
     for startDate <- storageService.getFirstBlob(rootPath)
         _ <- ZStream.fromIterable(Some(startDate).iterateByDates())
           .flatMap(prefix => storageService.streamPrefixes(rootPath + prefix))
           .filterZIO(prefix => {
             for
-              contents <- storageService.streamPrefixes(rootPath + prefix.name).filter(f => !f.name.endsWith("model.json")).runCollect
-              _ <- zlog(s"Directory prefix: $prefix has ${contents.length} files (model.json not included)")
+              contents <- storageService.streamPrefixes(rootPath + prefix.name)
+                .filter(f => !ignoredFiles.exists(e => f.name.endsWith(e))).runCollect
+
+              _ <- zlog(s"Directory prefix: $prefix has ${contents.length} files (not included: $ignoredFiles)")
             yield contents.isEmpty
           })
-          .runForeach(prefix => zlog(s"Deleting empty prefix $prefix") *> storageService.deleteBlob(rootPath + prefix.name))
+          .runForeach(prefix => zlog(s"Deleting empty prefix $prefix") *> deleteFolderRecursively(rootPath + prefix.name))
     yield ()
+
+
+  private def deleteFolderRecursively(blob: AdlsStoragePath): Task[Unit] =
+    if ! blob.blobPrefix.endsWith("/")
+    then
+      storageService.breakLease(blob) *> storageService.deleteBlob(blob).map(_ => ())
+    else
+      for
+        _ <- zlog(s"Deleting folder $blob")
+        _ <- storageService.streamPrefixes(blob)
+            .mapZIO(prefix => deleteFolderRecursively(blob.copy(blobPrefix = prefix.name)))
+            .runCollect
+        _ <- storageService.breakLease(blob)
+        _ <- storageService.deleteBlob(blob)
+      yield ()
 
   def run: Task[Unit] =
       val rootPath = AdlsStoragePath(settings.rootPath).get
