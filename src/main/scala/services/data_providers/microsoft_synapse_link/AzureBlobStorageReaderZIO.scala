@@ -5,7 +5,7 @@ import com.azure.core.credential.TokenCredential
 import com.azure.core.http.rest.PagedResponse
 import com.azure.core.util.BinaryData
 import com.azure.identity.DefaultAzureCredentialBuilder
-import com.azure.storage.blob.models.{BlobListDetails, ListBlobsOptions}
+import com.azure.storage.blob.models.{BlobListDetails, BlobStorageException, ListBlobsOptions}
 import com.azure.storage.blob.{BlobClient, BlobContainerClient, BlobServiceClientBuilder}
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.azure.storage.common.policy.{RequestRetryOptions, RetryPolicyType}
@@ -15,6 +15,7 @@ import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlo
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import models.app.streaming.{SourceCleanupResult, SourceDeletionResult}
 
+import com.azure.storage.blob.specialized.BlobLeaseClientBuilder
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO.deleteSuffix
 import zio.stream.ZStream
 import zio.{Chunk, Schedule, Task, ZIO}
@@ -143,6 +144,16 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
       ZIO.log("Deleting blob: " + prefix) *>
       ZIO.attemptBlocking(serviceClient.getBlobContainerClient(fileName.container).getBlobClient(prefix).delete())
          .map(result => SourceDeletionResult(fileName, false))
+
+  def breakLease(fileName: AdlsStoragePath): ZIO[Any, Throwable, Unit] =
+    val prefix = if fileName.blobPrefix.endsWith("/") then fileName.blobPrefix.dropRight(1) else fileName.blobPrefix
+    val client = serviceClient.getBlobContainerClient(fileName.container).getBlobClient(prefix)
+
+    val leaseClient = new BlobLeaseClientBuilder().blobClient(client).buildClient()
+
+    ZIO.attemptBlocking(leaseClient.breakLease()).catchSome({
+      case e: BlobStorageException if e.getStatusCode == 409 => ZIO.unit
+    }).map(_ => ())
 
 object AzureBlobStorageReaderZIO:
 
