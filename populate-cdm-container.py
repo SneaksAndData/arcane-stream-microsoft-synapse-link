@@ -1285,3 +1285,4 @@ create_blobs(MODEL_JSON, CONTENT, FOLDERS[4:])
 
 blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
 upload_blob_file(blob_service_client, CONTAINER, "model.json", MODEL_JSON_MODIFIED)
+
