@@ -76,7 +76,8 @@ object main extends ZIOAppDefault {
     ArchivationProcessor.layer,
     TypeAlignmentService.layer,
     SourceDeleteProcessor.layer,
-    JdbcTableManager.layer)
+    JdbcTableManager.layer,
+    StagingTableProcessor.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
