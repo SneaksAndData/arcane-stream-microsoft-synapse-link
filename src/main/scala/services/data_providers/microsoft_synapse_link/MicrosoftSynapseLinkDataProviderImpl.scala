@@ -56,6 +56,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
       .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
       .flatMap(reader => cdmTableStream.getData(reader))
       .via(groupingProcessor.process)
+      .zip(ZStream.repeat(backFillTableName))
       .via(stageProcessor.process)
       .via(mergeProcessor.process)
       .via(archivationProcessor.process)

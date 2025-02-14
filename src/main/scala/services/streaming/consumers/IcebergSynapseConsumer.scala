@@ -35,7 +35,7 @@ class IcebergSynapseConsumer(stageProcessor: BatchProcessor[IncomingBatch, InFli
                              mergeProcessor: BatchProcessor[InFlightBatch, InFlightBatch],
                              archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
                              sourceCleanupProcessor: BatchProcessor[CompletedBatch, PipelineResult])
-  extends BatchConsumer[Chunk[DataStreamElement]]:
+  extends BatchConsumer[IncomingBatch]:
 
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)

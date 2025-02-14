@@ -24,32 +24,32 @@ import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
 class StagingTableProcessor(streamContext: MicrosoftSynapseLinkStreamContext,
-                            targetTableSettings: TargetTableSettings,
                             icebergCatalogSettings: IcebergCatalogSettings,
                             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema])
   extends BatchProcessor[IncomingBatch, InFlightBatch]:
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
 
-  override def process: ZPipeline[Any, Throwable, IncomingBatch, InFlightBatch] = ZPipeline[Chunk[DataStreamElement]]()
-    .mapZIO(elements =>
-      val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(_.schema)
-      val deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
-      val batchResults = ZIO.foreach(groupedBySchema) {
-        case (schema, rows) => writeDataRows(rows, schema)
-      }
-      batchResults.map(b => (b.values, deleteRequests))
-    )
+  override def process: ZPipeline[Any, Throwable, IncomingBatch, InFlightBatch] = ZPipeline[IncomingBatch]()
+    .mapZIO{
+      case (elements, target) =>
+        val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(_.schema)
+        val deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
+        val batchResults = ZIO.foreach(groupedBySchema) {
+          case (schema, rows) => writeDataRows(rows, schema, target)
+        }
+        batchResults.map(b => (b.values, deleteRequests))
+    }
     .zipWithIndex
 
 
-  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema): Task[(ArcaneSchema, StagedVersionedBatch)] =
+  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema, target: String): Task[(ArcaneSchema, StagedVersionedBatch)] =
     val tableWriterEffect =
       zlog("Attempting to write data to staging table") *>
         ZIO.fromFuture(implicit ec => catalogWriter.write(rows, streamContext.stagingTableNamePrefix.getTableName, arcaneSchema))
     for
       table <- tableWriterEffect.retry(retryPolicy)
-      batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, targetTableSettings.targetTableFullName, Map())
+      batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, target, Map())
     yield (arcaneSchema, batch)
 
 
@@ -69,14 +69,12 @@ object StagingTableProcessor:
     SynapseLinkMergeBatch(batchName, batchSchema, targetName, partitionValues)
 
   def apply(streamContext: MicrosoftSynapseLinkStreamContext,
-            targetTableSettings: TargetTableSettings,
             icebergCatalogSettings: IcebergCatalogSettings,
             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema]): StagingTableProcessor =
-    new StagingTableProcessor(streamContext, targetTableSettings, icebergCatalogSettings, catalogWriter)
+    new StagingTableProcessor(streamContext, icebergCatalogSettings, catalogWriter)
 
 
   type Environment = MicrosoftSynapseLinkStreamContext
-    & TargetTableSettings
     & IcebergCatalogSettings
     & CatalogWriter[RESTCatalog, Table, Schema]
 
@@ -85,8 +83,7 @@ object StagingTableProcessor:
     ZLayer {
       for
         streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
-        targetTableSettings <- ZIO.service[TargetTableSettings]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
         catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
-      yield StagingTableProcessor(streamContext, targetTableSettings, icebergCatalogSettings, catalogWriter)
+      yield StagingTableProcessor(streamContext, icebergCatalogSettings, catalogWriter)
     }
