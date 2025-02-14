@@ -15,7 +15,6 @@ import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillBatch, SynapseLinkBackfillBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BackfillDataProvider, BatchProcessor}
-import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Task, UIO, URIO, ZIO, ZLayer}
@@ -42,32 +41,35 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            groupingProcessor: CdmGroupingProcessor,
                                            stageProcessor: BatchProcessor[IncomingBatch, InFlightBatch],
                                            archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
-                                           catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                                            tableManager: TableManager,
                                            sinkSettings: TargetTableSettings) extends MicrosoftSynapseLinkDataProvider:
 
+  private val backFillTableName = streamContext.getBackfillTableName
+  private val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
+  private val mergeProcessor = MergeBatchProcessor(jdbcConsumer, parallelismSettings, tempTargetTableSettings, tableManager)
+
   def requestBackfill: Task[SynapseLinkBackfillBatchInFlight] =
-    val backFillTableName = streamContext.getBackfillTableName
-    val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
-    val mergeProcessor = MergeBatchProcessor(jdbcConsumer, parallelismSettings, tempTargetTableSettings, tableManager)
-    
-    val backfillStream = cdmTableStream
-      .getPrefixesFromBeginning
-      .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
-      .flatMap(reader => cdmTableStream.getData(reader))
-      .via(groupingProcessor.process)
-      .zip(ZStream.repeat(backFillTableName))
-      .via(stageProcessor.process)
-      .via(mergeProcessor.process)
-      .via(archivationProcessor.process)
 
     for
       _ <- zlog("Starting backfill process")
-      res <- backfillStream.runCollect
-      cleanups = res.flatMap(_._2)
-      _ <- zlog("Starting process completed")
-      bfb <- createBackfillBatch(backFillTableName)
-    yield (bfb, cleanups)
+      cleanupRequests <- backfillStream.runCollect
+      _ <- zlog("Backfill process completed")
+      backFillCompletionBatch <- createBackfillBatch(backFillTableName)
+    yield (backFillCompletionBatch, cleanupRequests.flatten)
+
+  private def csvLinesStream = cdmTableStream.getPrefixesFromBeginning
+    .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
+    .flatMap(reader => cdmTableStream.getData(reader))
+
+  private def backfillStream = csvLinesStream
+    .via(groupingProcessor.process)
+    .zip(ZStream.repeat(backFillTableName))
+    .via(stageProcessor.process)
+    .via(mergeProcessor.process)
+    .via(archivationProcessor.process)
+    .map({
+      case (_, cleanupRequests) => cleanupRequests
+    })
 
 
   private def createBackfillBatch(tableName: String): Task[StagedBackfillBatch] =
@@ -80,7 +82,6 @@ object MicrosoftSynapseLinkDataProviderImpl:
     & MicrosoftSynapseLinkStreamContext
     & ParallelismSettings
     & CdmGroupingProcessor
-    & CatalogWriter[RESTCatalog, Table, Schema]
     & TableManager
     & TargetTableSettings
     & JdbcConsumer[MergeQuery]
@@ -94,7 +95,6 @@ object MicrosoftSynapseLinkDataProviderImpl:
             groupingProcessor: CdmGroupingProcessor,
             stageProcessor: BatchProcessor[IncomingBatch, InFlightBatch],
             archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
-            catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
             tableManager: TableManager,
             sinkSettings: TargetTableSettings): MicrosoftSynapseLinkDataProviderImpl =
     new MicrosoftSynapseLinkDataProviderImpl(
@@ -105,7 +105,6 @@ object MicrosoftSynapseLinkDataProviderImpl:
       groupingProcessor,
       stageProcessor,
       archivationProcessor,
-      catalogWriter,
       tableManager,
       sinkSettings)
 
@@ -117,11 +116,10 @@ object MicrosoftSynapseLinkDataProviderImpl:
         streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
         parallelismSettings <- ZIO.service[ParallelismSettings]
         groupingProcessor <- ZIO.service[CdmGroupingProcessor]
-        catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         tableManager <- ZIO.service[TableManager]
         sinkSettings <- ZIO.service[TargetTableSettings]
         stageProcessor <- ZIO.service[BatchProcessor[IncomingBatch, InFlightBatch]]
         archivationProcessor <- ZIO.service[BatchProcessor[InFlightBatch, CompletedBatch]]
-      yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream, jdbcConsumer, streamContext, parallelismSettings, groupingProcessor, stageProcessor, archivationProcessor, catalogWriter, tableManager, sinkSettings)
+      yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream, jdbcConsumer, streamContext, parallelismSettings, groupingProcessor, stageProcessor, archivationProcessor, tableManager, sinkSettings)
     }
 
