@@ -2,11 +2,10 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 
 import models.app.contracts.EnvironmentGarbageCollectorSettings
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
-import services.StreamGraphBuilderFactory
 import services.app.{AzureBlobStorageGarbageCollector, GarbageCollectorStream, JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
 import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
-import services.streaming.consumers.IcebergSynapseConsumer
+import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSynapseConsumer}
 import services.streaming.processors.*
 
 import com.azure.storage.common.StorageSharedKeyCredential
@@ -17,6 +16,7 @@ import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReader
+import com.sneaksanddata.arcane.framework.services.streaming.consumers.IcebergBackfillConsumer
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
 import zio.*
 import zio.logging.backend.SLF4J
@@ -68,17 +68,21 @@ object main extends ZIOAppDefault {
     MicrosoftSynapseLinkStreamContext.layer,
     PosixStreamLifetimeService.layer,
     StreamRunnerServiceCdm.layer,
-    StreamGraphBuilderFactory.layer,
     IcebergS3CatalogWriter.layer,
     IcebergSynapseConsumer.layer,
     MergeBatchProcessor.layer,
-    JdbcConsumer.layer,
     CdmGroupingProcessor.layer,
     ArchivationProcessor.layer,
     TypeAlignmentService.layer,
     SourceDeleteProcessor.layer,
     JdbcTableManager.layer,
-    StagingTableProcessor.layer)
+    StagingTableProcessor.layer,
+    BackfillDataGraphBuilder.layer,
+    VersionedDataGraphBuilder.layer,
+    JdbcConsumer.mergeLayer,
+    JdbcConsumer.overwriteLayer,
+    MicrosoftSynapseLinkDataProviderImpl.layer,
+    IcebergSynapseBackfillConsumer.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =

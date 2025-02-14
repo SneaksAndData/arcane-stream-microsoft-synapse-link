@@ -8,6 +8,7 @@ import services.clients.BatchArchivationResult
 
 import com.sneaksanddata.arcane.framework.utils.SqlUtils.readArcaneSchema
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
@@ -31,6 +32,8 @@ trait TableManager:
   def createTargetTable: Task[TableCreationResult]
 
   def createArchiveTable: Task[TableCreationResult]
+  
+  def tryCreateBackfillTable: Task[TableCreationResult]
   
   def getTargetSchema(tableName: String): Task[ArcaneSchema]
 
@@ -90,6 +93,16 @@ class JdbcTableManager(options: JdbcConsumerOptions,
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
       created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, schema, tableProperties))
     yield created
+    
+  def tryCreateBackfillTable: Task[TableCreationResult] =
+    if streamContext.IsBackfilling then
+      for
+        _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", streamContext.getBackfillTableName)))
+        schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
+        created <- ZIO.fromFuture(implicit ec => createTable(streamContext.getBackfillTableName, schema, tableProperties))
+      yield created
+    else
+      ZIO.succeed(false)
 
   def cleanupStagingTables: Task[Unit] =
     val sql = s"SHOW TABLES FROM ${streamContext.stagingCatalog} LIKE '${streamContext.stagingTableNamePrefix}\\_\\_%' escape '\\'"

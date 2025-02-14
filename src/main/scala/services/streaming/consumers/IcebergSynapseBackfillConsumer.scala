@@ -4,9 +4,9 @@ package services.streaming.consumers
 import extensions.DataRowExtensions.schema
 import models.app.streaming.{SourceCleanupRequest, SourceCleanupResult}
 import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
+import services.app.TableManager
 import services.clients.{BatchArchivationResult, JdbcConsumer}
-import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, DataStreamElement, SynapseLinkBackfillBatchInFlight}
-import services.streaming.consumers.IcebergSynapseConsumer.{getTableName, toStagedBatch}
+import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, DataStreamElement}
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
@@ -29,7 +29,10 @@ import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
 
-class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer[OverwriteQuery], reader: AzureBlobStorageReaderZIO)
+class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer[OverwriteQuery], 
+                                     reader: AzureBlobStorageReaderZIO,
+                                     targetTableSettings: TargetTableSettings,
+                                     tableManager: TableManager)
   extends BatchConsumer[SynapseLinkBackfillBatchInFlight]:
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
@@ -47,6 +50,7 @@ class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer[OverwriteQu
     val (batch, cleanupRequests) = batchInFlight
     for
       _ <- zlog(s"Consuming backfill batch $batch")
+      _ <- tableManager.migrateSchema(batch.schema, targetTableSettings.targetTableFullName)
       _ <- overwriteConsumer.applyBatch(batch)
       _ <- zlog(s"Target table has been overwritten")
       _ <- ZIO.foreach(cleanupRequests)(cleanupRequest => reader.markForDeletion(cleanupRequest.prefix))
@@ -65,14 +69,19 @@ object IcebergSynapseBackfillConsumer:
    * @param schemaProvider The schema provider.
    * @return The initialized IcebergConsumer instance
    */
-  def apply(mergeConsumer: JdbcConsumer[OverwriteQuery], reader: AzureBlobStorageReaderZIO): IcebergSynapseBackfillConsumer =
-    new IcebergSynapseBackfillConsumer(mergeConsumer, reader)
+  def apply(mergeConsumer: JdbcConsumer[OverwriteQuery],
+            reader: AzureBlobStorageReaderZIO,
+            targetTableSettings: TargetTableSettings,
+            tableManager: TableManager): IcebergSynapseBackfillConsumer =
+    new IcebergSynapseBackfillConsumer(mergeConsumer, reader, targetTableSettings, tableManager)
 
   /**
    * The required environment for the IcebergConsumer.
    */
   type Environment = JdbcConsumer[OverwriteQuery]
     & AzureBlobStorageReaderZIO
+    & TargetTableSettings
+    & TableManager
 
   /**
    * The ZLayer that creates the IcebergConsumer.
@@ -82,5 +91,7 @@ object IcebergSynapseBackfillConsumer:
       for
         jdbcConsumer <- ZIO.service[JdbcConsumer[OverwriteQuery]]
         reader <- ZIO.service[AzureBlobStorageReaderZIO]
-      yield IcebergSynapseBackfillConsumer(jdbcConsumer, reader)
+        settings <- ZIO.service[TargetTableSettings]
+        tableManager <-  ZIO.service[TableManager]
+      yield IcebergSynapseBackfillConsumer(jdbcConsumer, reader, settings, tableManager)
     }
