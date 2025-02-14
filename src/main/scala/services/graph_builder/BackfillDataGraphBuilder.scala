@@ -6,25 +6,21 @@ import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BackfillDataProvider, BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.BackfillConsumer
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.DataStreamElement
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.streaming.consumers.IcebergSynapseConsumer
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.{DataStreamElement, MicrosoftSynapseLinkDataProvider, SynapseLinkBackfillBatchInFlight}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSynapseConsumer}
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, ZIO, ZLayer}
 
-class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
+class BackfillDataGraphBuilder(backfillDataProvider: MicrosoftSynapseLinkDataProvider,
                                streamLifetimeService: StreamLifetimeService,
                                batchProcessor: BatchProcessor[DataStreamElement, Chunk[DataStreamElement]],
-                               batchConsumer: IcebergSynapseConsumer)
+                               batchConsumer: IcebergSynapseBackfillConsumer)
   extends StreamGraphBuilder:
 
 
-  override type StreamElementType = Chunk[DataStreamElement]
+  override type StreamElementType = SynapseLinkBackfillBatchInFlight
 
-  override def create: ZStream[Any, Throwable, StreamElementType] =
-    ZStream.fromZIO(backfillDataProvider.requestBackfill)
-      .takeUntil(_ => streamLifetimeService.cancelled)
-      .flatMap(batch => ZStream.fromIterable(batch.read))
-      .via(batchProcessor.process)
+  override def create: ZStream[Any, Throwable, StreamElementType] = ZStream.fromZIO(backfillDataProvider.requestBackfill)
 
   override def consume: ZSink[Any, Throwable, StreamElementType, Any, Unit] = batchConsumer.consume
 
@@ -32,10 +28,10 @@ class BackfillDataGraphBuilder(backfillDataProvider: BackfillDataProvider,
  * The companion object for the VersionedDataGraphBuilder class.
  */
 object BackfillDataGraphBuilder:
-  type Environment = BackfillDataProvider
+  type Environment = MicrosoftSynapseLinkDataProvider
     & StreamLifetimeService
     & BatchProcessor[DataStreamElement, Chunk[DataStreamElement]]
-    & IcebergSynapseConsumer
+    & IcebergSynapseBackfillConsumer
 
   /**
    * Creates a new instance of the BackfillDataGraphBuilder class.
@@ -45,10 +41,10 @@ object BackfillDataGraphBuilder:
    * @param batchProcessor        The batch processor.
    * @return A new instance of the BackfillDataGraphBuilder class.
    */
-  def apply(backfillDataProvider: BackfillDataProvider,
+  def apply(backfillDataProvider: MicrosoftSynapseLinkDataProvider,
             streamLifetimeService: StreamLifetimeService,
             batchProcessor: BatchProcessor[DataStreamElement, Chunk[DataStreamElement]],
-            batchConsumer: IcebergSynapseConsumer): BackfillDataGraphBuilder =
+            batchConsumer: IcebergSynapseBackfillConsumer): BackfillDataGraphBuilder =
     new BackfillDataGraphBuilder(backfillDataProvider, streamLifetimeService, batchProcessor, batchConsumer)
 
   /**
@@ -60,10 +56,10 @@ object BackfillDataGraphBuilder:
   ZLayer {
     for
       _ <- zlog("Running in backfill mode")
-      dp <- ZIO.service[BackfillDataProvider]
+      dp <- ZIO.service[MicrosoftSynapseLinkDataProvider]
       ls <- ZIO.service[StreamLifetimeService]
       bp <- ZIO.service[BatchProcessor[DataStreamElement, Chunk[DataStreamElement]]]
-      bc <- ZIO.service[IcebergSynapseConsumer]
+      bc <- ZIO.service[IcebergSynapseBackfillConsumer]
     yield BackfillDataGraphBuilder(dp, ls, bp, bc)
   }
 

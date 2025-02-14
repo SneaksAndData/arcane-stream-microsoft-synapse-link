@@ -53,7 +53,8 @@ class CdmTableStream(name: String,
    */
   def getPrefixesFromBeginning: ZStream[Any, Throwable, SchemaEnrichedBlob] =
     ZStream.fromZIO(zioReader.getFirstBlob(storagePath)).flatMap( startDate =>
-      ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, startDate)))
+      val streamTask = ZIO.attempt(enrichWithSchema(zioReader.getRootPrefixes(storagePath, startDate)))
+      ZStream.fromZIO(dropLast(streamTask))
         .flatMap(x => ZStream.fromIterable(x))
         .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
         .filter(seb => seb.blob.name.endsWith(s"/$name/"))
@@ -104,11 +105,12 @@ class CdmTableStream(name: String,
         .getLastUpdateTime(targetTableSettings.targetTableFullName)
         .map(lastUpdate => zioReader.getRootPrefixes(storagePath,lastUpdate))
 
-    getPrefixesTask.map(stream => {
-      stream.filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
-        val schemaProvider = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
-        SchemaEnrichedBlob(prefix, schemaProvider)
-      })
+    getPrefixesTask.map(stream => enrichWithSchema(stream))
+
+  private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
+    stream.filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
+      val schemaProvider = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
+      SchemaEnrichedBlob(prefix, schemaProvider)
     })
 
 

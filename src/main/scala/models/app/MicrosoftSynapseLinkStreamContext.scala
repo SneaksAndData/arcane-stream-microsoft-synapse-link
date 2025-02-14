@@ -26,9 +26,9 @@ trait OptimizeSettings:
 
 trait TargetTableSettings:
   val targetTableFullName: String
-  val targetOptimizeSettings: OptimizeSettings
-  val targetSnapshotExpirationSettings: SnapshotExpirationSettings
-  val targetOrphanFilesExpirationSettings: OrphanFilesExpirationSettings
+  val targetOptimizeSettings: Option[OptimizeSettings]
+  val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings]
+  val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings]
 
 trait ArchiveTableSettings:
   val archiveTableFullName: String

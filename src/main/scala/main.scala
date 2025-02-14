@@ -4,8 +4,8 @@ import models.app.contracts.EnvironmentGarbageCollectorSettings
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
 import services.app.{AzureBlobStorageGarbageCollector, GarbageCollectorStream, JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
-import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
-import services.streaming.consumers.IcebergSynapseConsumer
+import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream, MicrosoftSynapseLinkDataProviderImpl}
+import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSynapseConsumer}
 import services.streaming.processors.*
 
 import com.azure.storage.common.StorageSharedKeyCredential
@@ -70,14 +70,18 @@ object main extends ZIOAppDefault {
     IcebergS3CatalogWriter.layer,
     IcebergSynapseConsumer.layer,
     MergeBatchProcessor.layer,
-    JdbcConsumer.layer,
+    JdbcConsumer.mergeLayer,
+    JdbcConsumer.overwriteLayer,
     CdmGroupingProcessor.layer,
     ArchivationProcessor.layer,
     TypeAlignmentService.layer,
     SourceDeleteProcessor.layer,
     JdbcTableManager.layer,
     VersionedDataGraphBuilder.layer,
-    BackfillDataGraphBuilder.layer)
+    BackfillDataGraphBuilder.layer,
+    IcebergSynapseBackfillConsumer.layer,
+    MicrosoftSynapseLinkDataProviderImpl.layer
+  )
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
