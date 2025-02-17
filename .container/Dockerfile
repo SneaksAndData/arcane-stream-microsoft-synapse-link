@@ -7,9 +7,9 @@ WORKDIR /build
 COPY . .
 
 RUN echo $GITHUB_TOKEN
-RUN sbt graalvm-native-image:packageBin
+RUN sbt graalvm-native-image:packageBin && file target/graalvm-native-image/arcane-stream-microsoft-synapse-link
 
-FROM --platform=$BUILDPLATFORM gcr.io/distroless/base-debian12 AS build-release-stage
+FROM gcr.io/distroless/base-debian12 AS build-release-stage
 
 COPY --from=build /build/target/graalvm-native-image /app
 
