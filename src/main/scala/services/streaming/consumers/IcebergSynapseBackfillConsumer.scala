@@ -33,7 +33,7 @@ class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer[OverwriteQu
                                      reader: AzureBlobStorageReaderZIO,
                                      targetTableSettings: TargetTableSettings,
                                      tableManager: TableManager)
-  extends BatchConsumer[SynapseLinkBackfillBatchInFlight]:
+  extends BatchConsumer[BackfillBatchInFlight]:
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
 
@@ -42,11 +42,11 @@ class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer[OverwriteQu
    *
    * @return ZSink (stream sink for the stream graph).
    */
-  override def consume: ZSink[Any, Throwable, SynapseLinkBackfillBatchInFlight, Any, Unit] =
+  override def consume: ZSink[Any, Throwable, BackfillBatchInFlight, Any, Unit] =
     ZSink.foreach(batch => consumeBackfillBatch(batch))
 
 
-  private def consumeBackfillBatch(batchInFlight: SynapseLinkBackfillBatchInFlight): Task[Unit] =
+  private def consumeBackfillBatch(batchInFlight: BackfillBatchInFlight): Task[Unit] =
     val (batch, cleanupRequests) = batchInFlight
     for
       _ <- zlog(s"Consuming backfill batch $batch")

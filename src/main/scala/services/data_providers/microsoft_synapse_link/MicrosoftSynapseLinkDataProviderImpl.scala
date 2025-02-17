@@ -22,11 +22,11 @@ import zio.{Chunk, Task, UIO, URIO, ZIO, ZLayer}
 import java.time.{ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
-type SynapseLinkBackfillBatchInFlight = (StagedBackfillBatch, Chunk[SourceCleanupRequest])
+type BackfillBatchInFlight = (StagedBackfillBatch, Chunk[SourceCleanupRequest])
 
 trait MicrosoftSynapseLinkDataProvider:
 
-  def requestBackfill: Task[SynapseLinkBackfillBatchInFlight]
+  def requestBackfill: Task[BackfillBatchInFlight]
 
 case class BackfillTempTableSettings(override val targetTableFullName: String) extends TargetTableSettings:
   override val targetOptimizeSettings: Option[OptimizeSettings] = None
@@ -48,7 +48,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
   private val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
   private val mergeProcessor = MergeBatchProcessor(jdbcConsumer, parallelismSettings, tempTargetTableSettings, tableManager)
 
-  def requestBackfill: Task[SynapseLinkBackfillBatchInFlight] =
+  def requestBackfill: Task[BackfillBatchInFlight] =
 
     for
       _ <- zlog("Starting backfill process")

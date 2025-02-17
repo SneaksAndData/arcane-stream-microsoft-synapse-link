@@ -79,7 +79,7 @@ object VersionedDataGraphBuilder:
    */
   def apply[VersionType, BatchType](versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
             cdmTableStream: CdmTableStream,
-                                    targetTableSettings: TargetTableSettings,
+            targetTableSettings: TargetTableSettings,
             streamLifetimeService: StreamLifetimeService,
             batchProcessor: BatchProcessor[DataStreamElement,  Chunk[DataStreamElement]],
             batchConsumer: IcebergSynapseConsumer,

@@ -9,7 +9,6 @@ import com.sneaksanddata.arcane.framework.models.DataRow
 import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BackfillDataProvider, BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.BackfillConsumer
-import com.sneaksanddata.arcane.microsoft_synapse_link.SynapseLinkBackfillBatchInFlight
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, ZIO, ZLayer}
 
@@ -20,7 +19,7 @@ class BackfillDataGraphBuilder(backfillDataProvider: MicrosoftSynapseLinkDataPro
   extends StreamGraphBuilder:
 
 
-  override type StreamElementType = SynapseLinkBackfillBatchInFlight
+  override type StreamElementType = BackfillBatchInFlight
 
   override def create: ZStream[Any, Throwable, StreamElementType] = ZStream.fromZIO(backfillDataProvider.requestBackfill)
 
