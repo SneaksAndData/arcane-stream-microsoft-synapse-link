@@ -284,7 +284,7 @@ spec:
                       items:
                         type: string
                   default:
-                    type: all
+                    ruleType: all
                     fields: []
             status:
               type: object
