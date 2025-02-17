@@ -36,6 +36,7 @@ lazy val plugin = (project in file("."))
 
     graalVMNativeImageCommand := "/Users/gzu/.sdkman/candidates/java/21.0.2-graalce/bin/native-image",
     graalVMNativeImageOptions ++= Seq(
+      "-O2",
       "--initialize-at-run-time=okhttp3.internal.platform.Android10Platform,reactor.util.Metrics,org.bouncycastle,io.netty",
       "--initialize-at-build-time=org.slf4j.MDC,ch.qos.logback,org.apache.log4j,org.slf4j.helpers",
       "--verbose",
@@ -46,7 +47,7 @@ lazy val plugin = (project in file("."))
       "-H:ReflectionConfigurationFiles=../../configs/reflect-config.json",
       "-H:JNIConfigurationFiles=../../configs/jni-config.json",
       "-H:DynamicProxyConfigurationFiles=../../configs/proxy-config.json",
-      "-H:SerializationConfigurationFiles=../../configs/serialization-config.json"
+      "-H:SerializationConfigurationFiles=../../configs/serialization-config.json",
     ),
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
