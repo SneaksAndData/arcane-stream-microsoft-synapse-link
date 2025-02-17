@@ -14,14 +14,14 @@ ARG TARGETARCH
 
 RUN cli_arch=$(test "$TARGETARCH" = "amd64" && echo "x86_64" || echo "aarch64") \
     && mkdir /extras \
-    && cp -R /usr/lib/$cli_arch-linux-gnu/*.so /extras \
-    && cp -R /usr/lib/$cli_arch-linux-gnu/*.so.* /extras
+    && cp -R /usr/lib/$cli_arch-linux-gnu/libz.so.* /extras \
+    && cp -R /usr/lib/$cli_arch-linux-gnu/libzstd.so.* /extras
 
 FROM gcr.io/distroless/base-debian12 AS build-release-stage
-ARG TARGETARCH
+ARG USERLIB
 
 COPY --from=build /build/target/graalvm-native-image /app
-COPY --from=build-extras /extras /usr/lib/$TARGETARCH-linux-gnu
+COPY --from=build-extras /extras /usr/lib/$USERLIB
 
 WORKDIR /app
 
