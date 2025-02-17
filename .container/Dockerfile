@@ -9,7 +9,7 @@ COPY . .
 RUN echo $GITHUB_TOKEN
 RUN sbt graalvm-native-image:packageBin
 
-FROM gcr.io/distroless/base-debian12
+FROM --platform=$BUILDPLATFORM gcr.io/distroless/base-debian12 AS build-release-stage
 
 COPY --from=build /build/target/graalvm-native-image /app
 
