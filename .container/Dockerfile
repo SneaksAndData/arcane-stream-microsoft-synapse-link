@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM ghcr.io/graalvm/native-image-community:21 AS build
+FROM --platform=$BUILDPLATFORM sbtscala/scala-sbt:graalvm-community-21.0.2_1.10.7_3.6.3 AS build
 ARG GITHUB_TOKEN
 ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 
