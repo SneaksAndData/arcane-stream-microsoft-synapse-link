@@ -136,7 +136,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
 
-  override val rule: FieldSelectionRule = spec.fieldSelectionRule.`type` match
+  override val rule: FieldSelectionRule = spec.fieldSelectionRule.ruleType match
     case "include" => FieldSelectionRule.IncludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case _ => FieldSelectionRule.AllFields

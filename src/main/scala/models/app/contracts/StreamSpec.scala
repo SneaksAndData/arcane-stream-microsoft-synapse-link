@@ -56,7 +56,7 @@ case class TablePropertiesSettings(partitionExpressions: Array[String], sortedBy
 /**
  * The configuration of the stream source.
  */
-case class FieldSelectionRuleSpec(`type`: String, fields: Array[String]) derives ReadWriter
+case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) derives ReadWriter
 
 /**
  * The specification for the stream.

@@ -273,7 +273,7 @@ spec:
                 fieldSelectionRule:
                   type: object
                   properties:
-                    type:
+                    ruleType:
                       type: string
                       enum:
                         - include
