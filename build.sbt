@@ -34,7 +34,7 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
 
-    graalVMNativeImageCommand := "/Users/gzu/.sdkman/candidates/java/21.0.2-graalce/bin/native-image",
+    graalVMNativeImageCommand := sys.env.getOrElse("GRAALVM_CMD", ""),
     graalVMNativeImageOptions ++= Seq(
       "-O2",
       "--initialize-at-run-time=okhttp3.internal.platform.Android10Platform,reactor.util.Metrics,org.bouncycastle,io.netty",
