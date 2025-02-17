@@ -5,7 +5,7 @@ on: workflow_dispatch
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: sneaksanddata/arcane-stream-microsoft-synapse-link # need lowercase here
 
 jobs:
   build_amd64_image:
