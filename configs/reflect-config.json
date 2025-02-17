@@ -764,6 +764,10 @@
   "name":"java.security.interfaces.RSAPublicKey"
 },
 {
+  "name":"java.sql.SQLException",
+  "fields":[{"name":"next"}]
+},
+{
   "name":"java.util.Date"
 },
 {
@@ -1153,6 +1157,9 @@
 {
   "name":"sun.management.RuntimeImpl",
   "queryAllPublicConstructors":true
+},
+{
+  "name":"sun.misc.SharedSecrets"
 },
 {
   "name":"sun.misc.Unsafe",
