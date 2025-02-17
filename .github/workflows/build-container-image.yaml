@@ -134,8 +134,8 @@ jobs:
         with:
           tags: ${{ steps.meta.outputs.tags }}
           sources: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-amd64.outputs.digest }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-arm64.outputs.digest }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build_amd64_image.outputs.image_digest }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build_arm64_image.outputs.image_digest }}
 
   build_chart:
     name: Build Helm Chart
