@@ -36,6 +36,7 @@ lazy val plugin = (project in file("."))
 
     graalVMNativeImageCommand := sys.env.getOrElse("GRAALVM_CMD", "native-image"),
     graalVMNativeImageOptions ++= Seq(
+      "--no-fallback",
       "-O2",
       "--initialize-at-run-time=okhttp3.internal.platform.Android10Platform,reactor.util.Metrics,org.bouncycastle,io.netty",
       "--initialize-at-build-time=org.slf4j.MDC,ch.qos.logback,org.apache.log4j,org.slf4j.helpers",
