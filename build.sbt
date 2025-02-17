@@ -39,7 +39,7 @@ lazy val plugin = (project in file("."))
       "--no-fallback",
       "-O2",
       "--initialize-at-run-time=okhttp3.internal.platform.Android10Platform,reactor.util.Metrics,org.bouncycastle,io.netty",
-      "--initialize-at-build-time=org.slf4j.MDC,ch.qos.logback,org.apache.log4j,org.slf4j.helpers",
+      "--initialize-at-build-time=org.slf4j.MDC,ch.qos.logback,org.apache.log4j,org.slf4j.helpers,com.fasterxml.jackson.core.Base64Variant,org.xml.sax.helpers.AttributesImpl",
       "--verbose",
 //      "--trace-class-initialization=ch.qos.logback.core.subst.NodeToStringTransformer$1",
       "-H:+UnlockExperimentalVMOptions",
