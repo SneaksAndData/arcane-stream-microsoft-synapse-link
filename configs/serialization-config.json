@@ -4,6 +4,9 @@
       "name":"byte[]"
     },
     {
+      "name":"ch.qos.logback.core.mode.Model"
+    },
+    {
       "name":"java.lang.Double"
     },
     {
@@ -14,6 +17,9 @@
     },
     {
       "name":"java.lang.String"
+    },
+    {
+      "name":"java.lang.Throwable"
     },
     {
       "name":"java.rmi.dgc.Lease"
@@ -61,16 +67,7 @@
       "name":"javax.management.remote.rmi.RMIServerImpl_Stub"
     },
     {
-      "name":"ch.qos.logback.core.mode.Model"
-    },
-    {
-      "name": "java.lang.Throwable"
-    },
-    {
-      "name": "org.apache.http.auth.AuthScheme"
-    },
-    {
-      "name": "java.lang.Object"
+      "name":"org.apache.http.auth.AuthScheme"
     }
   ],
   "lambdaCapturingTypes":[
