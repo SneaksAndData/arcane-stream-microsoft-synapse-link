@@ -1,0 +1,174 @@
+[
+{
+  "name":"[Ljava.lang.StackTraceElement;"
+},
+{
+  "name":"[Ljava.util.concurrent.ConcurrentLinkedQueue;"
+},
+{
+  "name":"[Lzio.internal.RingBuffer;"
+},
+{
+  "name":"ch.qos.logback.classic.BasicConfigurator",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"ch.qos.logback.classic.joran.SerializedModelConfigurator",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"ch.qos.logback.classic.util.DefaultJoranConfigurator",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations$",
+  "fields":[{"name":"streamClass$lzy1"}, {"name":"streamExtraProperties$lzy1"}, {"name":"streamId$lzy1"}, {"name":"streamVersion$lzy1"}]
+},
+{
+  "name":"com.sneaksanddata.arcane.microsoft_synapse_link.main$",
+  "fields":[{"name":"garbageCollector$lzy1"}, {"name":"streamRunner$lzy1"}]
+},
+{
+  "name":"izumi.reflect.internal.fundamentals.platform.console.TrivialLogger$Config$",
+  "fields":[{"name":"0bitmap$1"}]
+},
+{
+  "name":"izumi.reflect.macrortti.LightTypeTag",
+  "fields":[{"name":"0bitmap$1"}]
+},
+{
+  "name":"izumi.reflect.macrortti.LightTypeTag$ParsedLightTypeTag230Plus",
+  "fields":[{"name":"0bitmap$3"}]
+},
+{
+  "name":"izumi.reflect.macrortti.LightTypeTagInheritance",
+  "fields":[{"name":"0bitmap$1"}]
+},
+{
+  "name":"izumi.reflect.macrortti.LightTypeTagRef$NameReference",
+  "fields":[{"name":"0bitmap$5"}]
+},
+{
+  "name":"java.io.FilePermission"
+},
+{
+  "name":"java.lang.ClassValue"
+},
+{
+  "name":"java.lang.RuntimePermission"
+},
+{
+  "name":"java.lang.invoke.VarHandle",
+  "methods":[{"name":"releaseFence","parameterTypes":[] }]
+},
+{
+  "name":"java.net.NetPermission"
+},
+{
+  "name":"java.net.SocketPermission"
+},
+{
+  "name":"java.net.URLPermission",
+  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
+},
+{
+  "name":"java.security.AllPermission"
+},
+{
+  "name":"java.security.SecurityPermission"
+},
+{
+  "name":"java.util.PropertyPermission"
+},
+{
+  "name":"java.util.concurrent.atomic.AtomicBoolean",
+  "fields":[{"name":"value"}]
+},
+{
+  "name":"java.util.concurrent.atomic.AtomicReference",
+  "fields":[{"name":"value"}]
+},
+{
+  "name":"javax.smartcardio.CardPermission"
+},
+{
+  "name":"sun.misc.Unsafe",
+  "fields":[{"name":"theUnsafe"}]
+},
+{
+  "name":"upickle.default$",
+  "fields":[{"name":"ReadWriter$lzy1"}, {"name":"Reader$lzy1"}, {"name":"TaggedReadWriter$lzy1"}, {"name":"TaggedReader$lzy1"}, {"name":"TaggedWriter$lzy1"}, {"name":"Writer$lzy1"}, {"name":"transform$lzy1"}, {"name":"upickle$implicits$Readers$$JavaReader$lzy1"}, {"name":"upickle$implicits$Writers$$JavaWriter$lzy1"}]
+},
+{
+  "name":"zio.Chunk$",
+  "fields":[{"name":"Tags$lzy1"}]
+},
+{
+  "name":"zio.ConfigProvider$",
+  "fields":[{"name":"console$lzy1"}, {"name":"consoleProvider$lzy1"}, {"name":"defaultProvider$lzy1"}, {"name":"env$lzy1"}, {"name":"envProvider$lzy1"}, {"name":"props$lzy1"}, {"name":"propsProvider$lzy1"}, {"name":"strIndexRegex$lzy1"}, {"name":"tag$lzy1"}]
+},
+{
+  "name":"zio.Executor",
+  "fields":[{"name":"asExecutionContext$lzy1"}, {"name":"asExecutionContextExecutorService$lzy1"}, {"name":"asJava$lzy1"}]
+},
+{
+  "name":"zio.Ref$Atomic",
+  "fields":[{"name":"unsafe$lzy1"}]
+},
+{
+  "name":"zio.System$",
+  "fields":[{"name":"os$lzy1"}]
+},
+{
+  "name":"zio.VersionSpecific$BoxedBool$",
+  "fields":[{"name":"False$lzy1"}, {"name":"True$lzy1"}]
+},
+{
+  "name":"zio.ZEnvironment",
+  "fields":[{"name":"hashCode$lzy1"}]
+},
+{
+  "name":"zio.ZIO$",
+  "fields":[{"name":"Parallelism$lzy1"}]
+},
+{
+  "name":"zio.ZLayer",
+  "fields":[{"name":"hashCode$lzy1"}]
+},
+{
+  "name":"zio.internal.FiberRuntime",
+  "fields":[{"name":"scope$lzy1"}]
+},
+{
+  "name":"zio.internal.HeadPadding",
+  "fields":[{"name":"headCounter"}]
+},
+{
+  "name":"zio.internal.TailPadding",
+  "fields":[{"name":"tailCounter"}]
+},
+{
+  "name":"zio.internal.UpdateOrderLinkedMap",
+  "fields":[{"name":"iteratorLz$lzy1"}, {"name":"reverseIteratorLz$lzy1"}]
+},
+{
+  "name":"zio.internal.UpdateOrderLinkedMap$LzList$Cons",
+  "fields":[{"name":"head$lzy1"}, {"name":"tail$lzy1"}]
+},
+{
+  "name":"zio.package$",
+  "fields":[{"name":"EnvironmentTag$lzy1"}, {"name":"TagK$lzy1"}, {"name":"TagK3$lzy1"}, {"name":"TagKK$lzy1"}, {"name":"zio$VersionSpecific$$BoxedBool$lzy1"}]
+},
+{
+  "name":"zio.prelude.Equal$",
+  "fields":[{"name":"DefaultEqual$lzy1"}, {"name":"FiberIdHashOrd$lzy1"}, {"name":"ThrowableHash$lzy1"}]
+},
+{
+  "name":"zio.prelude.Hash$",
+  "fields":[{"name":"DefaultHash$lzy1"}]
+},
+{
+  "name":"zio.prelude.Invariant$",
+  "fields":[{"name":"DeriveBuildFrom$lzy1"}, {"name":"Function0Covariant$lzy1"}]
+}
+]
