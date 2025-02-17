@@ -12,11 +12,10 @@ RUN sbt graalvm-native-image:packageBin && file target/graalvm-native-image/arca
 FROM debian:bookworm-slim AS build-extras
 ARG TARGETARCH
 
-
 RUN cli_arch=$(test "$TARGETARCH" = "amd64" && echo "x86_64" || echo "aarch64") \
     && mkdir /extras \
-    && cp -R /usr/lib/$TARGETARCH-linux-gnu/*.so /extras \
-    && cp -R /usr/lib/$TARGETARCH-linux-gnu/*.so.* /extras
+    && cp -R /usr/lib/$cli_arch-linux-gnu/*.so /extras \
+    && cp -R /usr/lib/$cli_arch-linux-gnu/*.so.* /extras
 
 FROM gcr.io/distroless/base-debian12 AS build-release-stage
 ARG TARGETARCH
