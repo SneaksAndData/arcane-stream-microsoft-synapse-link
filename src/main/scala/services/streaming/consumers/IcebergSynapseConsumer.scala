@@ -26,7 +26,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
-type IncomingBatch = Chunk[DataStreamElement]
+type IncomingBatch = (Chunk[DataStreamElement], String)
 type InFlightBatch = ((Iterable[StagedVersionedBatch], Seq[SourceCleanupRequest]), Long)
 type CompletedBatch = (Iterable[BatchArchivationResult], Seq[SourceCleanupRequest])
 type PipelineResult = (Iterable[BatchArchivationResult], Seq[SourceCleanupResult])
@@ -35,7 +35,7 @@ class IcebergSynapseConsumer(stageProcessor: BatchProcessor[IncomingBatch, InFli
                              mergeProcessor: BatchProcessor[InFlightBatch, InFlightBatch],
                              archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
                              sourceCleanupProcessor: BatchProcessor[CompletedBatch, PipelineResult])
-  extends BatchConsumer[Chunk[DataStreamElement]]:
+  extends BatchConsumer[IncomingBatch]:
 
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
@@ -44,7 +44,7 @@ class IcebergSynapseConsumer(stageProcessor: BatchProcessor[IncomingBatch, InFli
    *
    * @return ZSink (stream sink for the stream graph).
    */
-  override def consume: ZSink[Any, Throwable, Chunk[DataStreamElement], Any, Unit] =
+  override def consume: ZSink[Any, Throwable, IncomingBatch, Any, Unit] =
     stageProcessor.process >>> mergeProcessor.process >>> archivationProcessor.process >>> sourceCleanupProcessor.process >>> logResults
 
 
