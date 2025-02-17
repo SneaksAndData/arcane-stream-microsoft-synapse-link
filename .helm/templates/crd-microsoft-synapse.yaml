@@ -270,6 +270,22 @@ spec:
                   properties:
                     name:
                       type: string
+                fieldSelectionRule:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - include
+                        - exclude
+                        - all
+                    fields:
+                      type: array
+                      items:
+                        type: string
+                  default:
+                    type: all
+                    fields: []
             status:
               type: object
               properties:
