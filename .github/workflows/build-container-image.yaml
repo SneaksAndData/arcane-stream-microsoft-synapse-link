@@ -59,10 +59,9 @@ jobs:
         with:
           context: .
           file: .container/Dockerfile
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64
-          outputs: type=image,push-by-digest=true,push=true
+          outputs: type=image,"name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}",push-by-digest=true,name-canonical=true,push=true
           build-args: |
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
@@ -117,10 +116,9 @@ jobs:
         with:
           context: .
           file: .container/Dockerfile
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/arm64
-          outputs: type=image,push-by-digest=true,push=true
+          outputs: type=image,"name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}",push-by-digest=true,name-canonical=true,push=true
           build-args: |
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
