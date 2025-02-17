@@ -11,6 +11,7 @@ import services.streaming.processors.{CdmGroupingProcessor, MergeBatchProcessor}
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.querygen.MergeQuery
+import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillBatch, SynapseLinkBackfillBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
@@ -42,7 +43,8 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            stageProcessor: BatchProcessor[IncomingBatch, InFlightBatch],
                                            archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
                                            tableManager: TableManager,
-                                           sinkSettings: TargetTableSettings) extends MicrosoftSynapseLinkDataProvider:
+                                           sinkSettings: TargetTableSettings,
+                                           tablePropertiesSettings: TablePropertiesSettings) extends MicrosoftSynapseLinkDataProvider:
 
   private val backFillTableName = streamContext.getBackfillTableName
   private val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
@@ -74,7 +76,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
 
   private def createBackfillBatch(tableName: String): Task[StagedBackfillBatch] =
     for schema <- tableManager.getTargetSchema(tableName)
-    yield SynapseLinkBackfillBatch(tableName, schema, sinkSettings.targetTableFullName)
+    yield SynapseLinkBackfillBatch(tableName, schema, sinkSettings.targetTableFullName, tablePropertiesSettings)
 
 object MicrosoftSynapseLinkDataProviderImpl:
 
@@ -87,6 +89,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
     & JdbcConsumer[MergeQuery]
     & BatchProcessor[IncomingBatch, InFlightBatch]
     & BatchProcessor[InFlightBatch, CompletedBatch]
+    & TablePropertiesSettings
 
   def apply(cdmTableStream: CdmTableStream,
             jdbcConsumer: JdbcConsumer[MergeQuery],
@@ -96,7 +99,8 @@ object MicrosoftSynapseLinkDataProviderImpl:
             stageProcessor: BatchProcessor[IncomingBatch, InFlightBatch],
             archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
             tableManager: TableManager,
-            sinkSettings: TargetTableSettings): MicrosoftSynapseLinkDataProviderImpl =
+            sinkSettings: TargetTableSettings,
+            tablePropertiesSettings: TablePropertiesSettings): MicrosoftSynapseLinkDataProviderImpl =
     new MicrosoftSynapseLinkDataProviderImpl(
       cdmTableStream,
       jdbcConsumer,
@@ -106,7 +110,8 @@ object MicrosoftSynapseLinkDataProviderImpl:
       stageProcessor,
       archivationProcessor,
       tableManager,
-      sinkSettings)
+      sinkSettings,
+      tablePropertiesSettings)
 
   def layer: ZLayer[Environment, Nothing, MicrosoftSynapseLinkDataProvider] =
     ZLayer {
@@ -120,6 +125,16 @@ object MicrosoftSynapseLinkDataProviderImpl:
         sinkSettings <- ZIO.service[TargetTableSettings]
         stageProcessor <- ZIO.service[BatchProcessor[IncomingBatch, InFlightBatch]]
         archivationProcessor <- ZIO.service[BatchProcessor[InFlightBatch, CompletedBatch]]
-      yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream, jdbcConsumer, streamContext, parallelismSettings, groupingProcessor, stageProcessor, archivationProcessor, tableManager, sinkSettings)
+        tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
+      yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream,
+        jdbcConsumer,
+        streamContext,
+        parallelismSettings,
+        groupingProcessor,
+        stageProcessor,
+        archivationProcessor,
+        tableManager,
+        sinkSettings,
+        tablePropertiesSettings)
     }
 
