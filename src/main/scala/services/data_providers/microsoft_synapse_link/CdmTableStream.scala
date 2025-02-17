@@ -13,7 +13,7 @@ import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.TableManager
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.{FieldsFilteringService, TableManager}
 import com.sneaksanddata.arcane.framework.services.streaming.base.BackfillDataProvider
 import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO, ZLayer}
@@ -42,6 +42,7 @@ class CdmTableStream(name: String,
                       parallelismSettings: ParallelismSettings,
                       streamContext: StreamContext,
                       tableManager: TableManager,
+                      fieldsFilteringService: FieldsFilteringService,
                       targetTableSettings: TargetTableSettings):
 
   /**
@@ -175,6 +176,7 @@ object CdmTableStream:
     & StreamContext
     & TableManager
     & TargetTableSettings
+    & FieldsFilteringService
 
   def apply(settings: CdmTableSettings,
             zioReader: AzureBlobStorageReaderZIO,
@@ -182,6 +184,7 @@ object CdmTableStream:
             parallelismSettings: ParallelismSettings,
             streamContext: StreamContext,
             tableManager: TableManager,
+            fieldsFilteringService: FieldsFilteringService,
             targetTableSettings: TargetTableSettings): CdmTableStream = new CdmTableStream(
     settings.name,
     AdlsStoragePath(settings.rootPath).get,
@@ -190,6 +193,7 @@ object CdmTableStream:
     parallelismSettings,
     streamContext,
     tableManager,
+    fieldsFilteringService,
     targetTableSettings)
 
   /**
@@ -207,7 +211,8 @@ object CdmTableStream:
         sc <- ZIO.service[StreamContext]
         tm <- ZIO.service[TableManager]
         tts <- ZIO.service[TargetTableSettings]
-      } yield CdmTableStream(tableSettings, readerZIO, reader, parSettings, sc, tm, tts)
+        fieldsFilteringService <- ZIO.service[FieldsFilteringService]
+      } yield CdmTableStream(tableSettings, readerZIO, reader, parSettings, sc, tm, fieldsFilteringService, tts)
     }
 
 

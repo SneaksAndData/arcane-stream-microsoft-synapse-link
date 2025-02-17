@@ -52,6 +52,12 @@ case class SourceSettings(name: String, baseLocation: String, changeCaptureInter
 
 case class TablePropertiesSettings(partitionExpressions: Array[String], sortedBy: Array[String], parquetBloomFilterColumns: Array[String], format: String) derives ReadWriter
 
+
+/**
+ * The configuration of the stream source.
+ */
+case class FieldSelectionRuleSpec(`type`: String, fields: Array[String]) derives ReadWriter
+
 /**
  * The specification for the stream.
  *
@@ -74,7 +80,8 @@ case class StreamSpec(sourceSettings: SourceSettings,
                      
                       // Iceberg table properties
 
-                      tableProperties: TablePropertiesSettings)
+                      tableProperties: TablePropertiesSettings,
+                      fieldSelectionRule: FieldSelectionRuleSpec)
   derives ReadWriter
 
 object StreamSpec:

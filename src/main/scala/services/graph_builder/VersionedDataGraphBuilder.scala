@@ -11,6 +11,7 @@ import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.consumers.StreamingConsumer
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.streaming.processors.FieldFilteringProcessor
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, Schedule, ZIO, ZLayer}
 
@@ -30,6 +31,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
                                 targetTableSettings: TargetTableSettings,
                                 batchProcessor: BatchProcessor[DataStreamElement, Chunk[DataStreamElement]],
                                 batchConsumer: IcebergSynapseConsumer,
+                                fieldFilteringProcessor: FieldFilteringProcessor,
                                 parallelismSettings: ParallelismSettings) extends StreamGraphBuilder:
 
 
@@ -54,6 +56,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
     .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval, versionedDataGraphBuilderSettings.changeCaptureInterval)
     .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
     .flatMap(reader => cdmTableStream.getData(reader))
+    .via(fieldFilteringProcessor.process)
 
 
 /**
@@ -68,6 +71,7 @@ object VersionedDataGraphBuilder:
     & VersionedDataGraphBuilderSettings
     & ParallelismSettings
     & TargetTableSettings
+    & FieldFilteringProcessor
 
   /**
    * Creates a new instance of the BackfillDataGraphBuilder class.
@@ -83,6 +87,7 @@ object VersionedDataGraphBuilder:
             streamLifetimeService: StreamLifetimeService,
             batchProcessor: BatchProcessor[DataStreamElement,  Chunk[DataStreamElement]],
             batchConsumer: IcebergSynapseConsumer,
+            fieldFilteringProcessor: FieldFilteringProcessor,
             parallelismSettings: ParallelismSettings): VersionedDataGraphBuilder =
     new VersionedDataGraphBuilder(versionedDataGraphBuilderSettings,
       cdmTableStream,
@@ -90,6 +95,7 @@ object VersionedDataGraphBuilder:
       targetTableSettings,
       batchProcessor,
       batchConsumer,
+      fieldFilteringProcessor,
       parallelismSettings)
 
   /**
@@ -108,7 +114,8 @@ object VersionedDataGraphBuilder:
         bc <- ZIO.service[IcebergSynapseConsumer]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         parallelismSettings <- ZIO.service[ParallelismSettings]
-      yield VersionedDataGraphBuilder(sss, dp, targetTableSettings, ls, bp, bc, parallelismSettings)
+        fieldFilteringProcessor <- ZIO.service[FieldFilteringProcessor]
+      yield VersionedDataGraphBuilder(sss, dp, targetTableSettings, ls, bp, bc, fieldFilteringProcessor, parallelismSettings)
     }
     
 
