@@ -1,13 +1,83 @@
 {
   "resources":{
   "includes":[{
+    "pattern":"\\QMETA-INF/maven/org.xerial.snappy/snappy-java/pom.properties\\E"
+  }, {
     "pattern":"\\QMETA-INF/services/ch.qos.logback.classic.spi.Configurator\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/com.azure.core.http.HttpClientProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/com.azure.core.http.policy.AfterRetryPolicyProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/com.azure.core.http.policy.BeforeRetryPolicyProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/com.azure.core.util.serializer.JsonSerializerProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/com.azure.core.util.tracing.TracerProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/com.azure.core.util.tracing.Tracer\\E"
   }, {
     "pattern":"\\QMETA-INF/services/java.lang.System$LoggerFinder\\E"
   }, {
+    "pattern":"\\QMETA-INF/services/java.net.spi.InetAddressResolverProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.net.spi.URLStreamHandlerProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.rmi.server.RMIClassLoaderSpi\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.sql.Driver\\E"
+  }, {
     "pattern":"\\QMETA-INF/services/java.time.zone.ZoneRulesProvider\\E"
   }, {
+    "pattern":"\\QMETA-INF/services/java.util.spi.ResourceBundleControlProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/javax.xml.parsers.SAXParserFactory\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/javax.xml.stream.XMLInputFactory\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.apache.avro.Conversion\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.apache.avro.LogicalTypes$LogicalTypeFactory\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.apache.commons.logging.LogFactory\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/org.apache.logging.log4j.util.PropertySource\\E"
+  }, {
     "pattern":"\\QMETA-INF/services/org.slf4j.spi.SLF4JServiceProvider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/services/java.security.Provider\\E"
+  }, {
+    "pattern":"\\QMETA-INF/maven/io.netty/netty-resolver/pom.properties\\E"
+  }, {
+    "pattern":"\\QMETA-INF/maven/ch.qos.logback/logback-core/pom.properties\\E"
+  }, {
+    "pattern":"\\QMETA-INF/maven/org.apache.httpcomponents.client5/httpclient5/logback-core/pom.properties\\E"
+  }, {
+    "pattern":"\\Qazure-storage-blob.properties\\E"
+  }, {
+    "pattern":"\\Qcommons-logging.properties\\E"
+  }, {
+    "pattern":"\\Qcore-default.xml\\E"
+  }, {
+    "pattern":"\\Qcore-site.xml\\E"
+  }, {
+    "pattern":"\\Qhadoop-site.xml\\E"
+  }, {
+    "pattern":"\\Qiceberg-build.properties\\E"
+  }, {
+    "pattern":"\\Qio/trino/jdbc/$internal/joda/time/tz/data/Europe/Copenhagen\\E"
+  }, {
+    "pattern":"\\Qio/trino/jdbc/$internal/joda/time/tz/data/ZoneInfoMap\\E"
+  }, {
+    "pattern":"\\Qio/trino/jdbc/driver.properties\\E"
+  }, {
+    "pattern":"\\Qlibrary.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2.StatusLogger.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2.component.properties\\E"
+  }, {
+    "pattern":"\\Qlog4j2.system.properties\\E"
   }, {
     "pattern":"\\Qlogback-test.scmo\\E"
   }, {
@@ -16,6 +86,35 @@
     "pattern":"\\Qlogback.scmo\\E"
   }, {
     "pattern":"\\Qlogback.xml\\E"
+  }, {
+    "pattern":"\\Qmozilla/public-suffix-list.txt\\E"
+  }, {
+    "pattern":"\\Qorg-xerial-snappy.properties\\E"
+  }, {
+    "pattern":"\\Qorg/apache/hc/client5/http/psl/org/publicsuffix/list/effective_tld_names.dat\\E"
+  }, {
+    "pattern":"\\Qorg/apache/hc/client5/version.properties\\E"
+  }, {
+    "pattern":"\\Qorg/xerial/snappy/VERSION\\E"
+  }, {
+    "pattern":"\\Qorg/xerial/snappy/native/Mac/aarch64/libsnappyjava.dylib\\E"
+  }, {
+    "pattern":"\\Qsoftware/amazon/awssdk/global/handlers/execution.interceptors\\E"
+  }, {
+    "pattern":"\\Qsoftware/amazon/awssdk/services/s3/execution.interceptors\\E"
+  }, {
+    "pattern":"java.base:\\Qjdk/internal/icu/impl/data/icudt72b/nfc.nrm\\E"
+  }, {
+    "pattern":"java.base:\\Qjdk/internal/icu/impl/data/icudt72b/nfkc.nrm\\E"
+  }, {
+    "pattern":"java.base:\\Qjdk/internal/icu/impl/data/icudt72b/uprops.icu\\E"
+  }, {
+    "pattern":"java.base:\\Qsun/net/idn/uidna.spp\\E"
+  }, {
+    "pattern":"jdk.jfr:\\Qjdk/jfr/internal/query/view.ini\\E"
   }]},
-  "bundles":[]
+  "bundles":[{
+    "name":"com.microsoft.sqlserver.jdbc.SQLServerResource",
+    "classNames":["com.microsoft.sqlserver.jdbc.SQLServerResource"]
+  }]
 }
