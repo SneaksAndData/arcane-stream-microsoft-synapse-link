@@ -10,6 +10,7 @@ RUN echo $GITHUB_TOKEN
 RUN sbt graalvm-native-image:packageBin && file target/graalvm-native-image/arcane-stream-microsoft-synapse-link
 
 FROM gcr.io/distroless/base-debian12 AS build-release-stage
+ARG TARGETARCH
 
 COPY --from=build /build/target/graalvm-native-image /app
 COPY --from=build /usr/lib/$TARGETARCH/libz.so.1 /usr/lib/$TARGETARCH
