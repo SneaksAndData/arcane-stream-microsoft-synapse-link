@@ -12,6 +12,7 @@ RUN sbt graalvm-native-image:packageBin && file target/graalvm-native-image/arca
 FROM gcr.io/distroless/base-debian12 AS build-release-stage
 
 COPY --from=build /build/target/graalvm-native-image /app
+COPY --from=build /usr/lib/$TARGETARCH/libz.so.1 /usr/lib/$TARGETARCH
 
 WORKDIR /app
 
