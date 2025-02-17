@@ -7,7 +7,7 @@ import services.app.TableManager
 import services.clients.JdbcConsumer
 import services.data_providers.microsoft_synapse_link.{CdmTableStream, DataStreamElement}
 import services.streaming.consumers.{CompletedBatch, InFlightBatch, IncomingBatch}
-import services.streaming.processors.{CdmGroupingProcessor, MergeBatchProcessor}
+import services.streaming.processors.{CdmGroupingProcessor, FieldFilteringProcessor, MergeBatchProcessor}
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.querygen.MergeQuery
@@ -44,6 +44,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
                                            tableManager: TableManager,
                                            sinkSettings: TargetTableSettings,
+                                           fieldFilteringProcessor: FieldFilteringProcessor,
                                            tablePropertiesSettings: TablePropertiesSettings) extends MicrosoftSynapseLinkDataProvider:
 
   private val backFillTableName = streamContext.getBackfillTableName
@@ -64,6 +65,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
     .flatMap(reader => cdmTableStream.getData(reader))
 
   private def backfillStream = csvLinesStream
+    .via(fieldFilteringProcessor.process)
     .via(groupingProcessor.process)
     .zip(ZStream.repeat(backFillTableName))
     .via(stageProcessor.process)
@@ -90,6 +92,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
     & BatchProcessor[IncomingBatch, InFlightBatch]
     & BatchProcessor[InFlightBatch, CompletedBatch]
     & TablePropertiesSettings
+    & FieldFilteringProcessor
 
   def apply(cdmTableStream: CdmTableStream,
             jdbcConsumer: JdbcConsumer[MergeQuery],
@@ -100,6 +103,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
             archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
             tableManager: TableManager,
             sinkSettings: TargetTableSettings,
+            fieldFilteringProcessor: FieldFilteringProcessor,
             tablePropertiesSettings: TablePropertiesSettings): MicrosoftSynapseLinkDataProviderImpl =
     new MicrosoftSynapseLinkDataProviderImpl(
       cdmTableStream,
@@ -111,6 +115,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
       archivationProcessor,
       tableManager,
       sinkSettings,
+      fieldFilteringProcessor,
       tablePropertiesSettings)
 
   def layer: ZLayer[Environment, Nothing, MicrosoftSynapseLinkDataProvider] =
@@ -126,6 +131,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
         stageProcessor <- ZIO.service[BatchProcessor[IncomingBatch, InFlightBatch]]
         archivationProcessor <- ZIO.service[BatchProcessor[InFlightBatch, CompletedBatch]]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
+        fieldFilteringProcessor <- ZIO.service[FieldFilteringProcessor]
       yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream,
         jdbcConsumer,
         streamContext,
@@ -135,6 +141,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
         archivationProcessor,
         tableManager,
         sinkSettings,
+        fieldFilteringProcessor,
         tablePropertiesSettings)
     }
 

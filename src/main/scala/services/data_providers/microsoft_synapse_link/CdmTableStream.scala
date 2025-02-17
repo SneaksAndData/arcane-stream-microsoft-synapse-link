@@ -13,7 +13,7 @@ import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.TableManager
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.{FieldsFilteringService, TableManager}
 import com.sneaksanddata.arcane.framework.services.streaming.base.BackfillDataProvider
 import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO, ZLayer}

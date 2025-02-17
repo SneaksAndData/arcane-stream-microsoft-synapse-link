@@ -5,7 +5,7 @@ import models.app.contracts.{OptimizeSettingsSpec, StreamSpec}
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
-import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, TableFormat, TablePropertiesSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, TableFormat, TablePropertiesSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
@@ -73,6 +73,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with ArchiveTableSettings
   with ParallelismSettings
   with TablePropertiesSettings
+  with FieldSelectionRuleSettings
   with GraphExecutionSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
@@ -135,6 +136,11 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
 
+  override val rule: FieldSelectionRule = spec.fieldSelectionRule.ruleType match
+    case "include" => FieldSelectionRule.IncludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
+    case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
+    case _ => FieldSelectionRule.AllFields
+
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
 
@@ -157,6 +163,7 @@ object MicrosoftSynapseLinkStreamContext {
     & MicrosoftSynapseLinkStreamContext
     & GraphExecutionSettings
     & TablePropertiesSettings
+    & FieldSelectionRuleSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
