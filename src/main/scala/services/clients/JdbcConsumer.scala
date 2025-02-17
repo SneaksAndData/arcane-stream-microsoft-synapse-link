@@ -4,9 +4,10 @@ package services.clients
 import models.app.ArchiveTableSettings
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 
-import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedVersionedBatch}
+import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedBatch, StagedVersionedBatch}
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
+import com.sneaksanddata.arcane.framework.models.querygen.{MergeQuery, OverwriteQuery, StreamingBatchQuery}
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -31,7 +32,7 @@ class BatchArchivationResult
  *
  * @param options The options for the consumer.
  */
-class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
+class JdbcConsumer[Query <: StreamingBatchQuery](options: JdbcConsumerOptions,
                                                   archiveTableSettings: ArchiveTableSettings)
   extends AutoCloseable:
   
@@ -40,6 +41,8 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
+
+  private type Batch = StagedBatch[Query]
 
   def getPartitionValues(batchName: String, partitionFields: List[String]): Future[Map[String, List[String]]] =
     Future.sequence(partitionFields
@@ -52,7 +55,8 @@ class JdbcConsumer[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions,
 
 
   def applyBatch(batch: Batch): Task[BatchApplicationResult] =
-    val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(batch.batchQuery.query) }) 
+    val query = batch.batchQuery.query
+    val ack = ZIO.attemptBlocking({ sqlConnection.prepareStatement(query) }) 
     ZIO.acquireReleaseWith(ack)(st => ZIO.succeed(st.close())){ statement =>
       for
         applicationResult <- ZIO.attemptBlocking{ statement.execute() }
@@ -162,19 +166,31 @@ object JdbcConsumer:
    * @param options The options for the consumer.
    * @return The initialized JdbcConsumer instance
    */
-  def apply[Batch <: StagedVersionedBatch](options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings): JdbcConsumer[Batch] =
-    new JdbcConsumer[Batch](options, archiveTableSettings)
+  def apply[Query <: StreamingBatchQuery](options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings): JdbcConsumer[Query] =
+    new JdbcConsumer[Query](options, archiveTableSettings)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
    */
-  val layer: ZLayer[Environment, Nothing, JdbcConsumer[StagedVersionedBatch]] =
+  val mergeLayer: ZLayer[Environment, Nothing, JdbcConsumer[MergeQuery]] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
           connectionOptions <- ZIO.service[JdbcConsumerOptions]
           archiveTableSettings <- ZIO.service[ArchiveTableSettings]
-        yield JdbcConsumer(connectionOptions, archiveTableSettings)
+        yield JdbcConsumer[MergeQuery](connectionOptions, archiveTableSettings)
       }
     }
 
+  /**
+   * The ZLayer that creates the JdbcConsumer.
+   */
+  val overwriteLayer: ZLayer[Environment, Nothing, JdbcConsumer[OverwriteQuery]] =
+    ZLayer.scoped {
+      ZIO.fromAutoCloseable {
+        for
+          connectionOptions <- ZIO.service[JdbcConsumerOptions]
+          archiveTableSettings <- ZIO.service[ArchiveTableSettings]
+        yield JdbcConsumer[OverwriteQuery](connectionOptions, archiveTableSettings)
+      }
+    }

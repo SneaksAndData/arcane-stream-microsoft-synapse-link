@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.processors
 
-import models.app.{OptimizeSettings, ParallelismSettings, TargetTableSettings}
+import models.app.{OptimizeSettings, OrphanFilesExpirationSettings, ParallelismSettings, SnapshotExpirationSettings, TargetTableSettings}
 import services.clients.{BatchApplicationResult, JdbcConsumer}
 import services.streaming.consumers.InFlightBatch
 
@@ -9,7 +9,7 @@ import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.consumers.StagedVersionedBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-
+import com.sneaksanddata.arcane.framework.models.querygen.{MergeQuery, OverwriteQuery}
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.TableManager
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
@@ -19,7 +19,7 @@ import zio.{Task, ZIO, ZLayer}
  *
  * @param jdbcConsumer The JDBC consumer.
  */
-class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
+class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[MergeQuery],
                           parallelismSettings: ParallelismSettings,
                           targetTableSettings: TargetTableSettings,
                           tableManager: TableManager)
@@ -38,20 +38,35 @@ class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[StagedVersionedBatch],
             _ <- ZIO.foreach(batches)(batch => tableManager.migrateSchema(batch.schema, targetTableSettings.targetTableFullName))
             _ <- ZIO.foreach(batches)(batch => jdbcConsumer.applyBatch(batch))
         
-            _ <- jdbcConsumer.optimizeTarget(targetTableSettings.targetTableFullName, batchNumber,
-                  targetTableSettings.targetOptimizeSettings.batchThreshold,
-                  targetTableSettings.targetOptimizeSettings.fileSizeThreshold)
+            _ <- tryOptimizeTarget(targetTableSettings.targetTableFullName, batchNumber,
+                  targetTableSettings.targetOptimizeSettings)
         
-            _ <- jdbcConsumer.expireSnapshots(targetTableSettings.targetTableFullName, batchNumber,
-                  targetTableSettings.targetSnapshotExpirationSettings.batchThreshold,
-                  targetTableSettings.targetSnapshotExpirationSettings.retentionThreshold)
+            _ <- tryExpireSnapshots(targetTableSettings.targetTableFullName, batchNumber,
+                  targetTableSettings.targetSnapshotExpirationSettings)
         
-            _ <- jdbcConsumer.expireOrphanFiles(targetTableSettings.targetTableFullName, batchNumber,
-                targetTableSettings.targetOrphanFilesExpirationSettings.batchThreshold,
-                targetTableSettings.targetOrphanFilesExpirationSettings.retentionThreshold)
+            _ <- tryExpireOrphanFiles(targetTableSettings.targetTableFullName, batchNumber,
+                targetTableSettings.targetOrphanFilesExpirationSettings)
           
         yield ((batches, other), batchNumber)
     })
+
+  private def tryOptimizeTarget(targetTableFullName: String, batchNumber: Long, settings: Option[OptimizeSettings]): Task[BatchApplicationResult] =
+    settings match
+      case Some(settings) =>
+        jdbcConsumer.optimizeTarget(targetTableFullName, batchNumber, settings.batchThreshold, settings.fileSizeThreshold)
+      case None => ZIO.attempt(false)
+
+  private def tryExpireSnapshots(targetTableFullName: String, batchNumber: Long, settings: Option[SnapshotExpirationSettings]): Task[BatchApplicationResult] =
+    settings match
+      case Some(settings) =>
+        jdbcConsumer.expireSnapshots(targetTableFullName, batchNumber, settings.batchThreshold, settings.retentionThreshold)
+      case None => ZIO.attempt(false)
+
+  private def tryExpireOrphanFiles(targetTableFullName: String, batchNumber: Long, settings: Option[OrphanFilesExpirationSettings]): Task[BatchApplicationResult] =
+    settings match
+      case Some(settings) =>
+        jdbcConsumer.expireOrphanFiles(targetTableFullName, batchNumber, settings.batchThreshold, settings.retentionThreshold)
+      case None => ZIO.attempt(false)
 
 object MergeBatchProcessor:
 
@@ -60,13 +75,13 @@ object MergeBatchProcessor:
    * @param jdbcConsumer The JDBC consumer.
    * @return The initialized MergeProcessor instance
    */
-  def apply(jdbcConsumer: JdbcConsumer[StagedVersionedBatch], parallelismSettings: ParallelismSettings, targetTableSettings: TargetTableSettings, tableManager: TableManager): MergeBatchProcessor =
+  def apply(jdbcConsumer: JdbcConsumer[MergeQuery], parallelismSettings: ParallelismSettings, targetTableSettings: TargetTableSettings, tableManager: TableManager): MergeBatchProcessor =
     new MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings, tableManager)
 
   /**
    * The required environment for the MergeProcessor.
    */
-  type Environment = JdbcConsumer[StagedVersionedBatch]
+  type Environment = JdbcConsumer[MergeQuery]
     & ParallelismSettings
     & TargetTableSettings
     & TableManager
@@ -77,7 +92,7 @@ object MergeBatchProcessor:
   val layer: ZLayer[Environment, Nothing, MergeBatchProcessor] =
     ZLayer {
       for
-        jdbcConsumer <- ZIO.service[JdbcConsumer[StagedVersionedBatch]]
+        jdbcConsumer <- ZIO.service[JdbcConsumer[MergeQuery]]
         parallelismSettings <- ZIO.service[ParallelismSettings]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         tableManager <- ZIO.service[TableManager]

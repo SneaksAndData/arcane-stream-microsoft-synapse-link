@@ -14,6 +14,7 @@ import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsStoragePath, AzureBlobStorageReader}
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.TableManager
+import com.sneaksanddata.arcane.framework.services.streaming.base.BackfillDataProvider
 import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO, ZLayer}
 
@@ -42,6 +43,25 @@ class CdmTableStream(name: String,
                       streamContext: StreamContext,
                       tableManager: TableManager,
                       targetTableSettings: TargetTableSettings):
+
+  /**
+   * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
+   *
+   * @param lookBackInterval      The look back interval to start from
+   * @param changeCaptureInterval Interval to capture changes
+   * @return A stream of rows for this table
+   */
+  def getPrefixesFromBeginning: ZStream[Any, Throwable, SchemaEnrichedBlob] =
+    ZStream.fromZIO(zioReader.getFirstBlob(storagePath)).flatMap( startDate =>
+      val streamTask = ZIO.attempt(enrichWithSchema(zioReader.getRootPrefixes(storagePath, startDate)))
+      ZStream.fromZIO(dropLast(streamTask))
+        .flatMap(x => ZStream.fromIterable(x))
+        .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+        .filter(seb => seb.blob.name.endsWith(s"/$name/"))
+        .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+        .filter(seb => seb.blob.name.endsWith(".csv"))
+    )
+
 
   /**
    * Read a table snapshot, taking optional start time. Lowest precision available is 1 hour
@@ -85,11 +105,12 @@ class CdmTableStream(name: String,
         .getLastUpdateTime(targetTableSettings.targetTableFullName)
         .map(lastUpdate => zioReader.getRootPrefixes(storagePath,lastUpdate))
 
-    getPrefixesTask.map(stream => {
-      stream.filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
-        val schemaProvider = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
-        SchemaEnrichedBlob(prefix, schemaProvider)
-      })
+    getPrefixesTask.map(stream => enrichWithSchema(stream))
+
+  private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
+    stream.filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
+      val schemaProvider = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
+      SchemaEnrichedBlob(prefix, schemaProvider)
     })
 
 
@@ -137,7 +158,7 @@ class CdmTableStream(name: String,
         .concat(ZStream.succeed(SourceCleanupRequest(streamData.filePath)))
         .zipWithIndex
         .flatMap({
-          case (e: SourceCleanupRequest, index: Long) => ZStream.log(s"Received $index lines frm ${streamData.filePath}, completed file I/O") *> ZStream.succeed(e)
+          case (e: SourceCleanupRequest, index: Long) => zlogStream(s"Received $index lines frm ${streamData.filePath}, completed file I/O") *> ZStream.succeed(e)
           case (r: DataRow, _) => ZStream.succeed(r)
         })
 

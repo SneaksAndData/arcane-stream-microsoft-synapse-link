@@ -26,9 +26,9 @@ trait OptimizeSettings:
 
 trait TargetTableSettings:
   val targetTableFullName: String
-  val targetOptimizeSettings: OptimizeSettings
-  val targetSnapshotExpirationSettings: SnapshotExpirationSettings
-  val targetOrphanFilesExpirationSettings: OrphanFilesExpirationSettings
+  val targetOptimizeSettings: Option[OptimizeSettings]
+  val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings]
+  val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings]
 
 trait ArchiveTableSettings:
   val archiveTableFullName: String
@@ -92,25 +92,25 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
 
   override val targetTableFullName: String = spec.sinkSettings.targetTableName
 
-  override val targetOptimizeSettings: OptimizeSettings = OptimizeSettingsImpl(
+  override val targetOptimizeSettings: Option[OptimizeSettings] = Some(OptimizeSettingsImpl(
     spec.sinkSettings.optimizeSettings.batchThreshold,
-    spec.sinkSettings.optimizeSettings.fileSizeThreshold)
+    spec.sinkSettings.optimizeSettings.fileSizeThreshold))
 
   override val archiveOptimizeSettings: OptimizeSettings = OptimizeSettingsImpl(
     spec.sinkSettings.optimizeSettings.batchThreshold,
     spec.sinkSettings.optimizeSettings.fileSizeThreshold)
 
-  override val targetSnapshotExpirationSettings: SnapshotExpirationSettings = SnapshotExpirationSettingsImpl(
+  override val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings] = Some(SnapshotExpirationSettingsImpl(
     spec.sinkSettings.snapshotExpirationSettings.batchThreshold,
-    spec.sinkSettings.snapshotExpirationSettings.retentionThreshold)
+    spec.sinkSettings.snapshotExpirationSettings.retentionThreshold))
 
   override val archiveSnapshotExpirationSettings: SnapshotExpirationSettings = SnapshotExpirationSettingsImpl(
     spec.sinkSettings.snapshotExpirationSettings.batchThreshold,
     spec.sinkSettings.snapshotExpirationSettings.retentionThreshold)
 
-  override val targetOrphanFilesExpirationSettings: OrphanFilesExpirationSettings = OrphanFilesExpirationSettingsImpl(
+  override val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings] = Some(OrphanFilesExpirationSettingsImpl(
     spec.sinkSettings.orphanFilesExpirationSettings.batchThreshold,
-    spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold)
+    spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold))
 
   override val archiveOrphanFilesExpirationSettings: OrphanFilesExpirationSettings = OrphanFilesExpirationSettingsImpl(
     spec.sinkSettings.orphanFilesExpirationSettings.batchThreshold,
@@ -140,6 +140,10 @@ given Conversion[StreamSpec, CdmTableSettings] with
 
 
 object MicrosoftSynapseLinkStreamContext {
+  
+  extension (streamContext: MicrosoftSynapseLinkStreamContext) def getBackfillTableName: String =
+    s"${streamContext.stagingCatalog}.${streamContext.stagingTableNamePrefix}__backfill".replace('-', '_')
+
   type Environment = StreamContext
     & CdmTableSettings
     & GroupingSettings
