@@ -11,7 +11,7 @@ jobs:
   build_image:
     name: Build Docker Image and Helm Charts
     runs-on:
-      labels: ubuntu-latest-16-cores-public
+      labels: ubuntu-latest-16-cores-arm-public
     env:
       TOKEN: '${{ secrets.MAVEN_PUBLISH_TOKEN }}'
     permissions:
