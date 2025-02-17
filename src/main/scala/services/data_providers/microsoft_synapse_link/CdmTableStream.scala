@@ -42,7 +42,6 @@ class CdmTableStream(name: String,
                       parallelismSettings: ParallelismSettings,
                       streamContext: StreamContext,
                       tableManager: TableManager,
-                      fieldsFilteringService: FieldsFilteringService,
                       targetTableSettings: TargetTableSettings):
 
   /**
@@ -176,7 +175,6 @@ object CdmTableStream:
     & StreamContext
     & TableManager
     & TargetTableSettings
-    & FieldsFilteringService
 
   def apply(settings: CdmTableSettings,
             zioReader: AzureBlobStorageReaderZIO,
@@ -184,7 +182,6 @@ object CdmTableStream:
             parallelismSettings: ParallelismSettings,
             streamContext: StreamContext,
             tableManager: TableManager,
-            fieldsFilteringService: FieldsFilteringService,
             targetTableSettings: TargetTableSettings): CdmTableStream = new CdmTableStream(
     settings.name,
     AdlsStoragePath(settings.rootPath).get,
@@ -193,7 +190,6 @@ object CdmTableStream:
     parallelismSettings,
     streamContext,
     tableManager,
-    fieldsFilteringService,
     targetTableSettings)
 
   /**
@@ -211,8 +207,7 @@ object CdmTableStream:
         sc <- ZIO.service[StreamContext]
         tm <- ZIO.service[TableManager]
         tts <- ZIO.service[TargetTableSettings]
-        fieldsFilteringService <- ZIO.service[FieldsFilteringService]
-      } yield CdmTableStream(tableSettings, readerZIO, reader, parSettings, sc, tm, fieldsFilteringService, tts)
+      } yield CdmTableStream(tableSettings, readerZIO, reader, parSettings, sc, tm, tts)
     }
 
 
