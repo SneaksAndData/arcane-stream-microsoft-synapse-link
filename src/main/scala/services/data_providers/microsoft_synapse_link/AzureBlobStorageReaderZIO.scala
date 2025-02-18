@@ -122,7 +122,7 @@ final class AzureBlobStorageReaderZIO(accountName: String, endpoint: Option[Stri
         prefixes <- ZStream.fromIterableZIO(listZIO)
         zippedWithDate <- prefixes.map(blob => (interpretAsDate(blob), blob))
         eligibleToProcess <- zippedWithDate match
-          case (Some(date), blob) if date.isAfter(startFrom) => ZStream.succeed(blob)
+          case (Some(date), blob) if date.isAfter(startFrom) || date.isEqual(startFrom) => ZStream.succeed(blob)
           case _ => ZStream.empty
     yield eligibleToProcess
 
