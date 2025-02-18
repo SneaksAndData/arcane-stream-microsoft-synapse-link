@@ -23,6 +23,8 @@
   }, {
     "pattern":"\\QMETA-INF/services/com.azure.core.util.tracing.Tracer\\E"
   }, {
+    "pattern":"\\QMETA-INF/services/com.fasterxml.jackson.databind.Module\\E"
+  }, {
     "pattern":"\\QMETA-INF/services/java.lang.System$LoggerFinder\\E"
   }, {
     "pattern":"\\QMETA-INF/services/java.net.spi.InetAddressResolverProvider\\E"

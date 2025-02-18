@@ -123,8 +123,30 @@
   "methods":[{"name":"setLayout","parameterTypes":["ch.qos.logback.core.Layout"] }]
 },
 {
+  "name":"ch.qos.logback.core.encoder.Encoder",
+  "methods":[{"name":"valueOf","parameterTypes":["java.lang.String"] }]
+},
+{
+  "name":"ch.qos.logback.core.encoder.LayoutWrappingEncoder",
+  "queryAllPublicMethods":true,
+  "methods":[{"name":"<init>","parameterTypes":[] }, {"name":"setLayout","parameterTypes":["ch.qos.logback.core.Layout"] }, {"name":"setParent","parameterTypes":["ch.qos.logback.core.spi.ContextAware"] }]
+},
+{
+  "name":"ch.qos.logback.core.net.ssl.SSLConfiguration",
+  "queryAllPublicMethods":true,
+  "methods":[{"name":"<init>","parameterTypes":[] }, {"name":"valueOf","parameterTypes":["java.lang.String"] }]
+},
+{
   "name":"ch.qos.logback.core.pattern.PatternLayoutBase",
   "methods":[{"name":"setPattern","parameterTypes":["java.lang.String"] }]
+},
+{
+  "name":"ch.qos.logback.core.spi.ContextAware",
+  "methods":[{"name":"valueOf","parameterTypes":["java.lang.String"] }]
+},
+{
+  "name":"ch.qos.logback.core.util.Duration",
+  "methods":[{"name":"valueOf","parameterTypes":["java.lang.String"] }]
 },
 {
   "name":"com.azure.core.http.HttpHeaderName",
@@ -200,6 +222,9 @@
 {
   "name":"com.fasterxml.jackson.databind.ext.Java7SupportImpl",
   "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"com.fasterxml.jackson.datatype.jsr310.JavaTimeModule"
 },
 {
   "name":"com.github.benmanes.caffeine.cache.BBHeader$ReadAndWriteCounterRef",
@@ -388,11 +413,23 @@
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
 {
+  "name":"com.sun.crypto.provider.DHParameters",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
   "name":"com.sun.crypto.provider.GaloisCounterMode$AESGCM",
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
 {
   "name":"com.sun.crypto.provider.HmacCore$HmacSHA256",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"com.sun.crypto.provider.HmacCore$HmacSHA384",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"com.sun.crypto.provider.TlsMasterSecretGenerator",
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
 {
@@ -921,6 +958,32 @@
   "name":"kotlin.Unit"
 },
 {
+  "name":"net.logstash.logback.appender.AbstractLogstashTcpSocketAppender",
+  "methods":[{"name":"addDestination","parameterTypes":["java.lang.String"] }, {"name":"setEncoder","parameterTypes":["ch.qos.logback.core.encoder.Encoder"] }, {"name":"setKeepAliveDuration","parameterTypes":["ch.qos.logback.core.util.Duration"] }, {"name":"setSsl","parameterTypes":["ch.qos.logback.core.net.ssl.SSLConfiguration"] }]
+},
+{
+  "name":"net.logstash.logback.appender.LogstashTcpSocketAppender",
+  "queryAllPublicMethods":true,
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"net.logstash.logback.encoder.CompositeJsonEncoder",
+  "methods":[{"name":"setPrefix","parameterTypes":["ch.qos.logback.core.encoder.Encoder"] }]
+},
+{
+  "name":"net.logstash.logback.encoder.LogstashEncoder",
+  "queryAllPublicMethods":true,
+  "methods":[{"name":"<init>","parameterTypes":[] }, {"name":"setCustomFields","parameterTypes":["java.lang.String"] }]
+},
+{
+  "name":"net.logstash.logback.encoder.com.lmax.disruptor.AbstractSequencer",
+  "fields":[{"name":"gatingSequences"}]
+},
+{
+  "name":"net.logstash.logback.encoder.com.lmax.disruptor.Value",
+  "fields":[{"name":"value"}]
+},
+{
   "name":"org.apache.commons.logging.impl.Slf4jLogFactory",
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
@@ -1217,6 +1280,14 @@
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
 {
+  "name":"sun.security.provider.DSA$SHA224withDSA",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"sun.security.provider.DSA$SHA256withDSA",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
   "name":"sun.security.provider.MD5",
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
@@ -1229,15 +1300,47 @@
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
 {
+  "name":"sun.security.provider.SHA2$SHA224",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
   "name":"sun.security.provider.SHA2$SHA256",
   "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"sun.security.provider.SHA5$SHA384",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"sun.security.provider.SHA5$SHA512",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"sun.security.provider.SecureRandom",
+  "methods":[{"name":"<init>","parameterTypes":[] }, {"name":"<init>","parameterTypes":["java.security.SecureRandomParameters"] }]
 },
 {
   "name":"sun.security.provider.X509Factory",
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
 {
+  "name":"sun.security.provider.certpath.PKIXCertPathValidator",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"sun.security.rsa.PSSParameters",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
   "name":"sun.security.rsa.RSAKeyFactory$Legacy",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"sun.security.rsa.RSAPSSSignature",
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"sun.security.rsa.RSASignature$SHA224withRSA",
   "methods":[{"name":"<init>","parameterTypes":[] }]
 },
 {
