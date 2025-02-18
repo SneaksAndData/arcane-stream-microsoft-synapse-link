@@ -59,6 +59,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
                        archiveTableSettings: ArchiveTableSettings,
                        tablePropertiesSettings: TablePropertiesSettings,
                        schemaProvider: SchemaProvider[ArcaneSchema],
+                       fieldsFilteringService: FieldsFilteringService,
                        streamContext: MicrosoftSynapseLinkStreamContext)
   extends TableManager with AutoCloseable:
 
@@ -84,14 +85,14 @@ class JdbcTableManager(options: JdbcConsumerOptions,
     for
       _ <- zlog("Creating target table", Seq(getAnnotation("targetTableName", targetTableSettings.targetTableFullName)))
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
-      created <- ZIO.fromFuture(implicit ec => createTable(targetTableSettings.targetTableFullName, schema, tableProperties))
+      created <- ZIO.fromFuture(implicit ec => createTable(targetTableSettings.targetTableFullName, fieldsFilteringService.filter(schema), tableProperties))
     yield created
 
   def createArchiveTable: Task[TableCreationResult] =
     for
       _ <- zlog("Creating archive table", Seq(getAnnotation("archiveTableName", archiveTableSettings.archiveTableFullName)))
       schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema )
-      created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, schema, tableProperties))
+      created <- ZIO.fromFuture(implicit ec => createTable(archiveTableSettings.archiveTableFullName, fieldsFilteringService.filter(schema), tableProperties))
     yield created
     
   def tryCreateBackfillTable: Task[TableCreationResult] =
@@ -99,7 +100,7 @@ class JdbcTableManager(options: JdbcConsumerOptions,
       for
         _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", streamContext.getBackfillTableName)))
         schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
-        created <- ZIO.fromFuture(implicit ec => createTable(streamContext.getBackfillTableName, schema, tableProperties))
+        created <- ZIO.fromFuture(implicit ec => createTable(streamContext.getBackfillTableName, fieldsFilteringService.filter(schema), tableProperties))
       yield created
     else
       ZIO.succeed(false)
@@ -188,14 +189,16 @@ object JdbcTableManager:
     & ArchiveTableSettings
     & SchemaProvider[ArcaneSchema]
     & MicrosoftSynapseLinkStreamContext
+    & FieldsFilteringService
 
   def apply(options: JdbcConsumerOptions,
             targetTableSettings: TargetTableSettings,
             archiveTableSettings: ArchiveTableSettings,
             tablePropertiesSettings: TablePropertiesSettings,
             schemaProvider: SchemaProvider[ArcaneSchema],
+            fieldsFilteringService: FieldsFilteringService,
             streamContext: MicrosoftSynapseLinkStreamContext): JdbcTableManager =
-    new JdbcTableManager(options, targetTableSettings, archiveTableSettings, tablePropertiesSettings, schemaProvider, streamContext)
+    new JdbcTableManager(options, targetTableSettings, archiveTableSettings, tablePropertiesSettings, schemaProvider, fieldsFilteringService, streamContext)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
@@ -209,7 +212,8 @@ object JdbcTableManager:
             tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
             schemaProvider <- ZIO.service[SchemaProvider[ArcaneSchema]]
             streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
-        yield JdbcTableManager(connectionOptions, targetTableSettings, archiveTableSettings, tablePropertiesSettings, schemaProvider, streamContext)
+            fieldsFilteringService <- ZIO.service[FieldsFilteringService]
+        yield JdbcTableManager(connectionOptions, targetTableSettings, archiveTableSettings, tablePropertiesSettings, schemaProvider, fieldsFilteringService, streamContext)
       }
     }
 

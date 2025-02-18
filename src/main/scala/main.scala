@@ -2,7 +2,7 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 
 import models.app.contracts.EnvironmentGarbageCollectorSettings
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
-import services.app.{AzureBlobStorageGarbageCollector, GarbageCollectorStream, JdbcTableManager, StreamRunnerServiceCdm}
+import services.app.{AzureBlobStorageGarbageCollector, FieldsFilteringService, GarbageCollectorStream, JdbcTableManager, StreamRunnerServiceCdm}
 import services.clients.JdbcConsumer
 import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
 import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSynapseConsumer}
@@ -82,7 +82,9 @@ object main extends ZIOAppDefault {
     JdbcConsumer.mergeLayer,
     JdbcConsumer.overwriteLayer,
     MicrosoftSynapseLinkDataProviderImpl.layer,
-    IcebergSynapseBackfillConsumer.layer)
+    IcebergSynapseBackfillConsumer.layer,
+    FieldFilteringProcessor.layer,
+    FieldsFilteringService.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
