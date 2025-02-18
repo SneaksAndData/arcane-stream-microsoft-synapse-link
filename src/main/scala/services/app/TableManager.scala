@@ -98,9 +98,9 @@ class JdbcTableManager(options: JdbcConsumerOptions,
   def tryCreateBackfillTable: Task[TableCreationResult] =
     if streamContext.IsBackfilling then
       for
-        _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", streamContext.getBackfillTableName)))
+        _ <- zlog("Creating backfill table", Seq(getAnnotation("backfillTableName", streamContext.backfillTableName)))
         schema: ArcaneSchema <- ZIO.fromFuture(implicit ec => schemaProvider.getSchema)
-        created <- ZIO.fromFuture(implicit ec => createTable(streamContext.getBackfillTableName, fieldsFilteringService.filter(schema), tableProperties))
+        created <- ZIO.fromFuture(implicit ec => createTable(streamContext.backfillTableName, fieldsFilteringService.filter(schema), tableProperties))
       yield created
     else
       ZIO.succeed(false)
