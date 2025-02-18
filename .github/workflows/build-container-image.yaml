@@ -53,6 +53,11 @@ jobs:
           use: true
           platforms: linux/amd64
 
+      - name: Replace logback.xml
+        run: |
+          rm src/main/resources/logback.xml
+          mv logback.datadog.xml logback.xml          
+
       - name: Build and push Docker image
         id: image_build
         uses: docker/build-push-action@v6.9.0
@@ -110,6 +115,11 @@ jobs:
         with:
           use: true
           platforms: linux/arm64
+
+      - name: Replace logback.xml
+        run: |
+          rm src/main/resources/logback.xml
+          mv logback.datadog.xml logback.xml
 
       - name: Build and push Docker image
         id: image_build

@@ -4,9 +4,6 @@
       "name":"byte[]"
     },
     {
-      "name":"ch.qos.logback.core.mode.Model"
-    },
-    {
       "name":"java.lang.Double"
     },
     {

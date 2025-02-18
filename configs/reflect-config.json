@@ -345,6 +345,10 @@
   "fields":[{"name":"derived$ReadWriter$lzy1"}]
 },
 {
+  "name":"com.sneaksanddata.arcane.microsoft_synapse_link.models.app.contracts.FieldSelectionRuleSpec$",
+  "fields":[{"name":"derived$ReadWriter$lzy9"}]
+},
+{
   "name":"com.sneaksanddata.arcane.microsoft_synapse_link.models.app.contracts.OptimizeSettingsSpec$",
   "fields":[{"name":"derived$ReadWriter$lzy3"}]
 },
@@ -370,7 +374,7 @@
 },
 {
   "name":"com.sneaksanddata.arcane.microsoft_synapse_link.models.app.contracts.StreamSpec$",
-  "fields":[{"name":"derived$ReadWriter$lzy9"}]
+  "fields":[{"name":"derived$ReadWriter$lzy10"}, {"name":"derived$ReadWriter$lzy9"}]
 },
 {
   "name":"com.sneaksanddata.arcane.microsoft_synapse_link.models.app.contracts.TablePropertiesSettings$",
