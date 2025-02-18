@@ -13,6 +13,7 @@ import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCred
 import zio.ZLayer
 
 import java.time.Duration
+import java.util.UUID
 
 trait AzureConnectionSettings:
   val endpoint: String
@@ -135,6 +136,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val format: TableFormat = TableFormat.valueOf(spec.tableProperties.format)
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
+  
+  val backfillTableName: String = s"$stagingCatalog.${stagingTableNamePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
 
   override val rule: FieldSelectionRule = spec.fieldSelectionRule.ruleType match
     case "include" => FieldSelectionRule.IncludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
@@ -146,9 +149,6 @@ given Conversion[StreamSpec, CdmTableSettings] with
 
 
 object MicrosoftSynapseLinkStreamContext {
-  
-  extension (streamContext: MicrosoftSynapseLinkStreamContext) def getBackfillTableName: String =
-    s"${streamContext.stagingCatalog}.${streamContext.stagingTableNamePrefix}__backfill".replace('-', '_')
 
   type Environment = StreamContext
     & CdmTableSettings
