@@ -56,7 +56,7 @@ jobs:
       - name: Replace logback.xml
         run: |
           rm src/main/resources/logback.xml
-          mv logback.datadog.xml logback.xml          
+          mv src/main/resources/logback.datadog.xml src/main/resources/logback.xml          
 
       - name: Build and push Docker image
         id: image_build
