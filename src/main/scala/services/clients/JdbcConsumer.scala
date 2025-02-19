@@ -32,8 +32,7 @@ class BatchArchivationResult
  *
  * @param options The options for the consumer.
  */
-class JdbcConsumer[Query <: StreamingBatchQuery](options: JdbcConsumerOptions,
-                                                  archiveTableSettings: ArchiveTableSettings)
+class JdbcConsumer(options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings)
   extends AutoCloseable:
   
   require(options.isValid, "Invalid JDBC url provided for the consumer")
@@ -42,7 +41,7 @@ class JdbcConsumer[Query <: StreamingBatchQuery](options: JdbcConsumerOptions,
   
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
-  private type Batch = StagedBatch[Query]
+  private type Batch = StagedBatch
 
   def getPartitionValues(batchName: String, partitionFields: List[String]): Future[Map[String, List[String]]] =
     Future.sequence(partitionFields
@@ -166,31 +165,19 @@ object JdbcConsumer:
    * @param options The options for the consumer.
    * @return The initialized JdbcConsumer instance
    */
-  def apply[Query <: StreamingBatchQuery](options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings): JdbcConsumer[Query] =
-    new JdbcConsumer[Query](options, archiveTableSettings)
+  def apply[Query <: StreamingBatchQuery](options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings): JdbcConsumer =
+    new JdbcConsumer(options, archiveTableSettings)
 
   /**
    * The ZLayer that creates the JdbcConsumer.
    */
-  val mergeLayer: ZLayer[Environment, Nothing, JdbcConsumer[MergeQuery]] =
+  val layer: ZLayer[Environment, Nothing, JdbcConsumer] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
           connectionOptions <- ZIO.service[JdbcConsumerOptions]
           archiveTableSettings <- ZIO.service[ArchiveTableSettings]
-        yield JdbcConsumer[MergeQuery](connectionOptions, archiveTableSettings)
+        yield JdbcConsumer(connectionOptions, archiveTableSettings)
       }
     }
 
-  /**
-   * The ZLayer that creates the JdbcConsumer.
-   */
-  val overwriteLayer: ZLayer[Environment, Nothing, JdbcConsumer[OverwriteQuery]] =
-    ZLayer.scoped {
-      ZIO.fromAutoCloseable {
-        for
-          connectionOptions <- ZIO.service[JdbcConsumerOptions]
-          archiveTableSettings <- ZIO.service[ArchiveTableSettings]
-        yield JdbcConsumer[OverwriteQuery](connectionOptions, archiveTableSettings)
-      }
-    }

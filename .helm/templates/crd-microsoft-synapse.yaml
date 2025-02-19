@@ -270,6 +270,13 @@ spec:
                   properties:
                     name:
                       type: string
+                backfillBehavior:
+                  type: string
+                  enum:
+                    - merge
+                    - overwrite
+                  default:
+                    overwrite
                 fieldSelectionRule:
                   type: object
                   properties:

@@ -53,6 +53,12 @@ trait GraphExecutionSettings:
 trait OrphanFilesExpirationSettings:
   val batchThreshold: Int
   val retentionThreshold: String
+  
+enum BackfillBehavior:
+  case Merge, Overwrite
+  
+trait BackfillSettings:
+  val backfillBehavior: BackfillBehavior
 
 case class OptimizeSettingsImpl(batchThreshold: Int, fileSizeThreshold: String) extends OptimizeSettings
 
@@ -76,6 +82,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with ParallelismSettings
   with TablePropertiesSettings
   with FieldSelectionRuleSettings
+  with BackfillSettings
   with GraphExecutionSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
@@ -147,6 +154,11 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case _ => FieldSelectionRule.AllFields
 
+  override val backfillBehavior: BackfillBehavior = spec.backfillBehavior match
+    case "merge" => BackfillBehavior.Merge
+    case "overwrite" => BackfillBehavior.Overwrite
+    case _ => throw new IllegalArgumentException(s"Unknown backfill behavior: ${spec.backfillBehavior}")
+
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
 
@@ -167,6 +179,7 @@ object MicrosoftSynapseLinkStreamContext {
     & GraphExecutionSettings
     & TablePropertiesSettings
     & FieldSelectionRuleSettings
+    & BackfillSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
