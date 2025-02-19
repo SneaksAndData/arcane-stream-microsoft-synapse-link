@@ -37,7 +37,7 @@ lazy val plugin = (project in file("."))
       "--no-fallback",
       "-O2",
       "--initialize-at-run-time=okhttp3.internal.platform.Android10Platform,reactor.util.Metrics,org.bouncycastle,io.netty",
-      "--enable-url-protocols=http",
+      "--enable-url-protocols=http,https",
       "--verbose",
       "-H:+UnlockExperimentalVMOptions",
       //"-H:+PrintClassInitialization",
