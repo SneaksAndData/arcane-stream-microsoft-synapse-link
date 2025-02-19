@@ -13,7 +13,7 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.querygen.OverwriteQuery
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
+import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillOverwriteBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
 import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchConsumer, BatchProcessor}
@@ -29,7 +29,7 @@ import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
 
-class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer[OverwriteQuery], 
+class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer, 
                                      reader: AzureBlobStorageReaderZIO,
                                      targetTableSettings: TargetTableSettings,
                                      tableManager: TableManager)
@@ -69,7 +69,7 @@ object IcebergSynapseBackfillConsumer:
    * @param schemaProvider The schema provider.
    * @return The initialized IcebergConsumer instance
    */
-  def apply(mergeConsumer: JdbcConsumer[OverwriteQuery],
+  def apply(mergeConsumer: JdbcConsumer,
             reader: AzureBlobStorageReaderZIO,
             targetTableSettings: TargetTableSettings,
             tableManager: TableManager): IcebergSynapseBackfillConsumer =
@@ -78,7 +78,7 @@ object IcebergSynapseBackfillConsumer:
   /**
    * The required environment for the IcebergConsumer.
    */
-  type Environment = JdbcConsumer[OverwriteQuery]
+  type Environment = JdbcConsumer
     & AzureBlobStorageReaderZIO
     & TargetTableSettings
     & TableManager
@@ -89,7 +89,7 @@ object IcebergSynapseBackfillConsumer:
   val layer: ZLayer[Environment, Nothing, IcebergSynapseBackfillConsumer] =
     ZLayer {
       for
-        jdbcConsumer <- ZIO.service[JdbcConsumer[OverwriteQuery]]
+        jdbcConsumer <- ZIO.service[JdbcConsumer]
         reader <- ZIO.service[AzureBlobStorageReaderZIO]
         settings <- ZIO.service[TargetTableSettings]
         tableManager <-  ZIO.service[TableManager]

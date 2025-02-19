@@ -19,7 +19,7 @@ import zio.{Task, ZIO, ZLayer}
  *
  * @param jdbcConsumer The JDBC consumer.
  */
-class MergeBatchProcessor(jdbcConsumer: JdbcConsumer[MergeQuery],
+class MergeBatchProcessor(jdbcConsumer: JdbcConsumer,
                           parallelismSettings: ParallelismSettings,
                           targetTableSettings: TargetTableSettings,
                           tableManager: TableManager)
@@ -75,13 +75,13 @@ object MergeBatchProcessor:
    * @param jdbcConsumer The JDBC consumer.
    * @return The initialized MergeProcessor instance
    */
-  def apply(jdbcConsumer: JdbcConsumer[MergeQuery], parallelismSettings: ParallelismSettings, targetTableSettings: TargetTableSettings, tableManager: TableManager): MergeBatchProcessor =
+  def apply(jdbcConsumer: JdbcConsumer, parallelismSettings: ParallelismSettings, targetTableSettings: TargetTableSettings, tableManager: TableManager): MergeBatchProcessor =
     new MergeBatchProcessor(jdbcConsumer, parallelismSettings, targetTableSettings, tableManager)
 
   /**
    * The required environment for the MergeProcessor.
    */
-  type Environment = JdbcConsumer[MergeQuery]
+  type Environment = JdbcConsumer
     & ParallelismSettings
     & TargetTableSettings
     & TableManager
@@ -92,7 +92,7 @@ object MergeBatchProcessor:
   val layer: ZLayer[Environment, Nothing, MergeBatchProcessor] =
     ZLayer {
       for
-        jdbcConsumer <- ZIO.service[JdbcConsumer[MergeQuery]]
+        jdbcConsumer <- ZIO.service[JdbcConsumer]
         parallelismSettings <- ZIO.service[ParallelismSettings]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         tableManager <- ZIO.service[TableManager]

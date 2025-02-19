@@ -18,7 +18,7 @@ import com.sneaksanddata.arcane.framework.models.querygen.MergeQuery
 import zio.stream.ZPipeline
 import zio.{ZIO, ZLayer}
 
-class ArchivationProcessor(jdbcConsumer: JdbcConsumer[MergeQuery],
+class ArchivationProcessor(jdbcConsumer: JdbcConsumer,
                            archiveTableSettings: ArchiveTableSettings,
                            parallelismSettings: ParallelismSettings, tableManager: TableManager)
   extends BatchProcessor[InFlightBatch, CompletedBatch]:
@@ -46,19 +46,19 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer[MergeQuery],
 
 object ArchivationProcessor:
 
-  type Environment = JdbcConsumer[MergeQuery]
+  type Environment = JdbcConsumer
     & ArchiveTableSettings
     & ParallelismSettings
     & TableManager
 
-  def apply(jdbcConsumer: JdbcConsumer[MergeQuery], archiveTableSettings: ArchiveTableSettings,
+  def apply(jdbcConsumer: JdbcConsumer, archiveTableSettings: ArchiveTableSettings,
             parallelismSettings: ParallelismSettings, tableManager: TableManager): ArchivationProcessor =
     new ArchivationProcessor(jdbcConsumer, archiveTableSettings, parallelismSettings, tableManager)
     
   val layer: ZLayer[Environment, Nothing, ArchivationProcessor] =
     ZLayer {
       for
-        jdbcConsumer <- ZIO.service[JdbcConsumer[MergeQuery]]
+        jdbcConsumer <- ZIO.service[JdbcConsumer]
         archiveTableSettings <- ZIO.service[ArchiveTableSettings]
         parallelismSettings <- ZIO.service[ParallelismSettings]
         tableManager <- ZIO.service[TableManager]
