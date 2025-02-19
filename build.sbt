@@ -1,5 +1,4 @@
 import com.typesafe.sbt.packager.graalvmnativeimage.GraalVMNativeImagePlugin.autoImport.GraalVMNativeImage
-import sbt.Keys.packageBin
 
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
@@ -34,21 +33,19 @@ lazy val plugin = (project in file("."))
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
 
-    graalVMNativeImageCommand := sys.env.getOrElse("GRAALVM_CMD", "native-image"),
     graalVMNativeImageOptions ++= Seq(
       "--no-fallback",
       "-O2",
       "--initialize-at-run-time=okhttp3.internal.platform.Android10Platform,reactor.util.Metrics,org.bouncycastle,io.netty",
-      "--initialize-at-build-time=org.slf4j.MDC,ch.qos.logback,org.apache.log4j,org.slf4j.helpers,com.fasterxml.jackson.core.Base64Variant,org.xml.sax.helpers.AttributesImpl,org.xml.sax.helpers.LocatorImpl,com.fasterxml.jackson.core.Base64Variant$PaddingReadBehaviour",
       "--verbose",
-//      "--trace-class-initialization=ch.qos.logback.core.subst.NodeToStringTransformer$1",
       "-H:+UnlockExperimentalVMOptions",
-      "-H:TraceClassInitialization=true",
+      //"-H:+PrintClassInitialization",
       "-H:ResourceConfigurationFiles=../../configs/resource-config.json",
       "-H:ReflectionConfigurationFiles=../../configs/reflect-config.json",
       "-H:JNIConfigurationFiles=../../configs/jni-config.json",
       "-H:DynamicProxyConfigurationFiles=../../configs/proxy-config.json",
       "-H:SerializationConfigurationFiles=../../configs/serialization-config.json",
+      "--exclude-config", ".*.jar", ".*.properties"
     ),
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
