@@ -47,7 +47,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            fieldFilteringProcessor: FieldFilteringProcessor,
                                            tablePropertiesSettings: TablePropertiesSettings) extends MicrosoftSynapseLinkDataProvider:
 
-  private val backFillTableName = streamContext.getBackfillTableName
+  private val backFillTableName = streamContext.backfillTableName
   private val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
   private val mergeProcessor = MergeBatchProcessor(jdbcConsumer, parallelismSettings, tempTargetTableSettings, tableManager)
 
