@@ -3,7 +3,7 @@ package models.app.contracts
 
 import models.app.OptimizeSettings
 
-import com.sneaksanddata.arcane.framework.models.settings.TableFormat
+import com.sneaksanddata.arcane.framework.models.settings.{TableFormat, TablePropertiesSettings as TableProperties}
 import upickle.default.*
 
 /**
@@ -52,6 +52,12 @@ case class SourceSettings(name: String, baseLocation: String, changeCaptureInter
 
 case class TablePropertiesSettings(partitionExpressions: Array[String], sortedBy: Array[String], parquetBloomFilterColumns: Array[String], format: String) derives ReadWriter
 
+given Conversion[TablePropertiesSettings, TableProperties] with
+  def apply(x: TablePropertiesSettings): TableProperties = new TableProperties:
+    val partitionExpressions: Array[String] = x.partitionExpressions
+    val format: TableFormat = TableFormat.valueOf(x.format)
+    val sortedBy: Array[String] = x.sortedBy
+    val parquetBloomFilterColumns: Array[String] = x.parquetBloomFilterColumns
 
 /**
  * The configuration of the stream source.

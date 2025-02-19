@@ -9,6 +9,7 @@ import services.streaming.consumers.{InFlightBatch, IncomingBatch}
 import services.streaming.processors.StagingTableProcessor.{getTableName, toStagedBatch}
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
+import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
@@ -49,7 +50,7 @@ class StagingTableProcessor(streamContext: MicrosoftSynapseLinkStreamContext,
         ZIO.fromFuture(implicit ec => catalogWriter.write(rows, streamContext.stagingTableNamePrefix.getTableName, arcaneSchema))
     for
       table <- tableWriterEffect.retry(retryPolicy)
-      batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, target, Map())
+      batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, target, streamContext.tableProperties)
     yield (arcaneSchema, batch)
 
 
@@ -64,9 +65,9 @@ object StagingTableProcessor:
                                              warehouse: String,
                                              batchSchema: ArcaneSchema,
                                              targetName: String,
-                                             partitionValues: Map[String, List[String]]): StagedVersionedBatch =
+                                             tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
     val batchName = table.name().split('.').last
-    SynapseLinkMergeBatch(batchName, batchSchema, targetName, partitionValues)
+    SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
 
   def apply(streamContext: MicrosoftSynapseLinkStreamContext,
             icebergCatalogSettings: IcebergCatalogSettings,
