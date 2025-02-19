@@ -42,7 +42,7 @@ class JdbcConsumer[Query <: StreamingBatchQuery](options: JdbcConsumerOptions,
   
   private lazy val sqlConnection: Connection = DriverManager.getConnection(options.connectionUrl)
 
-  private type Batch = StagedBatch[Query]
+  private type Batch = StagedBatch
 
   def getPartitionValues(batchName: String, partitionFields: List[String]): Future[Map[String, List[String]]] =
     Future.sequence(partitionFields
