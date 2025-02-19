@@ -2,6 +2,7 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app
 
 import models.app.contracts.{OptimizeSettingsSpec, StreamSpec}
+import models.app.contracts.given_Conversion_TablePropertiesSettings_TableProperties
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
@@ -132,6 +133,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
 
   val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
+  val tableProperties: TablePropertiesSettings = spec.tableProperties
+  
   val format: TableFormat = TableFormat.valueOf(spec.tableProperties.format)
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
