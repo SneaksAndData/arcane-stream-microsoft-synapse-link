@@ -87,7 +87,8 @@ case class StreamSpec(sourceSettings: SourceSettings,
                       // Iceberg table properties
 
                       tableProperties: TablePropertiesSettings,
-                      fieldSelectionRule: FieldSelectionRuleSpec)
+                      fieldSelectionRule: FieldSelectionRuleSpec,
+                      backfillBehavior: String)
   derives ReadWriter
 
 object StreamSpec:

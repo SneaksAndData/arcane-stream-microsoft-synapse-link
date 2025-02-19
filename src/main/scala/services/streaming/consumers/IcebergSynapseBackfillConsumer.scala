@@ -29,7 +29,7 @@ import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
 
-class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer[OverwriteQuery], 
+class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer, 
                                      reader: AzureBlobStorageReaderZIO,
                                      targetTableSettings: TargetTableSettings,
                                      tableManager: TableManager)
@@ -69,7 +69,7 @@ object IcebergSynapseBackfillConsumer:
    * @param schemaProvider The schema provider.
    * @return The initialized IcebergConsumer instance
    */
-  def apply(mergeConsumer: JdbcConsumer[OverwriteQuery],
+  def apply(mergeConsumer: JdbcConsumer,
             reader: AzureBlobStorageReaderZIO,
             targetTableSettings: TargetTableSettings,
             tableManager: TableManager): IcebergSynapseBackfillConsumer =
@@ -78,7 +78,7 @@ object IcebergSynapseBackfillConsumer:
   /**
    * The required environment for the IcebergConsumer.
    */
-  type Environment = JdbcConsumer[OverwriteQuery]
+  type Environment = JdbcConsumer
     & AzureBlobStorageReaderZIO
     & TargetTableSettings
     & TableManager
@@ -89,7 +89,7 @@ object IcebergSynapseBackfillConsumer:
   val layer: ZLayer[Environment, Nothing, IcebergSynapseBackfillConsumer] =
     ZLayer {
       for
-        jdbcConsumer <- ZIO.service[JdbcConsumer[OverwriteQuery]]
+        jdbcConsumer <- ZIO.service[JdbcConsumer]
         reader <- ZIO.service[AzureBlobStorageReaderZIO]
         settings <- ZIO.service[TargetTableSettings]
         tableManager <-  ZIO.service[TableManager]
