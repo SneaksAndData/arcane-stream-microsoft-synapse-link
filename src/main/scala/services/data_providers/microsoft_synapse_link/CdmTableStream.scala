@@ -111,7 +111,7 @@ class CdmTableStream(name: String,
 
   private def getRootDropPrefixes(storageRoot: AdlsStoragePath, changeCaptureInterval: Duration): Task[SchemaEnrichedBlobStream] = for
     latestPrefix <- zioReader.getBlobContent(storageRoot + "Changelog/changelog.info").map(reader => OffsetDateTime.parse(reader.readLine(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")))
-    prefixes <- ZIO.attempt(zioReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCaptureInterval.multipliedBy(2)))).map(stream => enrichWithSchema(stream))
+    prefixes <- ZIO.attempt(zioReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCaptureInterval.multipliedBy(4)))).map(stream => enrichWithSchema(stream))
   yield prefixes
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
