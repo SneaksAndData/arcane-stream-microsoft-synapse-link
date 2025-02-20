@@ -5,128 +5,11 @@ on: workflow_dispatch
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: sneaksanddata/arcane-stream-microsoft-synapse-link # need lowercase here
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build_amd64_image:
-    name: Build Docker Image (amd64)
-    runs-on:
-      labels: ubuntu-latest-16-cores-public
-    outputs:
-      image_digest: ${{ steps.image_build.outputs.digest }}
-    env:
-      TOKEN: '${{ secrets.MAVEN_PUBLISH_TOKEN }}'
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3.3.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.9
-        id: version
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}},value=${{steps.version.outputs.version}}
-          flavor:
-            latest=false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.7.1
-        with:
-          use: true
-          platforms: linux/amd64
-
-      - name: Build and push Docker image
-        id: image_build
-        uses: docker/build-push-action@v6.9.0
-        with:
-          context: .
-          file: .container/Dockerfile
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64
-          outputs: type=image,"name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}",push-by-digest=true,name-canonical=true,push=true
-          build-args: |
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-            USERLIB=amd64-linux-gnu
-
-  build_arm64_image:
-    name: Build Docker Image (arm64)
-    runs-on:
-      labels: ubuntu-latest-16-cores-arm-public
-    outputs:
-      image_digest: ${{ steps.image_build.outputs.digest }}
-    env:
-      TOKEN: '${{ secrets.MAVEN_PUBLISH_TOKEN }}'
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3.3.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.9
-        id: version
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}},value=${{steps.version.outputs.version}}
-          flavor:
-            latest=false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.7.1
-        with:
-          use: true
-          platforms: linux/arm64
-
-      - name: Build and push Docker image
-        id: image_build
-        uses: docker/build-push-action@v6.9.0
-        with:
-          context: .
-          file: .container/Dockerfile
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/arm64
-          outputs: type=image,"name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}",push-by-digest=true,name-canonical=true,push=true
-          build-args: |
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-            USERLIB=aarch64-linux-gnu
-
-  publish_manifest:
-    name: Publish multiarch manifest
-    needs: [build_amd64_image, build_arm64_image]
+  build_image:
+    name: Build Docker Image and Helm Charts
     runs-on: ubuntu-latest
     env:
       TOKEN: '${{ secrets.MAVEN_PUBLISH_TOKEN }}'
@@ -161,49 +44,23 @@ jobs:
           flavor:
             latest=false
 
-      - name: Create multiarch image
-        uses: int128/docker-manifest-create-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.7.1
         with:
+          use: true
+          platforms: linux/arm64,linux/amd64
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6.9.0
+        with:
+          context: .
+          file: .container/Dockerfile
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
-          sources: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build_amd64_image.outputs.image_digest }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build_arm64_image.outputs.image_digest }}
-
-  build_chart:
-    name: Build Helm Chart
-    runs-on: ubuntu-latest
-    env:
-      TOKEN: '${{ secrets.MAVEN_PUBLISH_TOKEN }}'
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3.3.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.9
-        id: version
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}},value=${{steps.version.outputs.version}}
-          flavor:
-            latest=false
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/arm64,linux/amd64
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Chart
         uses: SneaksAndData/github-actions/build_helm_chart@v0.1.9
@@ -213,4 +70,3 @@ jobs:
           container_registry_user: ${{ github.actor }}
           container_registry_token: ${{ secrets.GITHUB_TOKEN }}
           container_registry_address: ghcr.io/sneaksanddata/
-
