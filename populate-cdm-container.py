@@ -1258,6 +1258,7 @@ start_time = now - timedelta(hours=6)
 
 # Generate formatted strings for each hour
 FOLDERS = [(start_time + timedelta(hours=i)).strftime("%Y-%m-%dT%H.%M.%SZ") for i in range(8)]
+LATEST = max(FOLDERS)
 
 def upload_blob_file(blob_service_client: BlobServiceClient, container_name: str, blob_name: str, content: str):
     blob_service_client.get_container_client(container=container_name).upload_blob(name=blob_name, data=content.encode('utf-8'), overwrite=True)
@@ -1278,6 +1279,8 @@ def create_blobs(model_json, content, folders):
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable/2021.csv", content)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable/2022.csv", content)
         upload_blob_file(blob_service_client, CONTAINER, f"{folder}/synapsetable_other/2020.csv", content)
+    # upload changelog
+    upload_blob_file(blob_service_client, CONTAINER, f"Changelog/changelog.info", LATEST)
 
 create_container()
 create_blobs(MODEL_JSON_MODIFIED, CONTENT_MODIFIED, FOLDERS[:4])
