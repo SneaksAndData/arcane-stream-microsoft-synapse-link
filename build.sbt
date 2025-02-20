@@ -43,6 +43,7 @@ lazy val plugin = (project in file("."))
       "-H:+UnlockExperimentalVMOptions",
       "-H:+AddAllCharsets",
       "-H:+ReportExceptionStackTraces",
+      // enable this if you experience build errors to find the root cause
       //"-H:+PrintClassInitialization",
       "-H:ResourceConfigurationFiles=../../configs/resource-config.json",
       "-H:ReflectionConfigurationFiles=../../configs/reflect-config.json",
