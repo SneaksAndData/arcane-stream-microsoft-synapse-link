@@ -20,7 +20,7 @@ import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.io.{BufferedReader, IOException}
-import java.time.{Duration, OffsetDateTime, ZoneOffset}
+import java.time.{Duration, LocalDateTime, OffsetDateTime, ZoneOffset}
 import java.util.regex.Matcher
 import scala.util.matching.Regex
 
@@ -73,6 +73,7 @@ class CdmTableStream(name: String,
    */
   def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     val initialPrefixes = getRootDropPrefixes(storagePath, Some(lookBackInterval)).flatMap(s => s.runCollect)
+    // data from lookback
     val firstStream = ZStream.fromZIO(initialPrefixes)
       .flatMap(x => ZStream.fromIterable(x))
       .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
@@ -80,11 +81,9 @@ class CdmTableStream(name: String,
       .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
       .filter(seb => seb.blob.name.endsWith(".csv"))
 
-
-
-    val iterator = CdmTableStream.dateTimeProvider(changeCaptureInterval.multipliedBy(2))
-
-    val repeatStream = ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, iterator)))
+    // iterative change capture
+    // every `changeCaptureInterval` seconds we read timestamp from Changelog/changelog.info file and subtract 2*changeCaptureInterval from it
+    val repeatStream = ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, changeCaptureInterval)))
       .flatMap(x => ZStream.fromIterable(x))
       .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
       .filter(seb => seb.blob.name.endsWith(s"/$name/"))
@@ -109,8 +108,10 @@ class CdmTableStream(name: String,
         .map(lastUpdate => zioReader.getRootPrefixes(storagePath,lastUpdate))
     getPrefixesTask.map(stream => enrichWithSchema(stream))
 
-  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, iterator: Iterator[OffsetDateTime]): Task[SchemaEnrichedBlobStream] =
-    ZIO.attempt(zioReader.getRootPrefixes(storagePath, iterator.next())).map(stream => enrichWithSchema(stream))
+  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, changeCaptureInterval: Duration): Task[SchemaEnrichedBlobStream] = for
+    latestPrefix <- zioReader.getBlobContent(storageRoot + "Changelog/changelog.info").map(reader => OffsetDateTime.parse(reader.readLine()))
+    prefixes <- ZIO.attempt(zioReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCaptureInterval.multipliedBy(2)))).map(stream => enrichWithSchema(stream))
+  yield prefixes
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream.filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
@@ -168,9 +169,6 @@ class CdmTableStream(name: String,
         })
 
 object CdmTableStream:
-
-  def dateTimeProvider(interval: Duration): Iterator[OffsetDateTime] =
-    Iterator.iterate(OffsetDateTime.now(ZoneOffset.UTC).minus(interval))(_.plus(interval))
 
   extension (stream: ZStream[Any, Throwable, StoredBlob]) def withSchema(schemaProvider: SchemaProvider[ArcaneSchema]): SchemaEnrichedBlobStream =
     stream.map(blob => SchemaEnrichedBlob(blob, schemaProvider))
