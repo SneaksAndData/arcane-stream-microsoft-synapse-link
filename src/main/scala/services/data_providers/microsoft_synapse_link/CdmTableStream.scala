@@ -169,8 +169,8 @@ class CdmTableStream(name: String,
 
 object CdmTableStream:
 
-  def dateTimeProvider(internal: Duration): Iterator[OffsetDateTime] =
-    Iterator.iterate(OffsetDateTime.now(ZoneOffset.UTC))(_.plus(internal))
+  def dateTimeProvider(interval: Duration): Iterator[OffsetDateTime] =
+    Iterator.iterate(OffsetDateTime.now(ZoneOffset.UTC).minus(interval))(_.plus(interval))
 
   extension (stream: ZStream[Any, Throwable, StoredBlob]) def withSchema(schemaProvider: SchemaProvider[ArcaneSchema]): SchemaEnrichedBlobStream =
     stream.map(blob => SchemaEnrichedBlob(blob, schemaProvider))
