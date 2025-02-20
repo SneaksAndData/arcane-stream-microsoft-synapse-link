@@ -1,0 +1,5 @@
+docker run --rm --network host --env-file ./integration-tests.env -e ARCANE__DATADOG_API_KEY=$DD_API_KEY -e HOSTNAME=smoke --read-only -v ./src/main/resources:/opt/log ghcr.io/sneaksanddata/arcane-stream-microsoft-synapse-link:$PLUGIN_VERSION /app/arcane-stream-microsoft-synapse-link \
+-Dlogback.configurationFile=/opt/log/logback.xml \
+-Dscala.concurrent.context.numThreads=4 \
+-Dscala.concurrent.context.maxThreads=4 \
+-Djava.net.preferIPv6Addresses=true

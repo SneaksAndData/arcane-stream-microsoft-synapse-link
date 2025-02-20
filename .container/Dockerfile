@@ -6,7 +6,6 @@ WORKDIR /build
 
 COPY . .
 
-RUN echo $GITHUB_TOKEN
 RUN sbt assembly
 
 FROM gcr.io/distroless/java21-debian12
