@@ -15,6 +15,7 @@ import com.sneaksanddata.arcane.framework.services.storage.models.azure.{AdlsSto
 import com.sneaksanddata.arcane.framework.services.storage.models.base.StoredBlob
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.app.{FieldsFilteringService, TableManager}
 import com.sneaksanddata.arcane.framework.services.streaming.base.BackfillDataProvider
+import microsoft.sql.DateTimeOffset
 import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO, ZLayer}
 
@@ -81,7 +82,9 @@ class CdmTableStream(name: String,
 
 
 
-    val repeatStream = ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, None)))
+    val iterator = CdmTableStream.dateTimeProvider(changeCaptureInterval.multipliedBy(2))
+
+    val repeatStream = ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, iterator)))
       .flatMap(x => ZStream.fromIterable(x))
       .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
       .filter(seb => seb.blob.name.endsWith(s"/$name/"))
@@ -104,8 +107,10 @@ class CdmTableStream(name: String,
       case None => tableManager
         .getLastUpdateTime(targetTableSettings.targetTableFullName)
         .map(lastUpdate => zioReader.getRootPrefixes(storagePath,lastUpdate))
-
     getPrefixesTask.map(stream => enrichWithSchema(stream))
+
+  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, iterator: Iterator[OffsetDateTime]): Task[SchemaEnrichedBlobStream] =
+    ZIO.attempt(zioReader.getRootPrefixes(storagePath, iterator.next())).map(stream => enrichWithSchema(stream))
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream.filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
@@ -163,6 +168,9 @@ class CdmTableStream(name: String,
         })
 
 object CdmTableStream:
+
+  def dateTimeProvider(interval: Duration): Iterator[OffsetDateTime] =
+    Iterator.iterate(OffsetDateTime.now(ZoneOffset.UTC).minus(interval))(_.plus(interval))
 
   extension (stream: ZStream[Any, Throwable, StoredBlob]) def withSchema(schemaProvider: SchemaProvider[ArcaneSchema]): SchemaEnrichedBlobStream =
     stream.map(blob => SchemaEnrichedBlob(blob, schemaProvider))
