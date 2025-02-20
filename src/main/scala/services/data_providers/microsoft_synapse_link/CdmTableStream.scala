@@ -20,6 +20,7 @@ import zio.stream.ZStream
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.io.{BufferedReader, IOException}
+import java.time.format.DateTimeFormatter
 import java.time.{Duration, LocalDateTime, OffsetDateTime, ZoneOffset}
 import java.util.regex.Matcher
 import scala.util.matching.Regex
@@ -109,7 +110,7 @@ class CdmTableStream(name: String,
     getPrefixesTask.map(stream => enrichWithSchema(stream))
 
   private def getRootDropPrefixes(storageRoot: AdlsStoragePath, changeCaptureInterval: Duration): Task[SchemaEnrichedBlobStream] = for
-    latestPrefix <- zioReader.getBlobContent(storageRoot + "Changelog/changelog.info").map(reader => OffsetDateTime.parse(reader.readLine()))
+    latestPrefix <- zioReader.getBlobContent(storageRoot + "Changelog/changelog.info").map(reader => OffsetDateTime.parse(reader.readLine(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")))
     prefixes <- ZIO.attempt(zioReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCaptureInterval.multipliedBy(2)))).map(stream => enrichWithSchema(stream))
   yield prefixes
 
