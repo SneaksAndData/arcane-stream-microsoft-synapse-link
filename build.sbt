@@ -40,6 +40,8 @@ lazy val plugin = (project in file("."))
       "--enable-url-protocols=http,https",
       "--verbose",
       "-H:+UnlockExperimentalVMOptions",
+      "-H:+AddAllCharsets",
+      "-H:+ReportExceptionStackTraces",
       //"-H:+PrintClassInitialization",
       "-H:ResourceConfigurationFiles=../../configs/resource-config.json",
       "-H:ReflectionConfigurationFiles=../../configs/reflect-config.json",
