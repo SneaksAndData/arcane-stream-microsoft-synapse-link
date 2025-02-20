@@ -46,7 +46,7 @@ lazy val plugin = (project in file("."))
       "-H:JNIConfigurationFiles=../../configs/jni-config.json",
       "-H:DynamicProxyConfigurationFiles=../../configs/proxy-config.json",
       "-H:SerializationConfigurationFiles=../../configs/serialization-config.json",
-      "--exclude-config", ".*.jar", ".*.properties"
+      "--exclude-config", "azure-core-1.54.1.jar", ".*.properties"
     ),
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
