@@ -17,15 +17,17 @@ import zio.{Chunk, Schedule, ZIO, ZLayer}
 
 import java.time.{OffsetDateTime, ZoneOffset}
 import scala.concurrent.Future
+import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.MicrosoftSynapseLinkStreamContext
 
 /**
  * The stream graph builder that reads the changes from the database.
- * @param versionedDataGraphBuilderSettings The settings for the stream source.
+ * @param settings The settings for the stream source.
  * @param versionedDataProvider The versioned data provider.
  * @param streamLifetimeService The stream lifetime service.
  * @param batchProcessor The batch processor.
  */
-class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
+class VersionedDataGraphBuilder(settings: VersionedDataGraphBuilderSettings,
+                                context: MicrosoftSynapseLinkStreamContext,
                                 cdmTableStream: CdmTableStream,
                                 streamLifetimeService: StreamLifetimeService,
                                 targetTableSettings: TargetTableSettings,
@@ -53,7 +55,7 @@ class VersionedDataGraphBuilder(versionedDataGraphBuilderSettings: VersionedData
   def consume: ZSink[Any, Throwable, IncomingBatch, Any, Unit] = batchConsumer.consume
 
   private def createStream = cdmTableStream
-    .snapshotPrefixes(versionedDataGraphBuilderSettings.lookBackInterval, versionedDataGraphBuilderSettings.changeCaptureInterval)
+    .snapshotPrefixes(settings.lookBackInterval, settings.changeCaptureInterval, context.changeCapturePeriod)
     .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
     .flatMap(reader => cdmTableStream.getData(reader))
     .via(fieldFilteringProcessor.process)
@@ -72,6 +74,7 @@ object VersionedDataGraphBuilder:
     & ParallelismSettings
     & TargetTableSettings
     & FieldFilteringProcessor
+    & MicrosoftSynapseLinkStreamContext
 
   /**
    * Creates a new instance of the BackfillDataGraphBuilder class.
@@ -82,6 +85,7 @@ object VersionedDataGraphBuilder:
    * @return A new instance of the BackfillDataGraphBuilder class.
    */
   def apply[VersionType, BatchType](versionedDataGraphBuilderSettings: VersionedDataGraphBuilderSettings,
+            microsoftSynapseLinkStreamContext: MicrosoftSynapseLinkStreamContext,
             cdmTableStream: CdmTableStream,
             targetTableSettings: TargetTableSettings,
             streamLifetimeService: StreamLifetimeService,
@@ -90,6 +94,7 @@ object VersionedDataGraphBuilder:
             fieldFilteringProcessor: FieldFilteringProcessor,
             parallelismSettings: ParallelismSettings): VersionedDataGraphBuilder =
     new VersionedDataGraphBuilder(versionedDataGraphBuilderSettings,
+      microsoftSynapseLinkStreamContext,
       cdmTableStream,
       streamLifetimeService,
       targetTableSettings,
@@ -115,7 +120,8 @@ object VersionedDataGraphBuilder:
         targetTableSettings <- ZIO.service[TargetTableSettings]
         parallelismSettings <- ZIO.service[ParallelismSettings]
         fieldFilteringProcessor <- ZIO.service[FieldFilteringProcessor]
-      yield VersionedDataGraphBuilder(sss, dp, targetTableSettings, ls, bp, bc, fieldFilteringProcessor, parallelismSettings)
+        sc <- ZIO.service[MicrosoftSynapseLinkStreamContext]
+      yield VersionedDataGraphBuilder(sss, sc, dp, targetTableSettings, ls, bp, bc, fieldFilteringProcessor, parallelismSettings)
     }
     
 
