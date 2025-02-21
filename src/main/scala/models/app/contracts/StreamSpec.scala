@@ -48,7 +48,10 @@ case class SinkSettings(targetTableName: String,
 /**
  * The configuration of the stream source.
  */
-case class SourceSettings(name: String, baseLocation: String, changeCaptureIntervalSeconds: Int) derives ReadWriter
+case class SourceSettings(name: String,
+                          baseLocation: String,
+                          changeCaptureIntervalSeconds: Int,
+                          changeCapturePeriodSeconds: Int) derives ReadWriter
 
 case class TablePropertiesSettings(partitionExpressions: Array[String], sortedBy: Array[String], parquetBloomFilterColumns: Array[String], format: String) derives ReadWriter
 

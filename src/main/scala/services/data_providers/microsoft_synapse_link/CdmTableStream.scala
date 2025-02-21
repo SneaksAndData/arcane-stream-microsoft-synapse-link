@@ -72,7 +72,7 @@ class CdmTableStream(name: String,
    * @param changeCaptureInterval Interval to capture changes
    * @return A stream of rows for this table
    */
-  def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration): ZStream[Any, Throwable, SchemaEnrichedBlob] =
+  def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration, changeCapturePeriod: Duration): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     val initialPrefixes = getRootDropPrefixes(storagePath, Some(lookBackInterval)).flatMap(s => s.runCollect)
     // data from lookback
     val firstStream = ZStream.fromZIO(initialPrefixes)
@@ -84,7 +84,7 @@ class CdmTableStream(name: String,
 
     // iterative change capture
     // every `changeCaptureInterval` seconds we read timestamp from Changelog/changelog.info file and subtract 2*changeCaptureInterval from it
-    val repeatStream = ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, changeCaptureInterval)))
+    val repeatStream = ZStream.fromZIO(dropLast(getRootDropPrefixes(storagePath, changeCapturePeriod)))
       .flatMap(x => ZStream.fromIterable(x))
       .flatMap(seb => zioReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
       .filter(seb => seb.blob.name.endsWith(s"/$name/"))
@@ -109,10 +109,14 @@ class CdmTableStream(name: String,
         .map(lastUpdate => zioReader.getRootPrefixes(storagePath,lastUpdate))
     getPrefixesTask.map(stream => enrichWithSchema(stream))
 
-  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, changeCaptureInterval: Duration): Task[SchemaEnrichedBlobStream] = for
-    latestPrefix <- zioReader.getBlobContent(storageRoot + "Changelog/changelog.info").map(reader => OffsetDateTime.parse(reader.readLine(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")))
-    prefixes <- ZIO.attempt(zioReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCaptureInterval.multipliedBy(2)))).map(stream => enrichWithSchema(stream))
-  yield prefixes
+  private def getRootDropPrefixes(storageRoot: AdlsStoragePath, changeCapturePeriod: Duration): Task[SchemaEnrichedBlobStream] =
+    val readerTask = zioReader.getBlobContent(storageRoot + "Changelog/changelog.info")
+    for
+      text <- ZIO.acquireReleaseWith(readerTask)(r => ZIO.succeed(r.close()))(reader => ZIO.attemptBlocking(reader.readLine()))
+      _ <- zlog(s"Read latest prefix from changelog.info: $text")
+      latestPrefix = OffsetDateTime.parse(text, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX"))
+      prefixes <- ZIO.attempt(zioReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCapturePeriod))).map(stream => enrichWithSchema(stream))
+    yield prefixes
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream.filterZIO(prefix => zioReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {

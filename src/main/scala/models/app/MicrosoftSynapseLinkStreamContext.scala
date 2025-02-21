@@ -59,7 +59,7 @@ enum BackfillBehavior:
   
 trait BackfillSettings:
   val backfillBehavior: BackfillBehavior
-
+  
 case class OptimizeSettingsImpl(batchThreshold: Int, fileSizeThreshold: String) extends OptimizeSettings
 
 case class SnapshotExpirationSettingsImpl(batchThreshold: Int, retentionThreshold: String) extends SnapshotExpirationSettings
@@ -148,6 +148,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
   
   val backfillTableName: String = s"$stagingCatalog.${stagingTableNamePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
+  
+  val changeCapturePeriod: Duration = Duration.ofSeconds(spec.sourceSettings.changeCapturePeriodSeconds)
 
   override val rule: FieldSelectionRule = spec.fieldSelectionRule.ruleType match
     case "include" => FieldSelectionRule.IncludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)

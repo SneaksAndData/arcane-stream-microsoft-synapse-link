@@ -84,6 +84,12 @@ spec:
                       description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
                       minimum: 1
                       maximum: 3600
+                    changeCapturePeriodSeconds:
+                      type: integer
+                      description: How far back to look for changes. Can be from 1 to 1 hour.
+                      minimum: 1
+                      maximum: 3600
+                      default: 1200
                 connectionStringRef:
                   description: |
                     Name of the secret containing the connection string.
