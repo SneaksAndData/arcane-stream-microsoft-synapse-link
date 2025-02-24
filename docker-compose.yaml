@@ -2,7 +2,6 @@ version: '3.3'
 networks:
   mesh:
     driver: bridge
-    enable_ipv6: true
     ipam:
       config:
         - subnet: 10.1.0.0/16
