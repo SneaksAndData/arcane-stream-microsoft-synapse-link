@@ -9,7 +9,6 @@ import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
-import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*

@@ -13,7 +13,7 @@ import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.querygen.MergeQuery
 import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
-import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillBatch, SynapseLinkMergeBatch}
+import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillMergeBatch, SynapseLinkBackfillOverwriteBatch, SynapseLinkMergeBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BackfillDataProvider, BatchProcessor}
 import org.apache.iceberg.{Schema, Table}
@@ -44,6 +44,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
                                            tableManager: TableManager,
                                            sinkSettings: TargetTableSettings,
+                                           archiveTableSettings: ArchiveTableSettings,
                                            fieldFilteringProcessor: FieldFilteringProcessor,
                                            backfillSettings: BackfillSettings,
                                            tablePropertiesSettings: TablePropertiesSettings) extends MicrosoftSynapseLinkDataProvider:
@@ -80,8 +81,16 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
   private def createBackfillBatch(tableName: String): Task[StagedBackfillBatch] =
     for schema <- tableManager.getTargetSchema(tableName)
     yield backfillSettings.backfillBehavior match
-      case BackfillBehavior.Overwrite => SynapseLinkBackfillBatch(tableName, schema, sinkSettings.targetTableFullName, tablePropertiesSettings)
-      case BackfillBehavior.Merge => SynapseLinkMergeBatch(tableName, schema, sinkSettings.targetTableFullName, tablePropertiesSettings)
+      case BackfillBehavior.Overwrite => SynapseLinkBackfillOverwriteBatch(tableName,
+        schema,
+        sinkSettings.targetTableFullName,
+        archiveTableSettings.archiveTableFullName,
+        tablePropertiesSettings)
+      case BackfillBehavior.Merge => SynapseLinkBackfillMergeBatch(tableName,
+        schema,
+        sinkSettings.targetTableFullName,
+        archiveTableSettings.archiveTableFullName,
+        tablePropertiesSettings)
 
 object MicrosoftSynapseLinkDataProviderImpl:
 
@@ -97,6 +106,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
     & TablePropertiesSettings
     & FieldFilteringProcessor
     & BackfillSettings
+    & ArchiveTableSettings
 
   def apply(cdmTableStream: CdmTableStream,
             jdbcConsumer: JdbcConsumer,
@@ -107,6 +117,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
             archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
             tableManager: TableManager,
             sinkSettings: TargetTableSettings,
+            archiveTableSettings: ArchiveTableSettings,
             fieldFilteringProcessor: FieldFilteringProcessor,
             backfillSettings: BackfillSettings,
             tablePropertiesSettings: TablePropertiesSettings): MicrosoftSynapseLinkDataProviderImpl =
@@ -120,6 +131,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
       archivationProcessor,
       tableManager,
       sinkSettings,
+      archiveTableSettings,
       fieldFilteringProcessor,
       backfillSettings,
       tablePropertiesSettings)
@@ -139,6 +151,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
         fieldFilteringProcessor <- ZIO.service[FieldFilteringProcessor]
         backfillSettings <- ZIO.service[BackfillSettings]
+        archiveTableSettings <- ZIO.service[ArchiveTableSettings]
       yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream,
         jdbcConsumer,
         streamContext,
@@ -148,6 +161,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
         archivationProcessor,
         tableManager,
         sinkSettings,
+        archiveTableSettings,
         fieldFilteringProcessor,
         backfillSettings,
         tablePropertiesSettings)

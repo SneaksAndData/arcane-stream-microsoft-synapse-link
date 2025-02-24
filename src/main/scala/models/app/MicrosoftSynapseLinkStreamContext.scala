@@ -7,10 +7,11 @@ import models.app.contracts.given_Conversion_TablePropertiesSettings_TableProper
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
 import com.sneaksanddata.arcane.framework.models.settings.{FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, TableFormat, TablePropertiesSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
-import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
 import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergCatalogCredential, S3CatalogFileIO}
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
 import zio.ZLayer
 
 import java.time.Duration
@@ -74,7 +75,7 @@ case class OrphanFilesExpirationSettingsImpl(batchThreshold: Int, retentionThres
 case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamContext
   with GroupingSettings
   with IcebergCatalogSettings
-  with JdbcConsumerOptions
+  with JdbcMergeServiceClientOptions
   with VersionedDataGraphBuilderSettings
   with AzureConnectionSettings
   with TargetTableSettings
@@ -172,7 +173,7 @@ object MicrosoftSynapseLinkStreamContext {
     & GroupingSettings
     & VersionedDataGraphBuilderSettings
     & IcebergCatalogSettings
-    & JdbcConsumerOptions
+    & JdbcMergeServiceClientOptions
     & TargetTableSettings
     & AzureConnectionSettings
     & ArchiveTableSettings

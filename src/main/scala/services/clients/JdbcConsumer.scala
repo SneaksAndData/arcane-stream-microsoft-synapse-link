@@ -4,10 +4,11 @@ package services.clients
 import models.app.ArchiveTableSettings
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 
-import com.sneaksanddata.arcane.framework.services.consumers.{JdbcConsumerOptions, StagedBatch, StagedVersionedBatch}
+import com.sneaksanddata.arcane.framework.services.consumers.{StagedBatch, StagedVersionedBatch}
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.models.querygen.{MergeQuery, OverwriteQuery, StreamingBatchQuery}
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
 import zio.{Schedule, Task, ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -32,7 +33,7 @@ class BatchArchivationResult
  *
  * @param options The options for the consumer.
  */
-class JdbcConsumer(options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings)
+class JdbcConsumer(options: JdbcMergeServiceClientOptions, archiveTableSettings: ArchiveTableSettings)
   extends AutoCloseable:
   
   require(options.isValid, "Invalid JDBC url provided for the consumer")
@@ -158,14 +159,14 @@ class JdbcConsumer(options: JdbcConsumerOptions, archiveTableSettings: ArchiveTa
 
 
 object JdbcConsumer:
-  type Environment = JdbcConsumerOptions & ArchiveTableSettings
+  type Environment = JdbcMergeServiceClientOptions & ArchiveTableSettings
   
   /**
    * Factory method to create JdbcConsumer.
    * @param options The options for the consumer.
    * @return The initialized JdbcConsumer instance
    */
-  def apply[Query <: StreamingBatchQuery](options: JdbcConsumerOptions, archiveTableSettings: ArchiveTableSettings): JdbcConsumer =
+  def apply[Query <: StreamingBatchQuery](options: JdbcMergeServiceClientOptions, archiveTableSettings: ArchiveTableSettings): JdbcConsumer =
     new JdbcConsumer(options, archiveTableSettings)
 
   /**
@@ -175,7 +176,7 @@ object JdbcConsumer:
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
         for
-          connectionOptions <- ZIO.service[JdbcConsumerOptions]
+          connectionOptions <- ZIO.service[JdbcMergeServiceClientOptions]
           archiveTableSettings <- ZIO.service[ArchiveTableSettings]
         yield JdbcConsumer(connectionOptions, archiveTableSettings)
       }
