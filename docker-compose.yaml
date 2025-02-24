@@ -2,6 +2,7 @@ version: '3.3'
 networks:
   mesh:
     driver: bridge
+    enable_ipv6: true
     ipam:
       config:
         - subnet: 10.1.0.0/16
@@ -120,3 +121,18 @@ services:
     image: "trinodb/trino:455"
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
+  http-proxy:
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.10
+    ports:
+      - "9004:9004"
+      - "9005:9005"
+      - "443:443"
+    image: "envoyproxy/envoy:v1.31.2"
+    command:
+      - envoy
+      - "-c"
+      - /etc/envoy/envoy.yaml
+    volumes:
+      - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
