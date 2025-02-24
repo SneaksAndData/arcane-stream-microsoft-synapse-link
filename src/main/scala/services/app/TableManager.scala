@@ -12,7 +12,6 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, ArcaneSchemaField}
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-import com.sneaksanddata.arcane.framework.services.consumers.JdbcConsumerOptions
 import com.sneaksanddata.arcane.framework.services.lakehouse.{SchemaConversions, given_Conversion_ArcaneSchema_Schema}
 import org.apache.iceberg.Schema
 import org.apache.iceberg.types.Type
@@ -25,6 +24,7 @@ import java.time.{OffsetDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
 
 
 trait TableManager:
@@ -54,7 +54,7 @@ type TableCreationResult = Boolean
  */
 type TableModificationResult = Boolean
 
-class JdbcTableManager(options: JdbcConsumerOptions,
+class JdbcTableManager(options: JdbcMergeServiceClientOptions,
                        targetTableSettings: TargetTableSettings,
                        archiveTableSettings: ArchiveTableSettings,
                        tablePropertiesSettings: TablePropertiesSettings,
@@ -184,14 +184,14 @@ class JdbcTableManager(options: JdbcConsumerOptions,
 
 
 object JdbcTableManager:
-  type Environment = JdbcConsumerOptions
+  type Environment = JdbcMergeServiceClientOptions
     & TargetTableSettings
     & ArchiveTableSettings
     & SchemaProvider[ArcaneSchema]
     & MicrosoftSynapseLinkStreamContext
     & FieldsFilteringService
 
-  def apply(options: JdbcConsumerOptions,
+  def apply(options: JdbcMergeServiceClientOptions,
             targetTableSettings: TargetTableSettings,
             archiveTableSettings: ArchiveTableSettings,
             tablePropertiesSettings: TablePropertiesSettings,
@@ -206,7 +206,7 @@ object JdbcTableManager:
   val layer: ZLayer[Environment, Nothing, TableManager] =
     ZLayer.scoped {
       ZIO.fromAutoCloseable {
-        for connectionOptions <- ZIO.service[JdbcConsumerOptions]
+        for connectionOptions <- ZIO.service[JdbcMergeServiceClientOptions]
             targetTableSettings <- ZIO.service[TargetTableSettings]
             archiveTableSettings <- ZIO.service[ArchiveTableSettings]
             tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
