@@ -188,6 +188,10 @@
   "fields":[{"name":"executor"}]
 },
 {
+  "name":"com.azure.storage.blob.implementation.models.BlobStorageExceptionInternal",
+  "methods":[{"name":"getValue","parameterTypes":[] },{"name":"<init>","parameterTypes":["java.lang.String", "com.azure.core.http.HttpResponse", "com.azure.storage.blob.implementation.models.BlobStorageError"] }]
+},
+{
   "name":"com.azure.storage.blob.implementation.models.BlockBlobsUploadHeaders",
   "methods":[{"name":"<init>","parameterTypes":["com.azure.core.http.HttpHeaders"] }]
 },
