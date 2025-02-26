@@ -3,7 +3,7 @@ package services.streaming.processors
 
 import extensions.DataRowExtensions.schema
 import models.app.streaming.SourceCleanupRequest
-import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
+import models.app.{ArchiveTableSettings, MicrosoftSynapseLinkStreamContext, TargetTableSettings}
 import services.data_providers.microsoft_synapse_link.DataStreamElement
 import services.streaming.consumers.{InFlightBatch, IncomingBatch}
 import services.streaming.processors.StagingTableProcessor.{getTableName, toStagedBatch}
@@ -26,6 +26,7 @@ import java.util.UUID
 
 class StagingTableProcessor(streamContext: MicrosoftSynapseLinkStreamContext,
                             icebergCatalogSettings: IcebergCatalogSettings,
+                            archiveTableSettings: ArchiveTableSettings,
                             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema])
   extends BatchProcessor[IncomingBatch, InFlightBatch]:
 
@@ -37,20 +38,20 @@ class StagingTableProcessor(streamContext: MicrosoftSynapseLinkStreamContext,
         val groupedBySchema = elements.withFilter(e => e.isInstanceOf[DataRow]).map(e => e.asInstanceOf[DataRow]).groupBy(_.schema)
         val deleteRequests = elements.withFilter(e => e.isInstanceOf[SourceCleanupRequest]).map(e => e.asInstanceOf[SourceCleanupRequest])
         val batchResults = ZIO.foreach(groupedBySchema) {
-          case (schema, rows) => writeDataRows(rows, schema, target)
+          case (schema, rows) => writeDataRows(rows, schema, target, archiveTableSettings.archiveTableFullName)
         }
         batchResults.map(b => (b.values, deleteRequests))
     }
     .zipWithIndex
 
 
-  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema, target: String): Task[(ArcaneSchema, StagedVersionedBatch)] =
+  private def writeDataRows(rows: Chunk[DataRow], arcaneSchema: ArcaneSchema, target: String, archive: String): Task[(ArcaneSchema, StagedVersionedBatch)] =
     val tableWriterEffect =
       zlog("Attempting to write data to staging table") *>
         ZIO.fromFuture(implicit ec => catalogWriter.write(rows, streamContext.stagingTableNamePrefix.getTableName, arcaneSchema))
     for
       table <- tableWriterEffect.retry(retryPolicy)
-      batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, target, streamContext.tableProperties)
+      batch = table.toStagedBatch(icebergCatalogSettings.namespace, icebergCatalogSettings.warehouse, arcaneSchema, target, archive, streamContext.tableProperties)
     yield (arcaneSchema, batch)
 
 
@@ -65,19 +66,22 @@ object StagingTableProcessor:
                                              warehouse: String,
                                              batchSchema: ArcaneSchema,
                                              targetName: String,
+                                             archiveTableFullName: String,
                                              tablePropertiesSettings: TablePropertiesSettings): StagedVersionedBatch =
     val batchName = table.name().split('.').last
-    SynapseLinkMergeBatch(batchName, batchSchema, targetName, tablePropertiesSettings)
+    SynapseLinkMergeBatch(batchName, batchSchema, targetName, archiveTableFullName, tablePropertiesSettings)
 
   def apply(streamContext: MicrosoftSynapseLinkStreamContext,
             icebergCatalogSettings: IcebergCatalogSettings,
+            archiveTableSettings: ArchiveTableSettings,
             catalogWriter: CatalogWriter[RESTCatalog, Table, Schema]): StagingTableProcessor =
-    new StagingTableProcessor(streamContext, icebergCatalogSettings, catalogWriter)
+    new StagingTableProcessor(streamContext, icebergCatalogSettings, archiveTableSettings, catalogWriter)
 
 
   type Environment = MicrosoftSynapseLinkStreamContext
     & IcebergCatalogSettings
     & CatalogWriter[RESTCatalog, Table, Schema]
+    & ArchiveTableSettings
 
 
   val layer: ZLayer[Environment, Nothing, StagingTableProcessor] =
@@ -86,5 +90,6 @@ object StagingTableProcessor:
         streamContext <- ZIO.service[MicrosoftSynapseLinkStreamContext]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
         catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
-      yield StagingTableProcessor(streamContext, icebergCatalogSettings, catalogWriter)
+        archiveTableSettings <- ZIO.service[ArchiveTableSettings]
+      yield StagingTableProcessor(streamContext, icebergCatalogSettings, archiveTableSettings, catalogWriter)
     }
