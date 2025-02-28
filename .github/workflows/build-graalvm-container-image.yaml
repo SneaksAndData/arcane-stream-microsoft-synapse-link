@@ -64,7 +64,7 @@ jobs:
           outputs: type=image,"name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}",push-by-digest=true,name-canonical=true,push=true
           build-args: |
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-            USERLIB=amd64-linux-gnu
+            USERLIB=x86_64-linux-gnu
 
   build_arm64_image:
     name: Build Docker Image (arm64)
