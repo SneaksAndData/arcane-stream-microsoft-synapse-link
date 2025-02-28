@@ -143,7 +143,7 @@ class JdbcConsumer(options: JdbcMergeServiceClientOptions, archiveTableSettings:
       yield new BatchArchivationResult
     }
 
-  def close(): Unit = sqlConnection.close()
+  override def close(): Unit = sqlConnection.close()
 
   private def collectPartitionColumn(resultSet: ResultSet, columnName: String): Seq[String] =
     // do not fail on closed result sets
