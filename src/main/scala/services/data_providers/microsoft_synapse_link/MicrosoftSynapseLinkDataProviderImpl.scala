@@ -1,21 +1,23 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
+package services.data_providers.microsoft_synapse_link
 
 import extensions.DataRowExtensions.schema
 import models.app.*
 import models.app.streaming.SourceCleanupRequest
-import services.app.TableManager
 import services.clients.JdbcConsumer
 import services.data_providers.microsoft_synapse_link.{CdmTableStream, DataStreamElement}
 import services.streaming.consumers.{CompletedBatch, InFlightBatch, IncomingBatch}
-import services.streaming.processors.{CdmGroupingProcessor, FieldFilteringProcessor, MergeBatchProcessor}
+import services.streaming.processors.{CdmGroupingProcessor, FieldFilteringProcessor}
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.querygen.MergeQuery
 import com.sneaksanddata.arcane.framework.models.settings.TablePropertiesSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
+import com.sneaksanddata.arcane.framework.services.base.TableManager
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillBatch, StagedBackfillOverwriteBatch, SynapseLinkBackfillMergeBatch, SynapseLinkBackfillOverwriteBatch, SynapseLinkMergeBatch}
-import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BackfillDataProvider, BatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.MergeBatchProcessor
 import org.apache.iceberg.{Schema, Table}
 import zio.stream.{ZPipeline, ZStream}
 import zio.{Chunk, Task, UIO, URIO, ZIO, ZLayer}

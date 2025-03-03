@@ -2,11 +2,11 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
 import models.app.contracts.GarbageCollectorSettings
-import services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
-import services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO.iterateByDates
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
+import com.sneaksanddata.arcane.framework.services.cdm.AzureBlobStorageReaderExtensions.getFirstDropDate
 import zio.stream.ZStream
 import zio.{Task, ZIO, ZLayer}
 
@@ -15,12 +15,12 @@ trait GarbageCollectorStream:
 
 
 
-class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO, settings: GarbageCollectorSettings)
+class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReader, settings: GarbageCollectorSettings)
   extends GarbageCollectorStream:
 
   private def deleteByDeleteMarkers(rootPath: AdlsStoragePath): Task[Unit] =
     for _ <- zlog("Deleting the source files marked for deletion")
-        startDate <- storageService.getFirstBlob(rootPath)
+        startDate <- storageService.getFirstDropDate(rootPath)
         _ <- zlog(s"First blob date: $startDate. Delete limit: ${settings.deleteLimit}")
         _ <- ZStream.fromIterable(Some(startDate).iterateByDates(Some(settings.deleteLimit)))
         .flatMap(prefix => storageService.streamPrefixes(rootPath + prefix))
@@ -46,7 +46,7 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
 
   private val ignoredFiles = Set("model.json", "Microsoft.Athena.TrickleFeedService/", "OptionsetMetadata/")
   private def deleteEmptyFolders(rootPath: AdlsStoragePath): Task[Unit] =
-    for startDate <- storageService.getFirstBlob(rootPath)
+    for startDate <- storageService.getFirstDropDate(rootPath)
         _ <- ZStream.fromIterable(Some(startDate).iterateByDates())
           .flatMap(prefix => storageService.streamPrefixes(rootPath + prefix))
           .filterZIO(prefix => {
@@ -83,15 +83,15 @@ class AzureBlobStorageGarbageCollector(storageService: AzureBlobStorageReaderZIO
       yield ()
 
 object AzureBlobStorageGarbageCollector:
-  def apply(storageService: AzureBlobStorageReaderZIO, settings: GarbageCollectorSettings): AzureBlobStorageGarbageCollector =
+  def apply(storageService: AzureBlobStorageReader, settings: GarbageCollectorSettings): AzureBlobStorageGarbageCollector =
     new AzureBlobStorageGarbageCollector(storageService, settings)
 
-  private type Environment = AzureBlobStorageReaderZIO & GarbageCollectorSettings
+  private type Environment = AzureBlobStorageReader & GarbageCollectorSettings
 
   val layer: ZLayer[Environment, Nothing, GarbageCollectorStream] =
     ZLayer {
       for
-        storageService <- ZIO.service[AzureBlobStorageReaderZIO]
+        storageService <- ZIO.service[AzureBlobStorageReader]
         settings <- ZIO.service[GarbageCollectorSettings]
       yield AzureBlobStorageGarbageCollector(storageService, settings)
     }

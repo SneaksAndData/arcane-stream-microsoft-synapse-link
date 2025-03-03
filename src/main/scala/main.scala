@@ -2,9 +2,9 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 
 import models.app.contracts.EnvironmentGarbageCollectorSettings
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
-import services.app.{AzureBlobStorageGarbageCollector, FieldsFilteringService, GarbageCollectorStream, JdbcTableManager, StreamRunnerServiceCdm}
+import services.app.*
 import services.clients.JdbcConsumer
-import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
+import services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
 import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSynapseConsumer}
 import services.streaming.processors.*
 
@@ -14,10 +14,11 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
+import com.sneaksanddata.arcane.framework.services.cdm.CdmSchemaProvider
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.consumers.IcebergBackfillConsumer
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{ArchivationProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.{CdmTableStream, MicrosoftSynapseLinkDataProviderImpl}
 import zio.*
 import zio.logging.backend.SLF4J
 
@@ -39,15 +40,6 @@ object main extends ZIOAppDefault {
     _ <- stream.run
   yield ()
 
-
-  private val storageExplorerLayerZio: ZLayer[AzureConnectionSettings & GraphExecutionSettings, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
-    for {
-      connectionOptions <- ZIO.service[AzureConnectionSettings]
-      executionSettings <- ZIO.service[GraphExecutionSettings]
-      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
-    } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials, executionSettings.sourceDeleteDryRun)
-  }
-
   private val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
     for {
       connectionOptions <- ZIO.service[AzureConnectionSettings]
@@ -56,13 +48,12 @@ object main extends ZIOAppDefault {
   }
 
   private lazy val garbageCollector = garbageCollectorApplication.provide(
-    storageExplorerLayerZio,
+    storageExplorerLayer,
     EnvironmentGarbageCollectorSettings.layer,
     AzureBlobStorageGarbageCollector.layer)
 
   private lazy val streamRunner = streamApplication.provide(
     storageExplorerLayer,
-    storageExplorerLayerZio,
     CdmTableStream.layer,
     CdmSchemaProvider.layer,
     MicrosoftSynapseLinkStreamContext.layer,
@@ -75,8 +66,6 @@ object main extends ZIOAppDefault {
     ArchivationProcessor.layer,
     TypeAlignmentService.layer,
     SourceDeleteProcessor.layer,
-    JdbcTableManager.layer,
-    StagingTableProcessor.layer,
     BackfillDataGraphBuilder.layer,
     VersionedDataGraphBuilder.layer,
     JdbcConsumer.layer,

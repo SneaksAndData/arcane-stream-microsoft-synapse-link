@@ -2,17 +2,17 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
 import models.app.{ArchiveTableSettings, TargetTableSettings}
-import services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
 import services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
 
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
-import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
+import com.sneaksanddata.arcane.framework.services.base.{SchemaProvider, TableManager}
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamGraphBuilder
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 import zio.Console.printLine
 import zio.{ZIO, ZLayer}
 
@@ -25,7 +25,7 @@ import zio.{ZIO, ZLayer}
 private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
                                      lifetimeService: StreamLifetimeService,
                                      tableManager: TableManager,
-                                     reader: AzureBlobStorageReaderZIO,
+                                     reader: AzureBlobStorageReader,
                                      rootPath: String) extends StreamRunnerService:
 
   /**
@@ -54,7 +54,7 @@ object StreamRunnerServiceCdm:
     & VersionedDataGraphBuilder
     & BackfillDataGraphBuilder
     & StreamLifetimeService
-    & AzureBlobStorageReaderZIO
+    & AzureBlobStorageReader
     & CdmTableSettings
     & StreamContext
   
@@ -69,7 +69,7 @@ object StreamRunnerServiceCdm:
         _ <- zlog(s"Using ${if context.IsBackfilling then "Backfill" else "Versioned"}DataGraphBuilder")
         lifetimeService <- ZIO.service[StreamLifetimeService]
         tableManager <- ZIO.service[TableManager]
-        reader <- ZIO.service[AzureBlobStorageReaderZIO]
+        reader <- ZIO.service[AzureBlobStorageReader]
         tableSettings <- ZIO.service[CdmTableSettings]
       } yield new StreamRunnerServiceCdm(builder, lifetimeService, tableManager, reader, tableSettings.rootPath)
     }

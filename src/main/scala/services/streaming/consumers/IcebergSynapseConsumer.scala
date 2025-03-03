@@ -13,9 +13,8 @@ import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
-import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
+import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchConsumer, BatchProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.consumers.{IcebergStreamingConsumer, StreamingConsumer}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.apache.zookeeper.proto.DeleteRequest

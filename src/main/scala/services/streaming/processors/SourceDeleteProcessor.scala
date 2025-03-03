@@ -1,16 +1,16 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.processors
 
-import services.data_providers.microsoft_synapse_link.AzureBlobStorageReaderZIO
 import services.streaming.consumers.{CompletedBatch, PipelineResult}
 
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchProcessor
 import zio.stream.ZPipeline
 import zio.{Task, ZIO, ZLayer}
 
 import scala.annotation.tailrec
 
-class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO)
+class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReader)
   extends BatchProcessor[CompletedBatch, PipelineResult]:
 
   override def process: ZPipeline[Any, Throwable, CompletedBatch, PipelineResult] =
@@ -33,14 +33,14 @@ class SourceDeleteProcessor(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO
   
 object SourceDeleteProcessor:
 
-  type Environment = AzureBlobStorageReaderZIO
-  
-  def apply(azureBlobStorageReaderZIO: AzureBlobStorageReaderZIO): SourceDeleteProcessor =
+  type Environment = AzureBlobStorageReader
+
+  def apply(azureBlobStorageReaderZIO: AzureBlobStorageReader): SourceDeleteProcessor =
     new SourceDeleteProcessor(azureBlobStorageReaderZIO)
     
   val layer: ZLayer[Environment, Nothing, SourceDeleteProcessor] =
     ZLayer {
       for
-        bs <- ZIO.service[AzureBlobStorageReaderZIO]
+        bs <- ZIO.service[AzureBlobStorageReader]
       yield SourceDeleteProcessor(bs)
     }
