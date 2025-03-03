@@ -16,7 +16,7 @@ import com.sneaksanddata.arcane.microsoft_synapse_link.services.streaming.consum
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.querygen.MergeQuery
 import zio.stream.ZPipeline
-import zio.{ZIO, ZLayer}
+import zio.{Task, ZIO, ZLayer}
 
 class ArchivationProcessor(jdbcConsumer: JdbcConsumer,
                            archiveTableSettings: ArchiveTableSettings,
@@ -26,23 +26,34 @@ class ArchivationProcessor(jdbcConsumer: JdbcConsumer,
   override def process: ZPipeline[Any, Throwable, InFlightBatch, CompletedBatch] =
     ZPipeline.mapZIO({
       case ((batches, other), batchNumber) =>
-        for _ <- zlog(s"Archiving batch $batchNumber")
-            _ <- ZIO.foreach(batches){
-              batch => tableManager.migrateSchema(batch.schema, archiveTableSettings.archiveTableFullName) *>
-                tableManager.getTargetSchema(batch.name).flatMap(schema => jdbcConsumer.archiveBatch(batch, schema))
-            }
-            results <- ZIO.foreach(batches)(batch => jdbcConsumer.dropTempTable(batch))
-            _ <- jdbcConsumer.optimizeTarget(archiveTableSettings.archiveTableFullName, batchNumber,
-                archiveTableSettings.archiveOptimizeSettings.batchThreshold,
-                archiveTableSettings.archiveOptimizeSettings.fileSizeThreshold)
-            _ <- jdbcConsumer.expireSnapshots(archiveTableSettings.archiveTableFullName, batchNumber,
-              archiveTableSettings.archiveSnapshotExpirationSettings.batchThreshold,
-              archiveTableSettings.archiveSnapshotExpirationSettings.retentionThreshold)
-            _ <- jdbcConsumer.expireOrphanFiles(archiveTableSettings.archiveTableFullName, batchNumber,
-              archiveTableSettings.archiveOrphanFilesExpirationSettings.batchThreshold,
-              archiveTableSettings.archiveOrphanFilesExpirationSettings.retentionThreshold)
+        for user <- System.env("USER")
+
+
         yield (results, other)
     })
+
+  private def archiveTable(enabled: Boolean, bat): Task[Seq[BatchArchivationResult]] =
+    if enabled then
+      for
+        _ <- zlog(s"Archiving batch $batchNumber")
+        _ <- ZIO.foreach(batches) {
+          batch =>
+            tableManager.migrateSchema(batch.schema, archiveTableSettings.archiveTableFullName) *>
+              tableManager.getTargetSchema(batch.name).flatMap(schema => jdbcConsumer.archiveBatch(batch, schema))
+        }
+        results <- ZIO.foreach(batches)(batch => jdbcConsumer.dropTempTable(batch))
+        _ <- jdbcConsumer.optimizeTarget(archiveTableSettings.archiveTableFullName, batchNumber,
+          archiveTableSettings.archiveOptimizeSettings.batchThreshold,
+          archiveTableSettings.archiveOptimizeSettings.fileSizeThreshold)
+        _ <- jdbcConsumer.expireSnapshots(archiveTableSettings.archiveTableFullName, batchNumber,
+          archiveTableSettings.archiveSnapshotExpirationSettings.batchThreshold,
+          archiveTableSettings.archiveSnapshotExpirationSettings.retentionThreshold)
+        _ <- jdbcConsumer.expireOrphanFiles(archiveTableSettings.archiveTableFullName, batchNumber,
+          archiveTableSettings.archiveOrphanFilesExpirationSettings.batchThreshold,
+          archiveTableSettings.archiveOrphanFilesExpirationSettings.retentionThreshold)
+      yield results
+    else
+      ZIO.succeed(Seq[BatchArchivationResult])
 
 object ArchivationProcessor:
 
