@@ -1,13 +1,13 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.graph_builder
 
-import models.app.{MicrosoftSynapseLinkStreamContext, ParallelismSettings, TargetTableSettings}
+import models.app.{MicrosoftSynapseLinkStreamContext, ParallelismSettings}
 import services.data_providers.microsoft_synapse_link.{CdmTableStream, DataStreamElement}
 import services.streaming.consumers.{IcebergSynapseConsumer, IncomingBatch}
 import services.streaming.processors.FieldFilteringProcessor
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-import com.sneaksanddata.arcane.framework.models.settings.VersionedDataGraphBuilderSettings
+import com.sneaksanddata.arcane.framework.models.settings.{TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
 import zio.stream.{ZSink, ZStream}
@@ -38,8 +38,7 @@ class VersionedDataGraphBuilder(settings: VersionedDataGraphBuilderSettings,
    *
    * @return The stream that reads the changes from the database.
    */
-  def create: ZStream[Any, Throwable, IncomingBatch] =
-    this.createStream.via(this.batchProcessor.process).zip(ZStream.repeat(targetTableSettings.targetTableFullName))
+  def create: ZStream[Any, Throwable, IncomingBatch] = this.createStream.via(this.batchProcessor.process)
 
   /**
    * Creates a ZStream for the stream graph.

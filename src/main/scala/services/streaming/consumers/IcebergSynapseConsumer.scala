@@ -1,20 +1,24 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.consumers
 
+import models.app.MicrosoftSynapseLinkStreamContext
 import models.app.streaming.{SourceCleanupRequest, SourceCleanupResult}
-import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
-import services.clients.BatchArchivationResult
 import services.data_providers.microsoft_synapse_link.DataStreamElement
+import services.streaming.consumers.DataStreamElementExtensions.given_MetadataEnrichedRowStreamElement_DataStreamElement
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
+import com.sneaksanddata.arcane.framework.models.settings.{OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings}
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
-import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-import com.sneaksanddata.arcane.framework.services.consumers.{StagedVersionedBatch, SynapseLinkMergeBatch}
+import com.sneaksanddata.arcane.framework.services.base.{BatchArchivationResult, SchemaProvider}
+import com.sneaksanddata.arcane.framework.services.consumers.{ArchiveableBatch, MergeableBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
 import com.sneaksanddata.arcane.framework.services.lakehouse.given_Conversion_ArcaneSchema_Schema
-import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchConsumer, BatchProcessor}
+import com.sneaksanddata.arcane.framework.services.merging.models.{JdbcOptimizationRequest, JdbcOrphanFilesExpirationRequest, JdbcSnapshotExpirationRequest}
+import com.sneaksanddata.arcane.framework.services.streaming.base.*
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{ArchivationProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{IndexedStagedBatches, StagingProcessor}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import org.apache.zookeeper.proto.DeleteRequest
@@ -25,16 +29,15 @@ import java.time.format.DateTimeFormatter
 import java.time.{Duration, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 
-type IncomingBatch = (Chunk[DataStreamElement], String)
+type IncomingBatch = Chunk[DataStreamElement]
 type InFlightBatch = ((Iterable[StagedVersionedBatch], Seq[SourceCleanupRequest]), Long)
 type CompletedBatch = (Iterable[BatchArchivationResult], Seq[SourceCleanupRequest])
 type PipelineResult = (Iterable[BatchArchivationResult], Seq[SourceCleanupResult])
 
-class IcebergSynapseConsumer(stageProcessor: BatchProcessor[IncomingBatch, InFlightBatch],
-                             mergeProcessor: BatchProcessor[InFlightBatch, InFlightBatch],
-                             archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
-                             streamLifetimeService: StreamLifetimeService,
-                             sourceCleanupProcessor: BatchProcessor[CompletedBatch, PipelineResult])
+class IcebergSynapseConsumer(stagingProcessor: StagingProcessor,
+                             mergeProcessor: MergeBatchProcessor,
+                             archivationProcessor: ArchivationProcessor,
+                             streamLifetimeService: StreamLifetimeService)
   extends BatchConsumer[IncomingBatch]:
 
 
@@ -45,34 +48,31 @@ class IcebergSynapseConsumer(stageProcessor: BatchProcessor[IncomingBatch, InFli
    * @return ZSink (stream sink for the stream graph).
    */
   override def consume: ZSink[Any, Throwable, IncomingBatch, Any, Unit] =
-    stageProcessor.process >>> mergeProcessor.process >>> archivationProcessor.process >>> sourceCleanupProcessor.process >>> lifetimeGuard >>> logResults
+    stagingProcessor.process(toInFlightBatch) >>> mergeProcessor.process >>> archivationProcessor.process >>>  lifetimeGuard >>> logResults
 
-  private def lifetimeGuard: ZPipeline[Any, Throwable, PipelineResult, PipelineResult] = ZPipeline.takeUntil(_ => streamLifetimeService.cancelled)
+  private def lifetimeGuard: ZPipeline[Any, Throwable, ArchivationProcessor#BatchType, ArchivationProcessor#BatchType] =
+    ZPipeline.takeUntil(_ => streamLifetimeService.cancelled)
 
-  private def logResults: ZSink[Any, Throwable, PipelineResult, Any, Unit] = ZSink.foreach {
-    case (arch, results) =>
-      zlog(s"Processing completed: $arch") *>
-        ZIO.foreach(results)(src => ZIO.log(s"Marked prefix for deletion: ${src.blobName} with marker ${src.deleteMarker}"))
-  }
+  private def logResults: ZSink[Any, Throwable, ArchivationProcessor#BatchType, Any, Unit] = ZSink.foreach(result => zlog(s"Processing completed: $result"))
 
+  def toInFlightBatch(batches: Iterable[StagedVersionedBatch & MergeableBatch & ArchiveableBatch], index: Long, others: Any): MergeBatchProcessor#BatchType =
+    new IndexedStagedBatchesImpl(batches, index)
 
 object IcebergSynapseConsumer:
 
-  def apply(stageProcessor: BatchProcessor[IncomingBatch, InFlightBatch],
-            mergeProcessor: BatchProcessor[InFlightBatch, InFlightBatch],
-            archivationProcessor: BatchProcessor[InFlightBatch, CompletedBatch],
-            streamLifetimeService: StreamLifetimeService,
-            sourceCleanupProcessor: BatchProcessor[CompletedBatch, PipelineResult]): IcebergSynapseConsumer =
-    new IcebergSynapseConsumer(stageProcessor, mergeProcessor, archivationProcessor, streamLifetimeService, sourceCleanupProcessor)
+  def apply(stagingProcessor: StagingProcessor,
+            mergeProcessor: MergeBatchProcessor,
+            archivationProcessor: ArchivationProcessor,
+            streamLifetimeService: StreamLifetimeService): IcebergSynapseConsumer =
+    new IcebergSynapseConsumer(stagingProcessor, mergeProcessor, archivationProcessor, streamLifetimeService)
 
   /**
    * The required environment for the IcebergConsumer.
    */
   type Environment = SchemaProvider[ArcaneSchema]
-    & BatchProcessor[IncomingBatch, InFlightBatch]
-    & BatchProcessor[InFlightBatch, InFlightBatch]
-    & BatchProcessor[InFlightBatch, CompletedBatch]
-    & BatchProcessor[CompletedBatch, PipelineResult]
+    & StagingProcessor
+    & MergeBatchProcessor
+    & ArchivationProcessor
     & StreamLifetimeService
 
   /**
@@ -81,10 +81,9 @@ object IcebergSynapseConsumer:
   val layer: ZLayer[Environment, Nothing, IcebergSynapseConsumer] =
     ZLayer {
       for
-        stageProcessor <- ZIO.service[BatchProcessor[IncomingBatch, InFlightBatch]]
-        mergeProcessor <- ZIO.service[BatchProcessor[InFlightBatch, InFlightBatch]]
-        archivationProcessor <- ZIO.service[BatchProcessor[InFlightBatch, CompletedBatch]]
-        sourceCleanupProcessor <- ZIO.service[BatchProcessor[CompletedBatch, PipelineResult]]
+        stageProcessor <- ZIO.service[StagingProcessor]
+        mergeProcessor <- ZIO.service[MergeBatchProcessor]
+        archivationProcessor <- ZIO.service[ArchivationProcessor]
         streamLifetimeService <- ZIO.service[StreamLifetimeService]
-      yield IcebergSynapseConsumer(stageProcessor, mergeProcessor, archivationProcessor, streamLifetimeService, sourceCleanupProcessor)
+      yield IcebergSynapseConsumer(stageProcessor, mergeProcessor, archivationProcessor, streamLifetimeService)
     }

@@ -3,13 +3,14 @@ package services.streaming.consumers
 
 import extensions.DataRowExtensions.schema
 import models.app.streaming.{SourceCleanupRequest, SourceCleanupResult}
-import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
+import models.app.MicrosoftSynapseLinkStreamContext
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 import services.data_providers.microsoft_synapse_link.{BackfillBatchInFlight, DataStreamElement}
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.querygen.OverwriteQuery
+import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, MergeKeyField}
 import com.sneaksanddata.arcane.framework.services.base.{SchemaProvider, TableManager}
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillOverwriteBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
@@ -45,14 +46,12 @@ class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer,
     ZSink.foreach(batch => consumeBackfillBatch(batch))
 
 
-  private def consumeBackfillBatch(batchInFlight: BackfillBatchInFlight): Task[Unit] =
-    val (batch, cleanupRequests) = batchInFlight
+  private def consumeBackfillBatch(batch: BackfillBatchInFlight): Task[Unit] =
     for
       _ <- zlog(s"Consuming backfill batch $batch")
       _ <- tableManager.migrateSchema(batch.schema, targetTableSettings.targetTableFullName)
       _ <- overwriteConsumer.applyBatch(batch)
       _ <- zlog(s"Target table has been overwritten")
-      _ <- ZIO.foreach(cleanupRequests)(cleanupRequest => reader.markForDeletion(cleanupRequest.prefix))
     yield ()
 
 

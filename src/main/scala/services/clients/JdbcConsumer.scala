@@ -1,13 +1,13 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.clients
 
-import models.app.ArchiveTableSettings
 import services.clients.{BatchArchivationResult, JdbcConsumer}
 
 import com.sneaksanddata.arcane.framework.services.consumers.{StagedBatch, StagedVersionedBatch}
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
 import com.sneaksanddata.arcane.framework.models.querygen.{MergeQuery, OverwriteQuery, StreamingBatchQuery}
+import com.sneaksanddata.arcane.framework.models.settings.ArchiveTableSettings
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
 import zio.{Schedule, Task, ZIO, ZLayer}
 
@@ -120,7 +120,7 @@ class JdbcConsumer(options: JdbcMergeServiceClientOptions, archiveTableSettings:
        |)""".stripMargin
 
   private def executeArchivationQuery(batch: Batch, actualSchema: ArcaneSchema): Task[BatchArchivationResult] =
-    val expression = archiveExpr(archiveTableSettings.archiveTableFullName, reduceExpr(batch), actualSchema)
+    val expression = archiveExpr(archiveTableSettings.fullName, reduceExpr(batch), actualSchema)
     val ack = ZIO.blocking {
       ZIO.succeed(sqlConnection.prepareStatement(expression))
     }

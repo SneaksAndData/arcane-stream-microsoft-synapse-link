@@ -1,12 +1,12 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app
 
-import models.app.contracts.{OptimizeSettingsSpec, StreamSpec}
-import models.app.contracts.given_Conversion_TablePropertiesSettings_TableProperties
+import models.app.contracts.{OptimizeSettingsSpec, SnapshotExpirationSettingsSpec, StreamSpec, given_Conversion_TablePropertiesSettings_TableProperties}
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
+import com.sneaksanddata.arcane.framework.models.settings
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
-import com.sneaksanddata.arcane.framework.models.settings.{FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, TableFormat, TablePropertiesSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{ArchiveTableSettings, BackfillTableSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
@@ -23,37 +23,12 @@ trait AzureConnectionSettings:
   val account: String
   val accessKey: String
 
-trait OptimizeSettings:
-  val batchThreshold: Int
-  val fileSizeThreshold: String
-
-trait TargetTableSettings:
-  val targetTableFullName: String
-  val targetOptimizeSettings: Option[OptimizeSettings]
-  val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings]
-  val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings]
-
-trait ArchiveTableSettings:
-  val archiveTableFullName: String
-  val archiveOptimizeSettings: OptimizeSettings
-  val archiveSnapshotExpirationSettings: SnapshotExpirationSettings
-  val archiveOrphanFilesExpirationSettings: OrphanFilesExpirationSettings
-
 trait ParallelismSettings:
   val parallelism: Int
 
 
-trait SnapshotExpirationSettings:
-  val batchThreshold: Int
-  val retentionThreshold: String
-
 trait GraphExecutionSettings:
   val sourceDeleteDryRun: Boolean
-  
-
-trait OrphanFilesExpirationSettings:
-  val batchThreshold: Int
-  val retentionThreshold: String
   
 enum BackfillBehavior:
   case Merge, Overwrite
@@ -61,12 +36,6 @@ enum BackfillBehavior:
 trait BackfillSettings:
   val backfillBehavior: BackfillBehavior
   
-case class OptimizeSettingsImpl(batchThreshold: Int, fileSizeThreshold: String) extends OptimizeSettings
-
-case class SnapshotExpirationSettingsImpl(batchThreshold: Int, retentionThreshold: String) extends SnapshotExpirationSettings
-
-case class OrphanFilesExpirationSettingsImpl(batchThreshold: Int, retentionThreshold: String) extends OrphanFilesExpirationSettings
-
 /**
  * The context for the SQL Server Change Tracking stream.
  *
@@ -79,11 +48,11 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with VersionedDataGraphBuilderSettings
   with AzureConnectionSettings
   with TargetTableSettings
-  with ArchiveTableSettings
   with ParallelismSettings
   with TablePropertiesSettings
   with FieldSelectionRuleSettings
   with BackfillSettings
+  with StagingDataSettings
   with GraphExecutionSettings:
 
   override val rowsPerGroup: Int = spec.rowsPerGroup
@@ -103,31 +72,22 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
 
   override val targetTableFullName: String = spec.sinkSettings.targetTableName
 
-  override val targetOptimizeSettings: Option[OptimizeSettings] = Some(OptimizeSettingsImpl(
-    spec.sinkSettings.optimizeSettings.batchThreshold,
-    spec.sinkSettings.optimizeSettings.fileSizeThreshold))
+  override val maintenanceSettings: TableMaintenanceSettings = new TableMaintenanceSettings:
+    override val targetOptimizeSettings: Option[OptimizeSettings] = Some(new OptimizeSettings{
+      override val batchThreshold: Int = spec.sinkSettings.optimizeSettings.batchThreshold
+      override val fileSizeThreshold: String = spec.sinkSettings.optimizeSettings.fileSizeThreshold
+    })
 
-  override val archiveOptimizeSettings: OptimizeSettings = OptimizeSettingsImpl(
-    spec.sinkSettings.optimizeSettings.batchThreshold,
-    spec.sinkSettings.optimizeSettings.fileSizeThreshold)
+    override val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings] = Some(new SnapshotExpirationSettings {
+      override val batchThreshold: Int = spec.sinkSettings.snapshotExpirationSettings.batchThreshold
+      override val retentionThreshold: String = spec.sinkSettings.snapshotExpirationSettings.retentionThreshold
+    })
 
-  override val targetSnapshotExpirationSettings: Option[SnapshotExpirationSettings] = Some(SnapshotExpirationSettingsImpl(
-    spec.sinkSettings.snapshotExpirationSettings.batchThreshold,
-    spec.sinkSettings.snapshotExpirationSettings.retentionThreshold))
-
-  override val archiveSnapshotExpirationSettings: SnapshotExpirationSettings = SnapshotExpirationSettingsImpl(
-    spec.sinkSettings.snapshotExpirationSettings.batchThreshold,
-    spec.sinkSettings.snapshotExpirationSettings.retentionThreshold)
-
-  override val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings] = Some(OrphanFilesExpirationSettingsImpl(
-    spec.sinkSettings.orphanFilesExpirationSettings.batchThreshold,
-    spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold))
-
-  override val archiveOrphanFilesExpirationSettings: OrphanFilesExpirationSettings = OrphanFilesExpirationSettingsImpl(
-    spec.sinkSettings.orphanFilesExpirationSettings.batchThreshold,
-    spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold)
-
-  override val archiveTableFullName: String = spec.sinkSettings.archiveTableName
+    override val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings] = Some(new OrphanFilesExpirationSettings {
+      override val batchThreshold: Int = spec.sinkSettings.orphanFilesExpirationSettings.batchThreshold
+      override val retentionThreshold: String = spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold
+      
+    })
 
   override val endpoint: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ENDPOINT")
   override val container: String = sys.env("ARCANE_FRAMEWORK__STORAGE_CONTAINER")
@@ -138,7 +98,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   
   val sourceDeleteDryRun: Boolean = sys.env.get("ARCANE_FRAMEWORK__SOURCE_DELETE_DRY_RUN").exists(v => v.toLowerCase == "true")
 
-  val stagingTableNamePrefix: String = spec.stagingDataSettings.tableNamePrefix
+  override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
   val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
 
   val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
@@ -148,7 +108,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
   
-  val backfillTableName: String = s"$stagingCatalog.${stagingTableNamePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
+  val backfillTableName: String = s"$stagingCatalog.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
   
   val changeCapturePeriod: Duration = Duration.ofSeconds(spec.sourceSettings.changeCapturePeriodSeconds)
 
@@ -174,7 +134,6 @@ object MicrosoftSynapseLinkStreamContext {
     & VersionedDataGraphBuilderSettings
     & IcebergCatalogSettings
     & JdbcMergeServiceClientOptions
-    & TargetTableSettings
     & AzureConnectionSettings
     & ArchiveTableSettings
     & TargetTableSettings
@@ -183,12 +142,31 @@ object MicrosoftSynapseLinkStreamContext {
     & TablePropertiesSettings
     & FieldSelectionRuleSettings
     & BackfillSettings
+    & StagingDataSettings
+    & BackfillTableSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
    */
   val layer: ZLayer[Any, Throwable, Environment] = StreamSpec
       .fromEnvironment("STREAMCONTEXT__SPEC")
-      .map(c => ZLayer.succeed(MicrosoftSynapseLinkStreamContext(c)) ++ ZLayer.succeed[CdmTableSettings](c))
+      .map(combineSettingsLayer)
       .getOrElse(ZLayer.fail(new Exception("The stream context is not specified.")))
+
+  private def combineSettingsLayer(spec: StreamSpec): ZLayer[Any, Throwable, Environment] =
+    val context = MicrosoftSynapseLinkStreamContext(spec)
+    val cdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
+    val backfillTableSettings: BackfillTableSettings = new BackfillTableSettings {
+      override val fullName: String = spec.stagingDataSettings.tableNamePrefix
+    }
+    
+    // This is actually a stub and to be removed
+    val archiveTableSettings = new ArchiveTableSettings:
+      override val fullName: String = spec.sinkSettings.archiveTableName
+      override val maintenanceSettings: TableMaintenanceSettings = new TableMaintenanceSettings:
+        override val targetOptimizeSettings: Option[settings.OptimizeSettings] = None
+        override val targetSnapshotExpirationSettings: Option[settings.SnapshotExpirationSettings] = None
+        override val targetOrphanFilesExpirationSettings: Option[settings.OrphanFilesExpirationSettings] = None
+
+    ZLayer.succeed(context) ++ ZLayer.succeed(cdmTableSettings) ++ ZLayer.succeed(backfillTableSettings) ++ ZLayer.succeed(archiveTableSettings)
 }

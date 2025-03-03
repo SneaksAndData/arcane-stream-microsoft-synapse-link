@@ -2,13 +2,14 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.data_providers.microsoft_synapse_link
 
 import models.app.streaming.SourceCleanupRequest
-import models.app.{AzureConnectionSettings, ParallelismSettings, TargetTableSettings}
+import models.app.{AzureConnectionSettings, ParallelismSettings}
 import services.app.FieldsFilteringService
 import services.data_providers.microsoft_synapse_link.CdmTableStream.withSchema
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.cdm.given_Conversion_String_ArcaneSchema_DataRow
+import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
 import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow}
 import com.sneaksanddata.arcane.framework.services.base.{SchemaProvider, TableManager}
 import com.sneaksanddata.arcane.framework.services.cdm.{CdmSchemaProvider, CdmTableSettings}
@@ -76,7 +77,7 @@ class CdmTableStream(name: String,
    * @return A stream of rows for this table
    */
   def snapshotPrefixes(lookBackInterval: Duration, changeCaptureInterval: Duration, changeCapturePeriod: Duration): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    val initialPrefixes = getRootDropPrefixes(storagePath, Some(lookBackInterval)).flatMap(s => s.runCollect)
+    val initialPrefixes = getRootDropPrefixes(storagePath, lookBackInterval).flatMap(s => s.runCollect)
     // data from lookback
     val firstStream = ZStream.fromZIO(initialPrefixes)
       .flatMap(x => ZStream.fromIterable(x))

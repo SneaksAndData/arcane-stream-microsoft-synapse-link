@@ -1,7 +1,7 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.app
 
-import models.app.{ArchiveTableSettings, TargetTableSettings}
+import models.app.MicrosoftSynapseLinkStreamContext
 import services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
 
 import com.sneaksanddata.arcane.framework.models.ArcaneSchema
@@ -26,6 +26,7 @@ private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
                                      lifetimeService: StreamLifetimeService,
                                      tableManager: TableManager,
                                      reader: AzureBlobStorageReader,
+                                     streamContext: MicrosoftSynapseLinkStreamContext,
                                      rootPath: String) extends StreamRunnerService:
 
   /**
@@ -37,10 +38,10 @@ private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
     lifetimeService.start()
     for {
       _ <- zlog("Starting the stream runner")
-      _ <- tableManager.cleanupStagingTables
+      _ <- tableManager.cleanupStagingTables(streamContext.stagingCatalog, streamContext.stagingTablePrefix)
       _ <- tableManager.createTargetTable
       _ <- tableManager.createArchiveTable
-      _ <- tableManager.tryCreateBackfillTable
+      _ <- tableManager.createBackFillTable
       _ <- builder.create.run(builder.consume)
       _ <- zlog("Stream completed")
     } yield ()
@@ -56,7 +57,7 @@ object StreamRunnerServiceCdm:
     & StreamLifetimeService
     & AzureBlobStorageReader
     & CdmTableSettings
-    & StreamContext
+    & MicrosoftSynapseLinkStreamContext
   
   /**
    * The ZLayer for the stream runner service.
@@ -64,12 +65,12 @@ object StreamRunnerServiceCdm:
   val layer: ZLayer[Environemnt, Nothing, StreamRunnerService] =
     ZLayer {
       for {
-        context <- ZIO.service[StreamContext]
+        context <- ZIO.service[MicrosoftSynapseLinkStreamContext]
         builder <- if context.IsBackfilling then ZIO.service[BackfillDataGraphBuilder] else ZIO.service[VersionedDataGraphBuilder]
         _ <- zlog(s"Using ${if context.IsBackfilling then "Backfill" else "Versioned"}DataGraphBuilder")
         lifetimeService <- ZIO.service[StreamLifetimeService]
         tableManager <- ZIO.service[TableManager]
         reader <- ZIO.service[AzureBlobStorageReader]
         tableSettings <- ZIO.service[CdmTableSettings]
-      } yield new StreamRunnerServiceCdm(builder, lifetimeService, tableManager, reader, tableSettings.rootPath)
+      } yield new StreamRunnerServiceCdm(builder, lifetimeService, tableManager, reader, context, tableSettings.rootPath)
     }
