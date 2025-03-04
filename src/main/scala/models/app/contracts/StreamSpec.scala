@@ -1,8 +1,6 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app.contracts
 
-import models.app.OptimizeSettings
-
 import com.sneaksanddata.arcane.framework.models.settings.{TableFormat, TablePropertiesSettings as TableProperties}
 import upickle.default.*
 

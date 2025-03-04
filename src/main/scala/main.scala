@@ -2,9 +2,8 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 
 import models.app.contracts.EnvironmentGarbageCollectorSettings
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
-import services.app.{AzureBlobStorageGarbageCollector, FieldsFilteringService, GarbageCollectorStream, JdbcTableManager, StreamRunnerServiceCdm}
-import services.clients.JdbcConsumer
-import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, CdmSchemaProvider, CdmTableStream}
+import services.app.*
+import services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
 import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSynapseConsumer}
 import services.streaming.processors.*
 
@@ -14,12 +13,16 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
+import com.sneaksanddata.arcane.framework.services.cdm.CdmSchemaProvider
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.storage.models.azure.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.consumers.IcebergBackfillConsumer
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.{CdmTableStream, MicrosoftSynapseLinkDataProviderImpl}
 import zio.*
 import zio.logging.backend.SLF4J
+import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService as FrameworkFieldsFilteringService
 
 
 object main extends ZIOAppDefault {
@@ -33,21 +36,6 @@ object main extends ZIOAppDefault {
     _ <- streamRunner.run
   } yield ()
 
-  private val garbageCollectorApplication = for
-    _ <- ZIO.log("Starting the garbage collector")
-    stream <- ZIO.service[GarbageCollectorStream]
-    _ <- stream.run
-  yield ()
-
-
-  private val storageExplorerLayerZio: ZLayer[AzureConnectionSettings & GraphExecutionSettings, Nothing, AzureBlobStorageReaderZIO] = ZLayer {
-    for {
-      connectionOptions <- ZIO.service[AzureConnectionSettings]
-      executionSettings <- ZIO.service[GraphExecutionSettings]
-      credentials = StorageSharedKeyCredential(connectionOptions.account, connectionOptions.accessKey)
-    } yield AzureBlobStorageReaderZIO(connectionOptions.account, connectionOptions.endpoint, credentials, executionSettings.sourceDeleteDryRun)
-  }
-
   private val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
     for {
       connectionOptions <- ZIO.service[AzureConnectionSettings]
@@ -55,14 +43,8 @@ object main extends ZIOAppDefault {
     } yield AzureBlobStorageReader(connectionOptions.account, connectionOptions.endpoint, credentials)
   }
 
-  private lazy val garbageCollector = garbageCollectorApplication.provide(
-    storageExplorerLayerZio,
-    EnvironmentGarbageCollectorSettings.layer,
-    AzureBlobStorageGarbageCollector.layer)
-
   private lazy val streamRunner = streamApplication.provide(
     storageExplorerLayer,
-    storageExplorerLayerZio,
     CdmTableStream.layer,
     CdmSchemaProvider.layer,
     MicrosoftSynapseLinkStreamContext.layer,
@@ -72,28 +54,21 @@ object main extends ZIOAppDefault {
     IcebergSynapseConsumer.layer,
     MergeBatchProcessor.layer,
     CdmGroupingProcessor.layer,
-    ArchivationProcessor.layer,
     TypeAlignmentService.layer,
-    SourceDeleteProcessor.layer,
-    JdbcTableManager.layer,
-    StagingTableProcessor.layer,
     BackfillDataGraphBuilder.layer,
     VersionedDataGraphBuilder.layer,
-    JdbcConsumer.layer,
     MicrosoftSynapseLinkDataProviderImpl.layer,
     IcebergSynapseBackfillConsumer.layer,
     FieldFilteringProcessor.layer,
-    FieldsFilteringService.layer)
+    FieldsFilteringService.layer,
+    FrameworkFieldsFilteringService.layer,
+    StagingProcessor.layer,
+    JdbcMergeServiceClient.layer,
+    DisposeBatchProcessor.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
-    val app = for
-      mode <- System.env("ARCANE__MODE")
-      _ <- mode match
-        case Some("garbage-collector") => garbageCollector
-        case None => streamRunner
-        case Some(_) => streamRunner
-    yield ()
+    val app = streamRunner
 
     app.catchAllCause { cause =>
       for {

@@ -1,36 +1,22 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.consumers
 
-import extensions.DataRowExtensions.schema
-import models.app.streaming.{SourceCleanupRequest, SourceCleanupResult}
-import models.app.{MicrosoftSynapseLinkStreamContext, TargetTableSettings}
-import services.app.TableManager
-import services.clients.{BatchArchivationResult, JdbcConsumer}
-import services.data_providers.microsoft_synapse_link.{AzureBlobStorageReaderZIO, DataStreamElement}
+import services.data_providers.microsoft_synapse_link.BackfillBatchInFlight
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
-import com.sneaksanddata.arcane.framework.models.app.StreamContext
-import com.sneaksanddata.arcane.framework.models.querygen.OverwriteQuery
-import com.sneaksanddata.arcane.framework.models.{ArcaneSchema, DataRow, MergeKeyField}
-import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
-import com.sneaksanddata.arcane.framework.services.consumers.{StagedBackfillOverwriteBatch, StagedVersionedBatch, SynapseLinkMergeBatch}
-import com.sneaksanddata.arcane.framework.services.lakehouse.base.IcebergCatalogSettings
-import com.sneaksanddata.arcane.framework.services.lakehouse.{CatalogWriter, given_Conversion_ArcaneSchema_Schema}
-import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchConsumer, BatchProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.consumers.{IcebergStreamingConsumer, StreamingConsumer}
-import org.apache.iceberg.rest.RESTCatalog
-import org.apache.iceberg.{Schema, Table}
-import org.apache.zookeeper.proto.DeleteRequest
-import zio.stream.{ZPipeline, ZSink}
-import zio.{Chunk, Schedule, Task, ZIO, ZLayer}
+import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
+import com.sneaksanddata.arcane.framework.services.base.{DisposeServiceClient, MergeServiceClient, TableManager}
+import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
+import com.sneaksanddata.arcane.framework.services.streaming.base.BatchConsumer
+import zio.stream.ZSink
+import zio.{Schedule, Task, ZIO, ZLayer}
 
-import java.time.format.DateTimeFormatter
-import java.time.{Duration, ZoneOffset, ZonedDateTime}
-import java.util.UUID
+import java.time.Duration
 
 
-class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer, 
-                                     reader: AzureBlobStorageReaderZIO,
+class IcebergSynapseBackfillConsumer(mergeServiceClient: MergeServiceClient,
+                                     disposeServiceClient: DisposeServiceClient,
+                                     reader: AzureBlobStorageReader,
                                      targetTableSettings: TargetTableSettings,
                                      tableManager: TableManager)
   extends BatchConsumer[BackfillBatchInFlight]:
@@ -46,14 +32,13 @@ class IcebergSynapseBackfillConsumer(overwriteConsumer: JdbcConsumer,
     ZSink.foreach(batch => consumeBackfillBatch(batch))
 
 
-  private def consumeBackfillBatch(batchInFlight: BackfillBatchInFlight): Task[Unit] =
-    val (batch, cleanupRequests) = batchInFlight
+  private def consumeBackfillBatch(batch: BackfillBatchInFlight): Task[Unit] =
     for
       _ <- zlog(s"Consuming backfill batch $batch")
       _ <- tableManager.migrateSchema(batch.schema, targetTableSettings.targetTableFullName)
-      _ <- overwriteConsumer.applyBatch(batch)
+      _ <- mergeServiceClient.applyBatch(batch)
+      _ <- disposeServiceClient.disposeBatch(batch)
       _ <- zlog(s"Target table has been overwritten")
-      _ <- ZIO.foreach(cleanupRequests)(cleanupRequest => reader.markForDeletion(cleanupRequest.prefix))
     yield ()
 
 
@@ -69,17 +54,19 @@ object IcebergSynapseBackfillConsumer:
    * @param schemaProvider The schema provider.
    * @return The initialized IcebergConsumer instance
    */
-  def apply(mergeConsumer: JdbcConsumer,
-            reader: AzureBlobStorageReaderZIO,
+  def apply(mergeServiceClient: MergeServiceClient,
+            disposeServiceClient: DisposeServiceClient,
+            reader: AzureBlobStorageReader,
             targetTableSettings: TargetTableSettings,
             tableManager: TableManager): IcebergSynapseBackfillConsumer =
-    new IcebergSynapseBackfillConsumer(mergeConsumer, reader, targetTableSettings, tableManager)
+    new IcebergSynapseBackfillConsumer(mergeServiceClient, disposeServiceClient, reader, targetTableSettings, tableManager)
 
   /**
    * The required environment for the IcebergConsumer.
    */
-  type Environment = JdbcConsumer
-    & AzureBlobStorageReaderZIO
+  type Environment = MergeServiceClient
+    & DisposeServiceClient
+    & AzureBlobStorageReader
     & TargetTableSettings
     & TableManager
 
@@ -89,9 +76,10 @@ object IcebergSynapseBackfillConsumer:
   val layer: ZLayer[Environment, Nothing, IcebergSynapseBackfillConsumer] =
     ZLayer {
       for
-        jdbcConsumer <- ZIO.service[JdbcConsumer]
-        reader <- ZIO.service[AzureBlobStorageReaderZIO]
+        mergeServiceClient <- ZIO.service[MergeServiceClient]
+        disposeServiceClient <- ZIO.service[DisposeServiceClient]
+        reader <- ZIO.service[AzureBlobStorageReader]
         settings <- ZIO.service[TargetTableSettings]
         tableManager <-  ZIO.service[TableManager]
-      yield IcebergSynapseBackfillConsumer(jdbcConsumer, reader, settings, tableManager)
+      yield IcebergSynapseBackfillConsumer(mergeServiceClient, disposeServiceClient, reader, settings, tableManager)
     }
