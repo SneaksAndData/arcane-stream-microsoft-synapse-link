@@ -57,16 +57,14 @@ class CdmTableStream(name: String,
    * @param changeCaptureInterval Interval to capture changes
    * @return A stream of rows for this table
    */
-  def getPrefixesFromBeginning: ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    ZStream.fromZIO(azureBlogStorageReader.getFirstDropDate(storagePath)).flatMap(startDate =>
-      val streamTask = ZIO.attempt(enrichWithSchema(azureBlogStorageReader.getRootPrefixes(storagePath, startDate)))
-      ZStream.fromZIO(dropLast(streamTask))
-        .flatMap(x => ZStream.fromIterable(x))
-        .flatMap(seb => azureBlogStorageReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
-        .filter(seb => seb.blob.name.endsWith(s"/$name/"))
-        .flatMap(seb => azureBlogStorageReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
-        .filter(seb => seb.blob.name.endsWith(".csv"))
-    )
+  def getPrefixesFromDate(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] =
+    val streamTask = ZIO.attempt(enrichWithSchema(azureBlogStorageReader.getRootPrefixes(storagePath, startDate)))
+    ZStream.fromZIO(dropLast(streamTask))
+      .flatMap(x => ZStream.fromIterable(x))
+      .flatMap(seb => azureBlogStorageReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+      .filter(seb => seb.blob.name.endsWith(s"/$name/"))
+      .flatMap(seb => azureBlogStorageReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
+      .filter(seb => seb.blob.name.endsWith(".csv"))
 
 
   /**
