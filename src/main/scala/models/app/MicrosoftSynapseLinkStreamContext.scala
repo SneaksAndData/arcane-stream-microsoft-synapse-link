@@ -6,7 +6,7 @@ import models.app.contracts.{OptimizeSettingsSpec, SnapshotExpirationSettingsSpe
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
-import com.sneaksanddata.arcane.framework.models.settings.{ArchiveTableSettings, BackfillTableSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{BackfillTableSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
@@ -86,7 +86,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
     override val targetOrphanFilesExpirationSettings: Option[OrphanFilesExpirationSettings] = Some(new OrphanFilesExpirationSettings {
       override val batchThreshold: Int = spec.sinkSettings.orphanFilesExpirationSettings.batchThreshold
       override val retentionThreshold: String = spec.sinkSettings.orphanFilesExpirationSettings.retentionThreshold
-      
+
     })
 
   override val endpoint: String = sys.env("ARCANE_FRAMEWORK__STORAGE_ENDPOINT")
@@ -99,6 +99,11 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val sourceDeleteDryRun: Boolean = sys.env.get("ARCANE_FRAMEWORK__SOURCE_DELETE_DRY_RUN").exists(v => v.toLowerCase == "true")
 
   override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
+//  override val retryPolicy: RetrySettings = new RetrySettings:
+//    override val policyType: RetryPolicyType = RetryPolicyType.None
+//    override val initialDurationSeconds: Int = 1
+//    override val retryCount: Int = 10
+
   val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
 
   val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
@@ -135,7 +140,6 @@ object MicrosoftSynapseLinkStreamContext {
     & IcebergCatalogSettings
     & JdbcMergeServiceClientOptions
     & AzureConnectionSettings
-    & ArchiveTableSettings
     & TargetTableSettings
     & MicrosoftSynapseLinkStreamContext
     & GraphExecutionSettings
@@ -157,16 +161,8 @@ object MicrosoftSynapseLinkStreamContext {
     val context = MicrosoftSynapseLinkStreamContext(spec)
     val cdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
     val backfillTableSettings: BackfillTableSettings = new BackfillTableSettings {
-      override val fullName: String = spec.stagingDataSettings.tableNamePrefix
+      override val fullName: String = context.backfillTableName
     }
-    
-    // This is actually a stub and to be removed
-    val archiveTableSettings = new ArchiveTableSettings:
-      override val fullName: String = spec.sinkSettings.archiveTableName
-      override val maintenanceSettings: TableMaintenanceSettings = new TableMaintenanceSettings:
-        override val targetOptimizeSettings: Option[settings.OptimizeSettings] = None
-        override val targetSnapshotExpirationSettings: Option[settings.SnapshotExpirationSettings] = None
-        override val targetOrphanFilesExpirationSettings: Option[settings.OrphanFilesExpirationSettings] = None
 
-    ZLayer.succeed(context) ++ ZLayer.succeed(cdmTableSettings) ++ ZLayer.succeed(backfillTableSettings) ++ ZLayer.succeed(archiveTableSettings)
+    ZLayer.succeed(context) ++ ZLayer.succeed(cdmTableSettings) ++ ZLayer.succeed(backfillTableSettings)
 }

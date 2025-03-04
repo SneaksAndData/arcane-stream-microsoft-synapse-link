@@ -40,7 +40,6 @@ private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
       _ <- zlog("Starting the stream runner")
       _ <- tableManager.cleanupStagingTables(streamContext.stagingCatalog, streamContext.stagingTablePrefix)
       _ <- tableManager.createTargetTable
-      _ <- tableManager.createArchiveTable
       _ <- tableManager.createBackFillTable
       _ <- builder.create.run(builder.consume)
       _ <- zlog("Stream completed")

@@ -3,7 +3,6 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 import models.app.contracts.EnvironmentGarbageCollectorSettings
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
 import services.app.*
-import services.clients.JdbcConsumer
 import services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
 import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSynapseConsumer}
 import services.streaming.processors.*
@@ -18,7 +17,7 @@ import com.sneaksanddata.arcane.framework.services.cdm.CdmSchemaProvider
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{ArchivationProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.{CdmTableStream, MicrosoftSynapseLinkDataProviderImpl}
 import zio.*
@@ -55,18 +54,17 @@ object main extends ZIOAppDefault {
     IcebergSynapseConsumer.layer,
     MergeBatchProcessor.layer,
     CdmGroupingProcessor.layer,
-    ArchivationProcessor.layer,
     TypeAlignmentService.layer,
     BackfillDataGraphBuilder.layer,
     VersionedDataGraphBuilder.layer,
-    JdbcConsumer.layer,
     MicrosoftSynapseLinkDataProviderImpl.layer,
     IcebergSynapseBackfillConsumer.layer,
     FieldFilteringProcessor.layer,
     FieldsFilteringService.layer,
     FrameworkFieldsFilteringService.layer,
     StagingProcessor.layer,
-    JdbcMergeServiceClient.layer)
+    JdbcMergeServiceClient.layer,
+    DisposeBatchProcessor.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
