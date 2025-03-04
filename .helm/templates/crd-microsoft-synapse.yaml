@@ -299,6 +299,8 @@ spec:
                   default:
                     ruleType: all
                     fields: []
+                backfillStartDate:
+                  type: string
             status:
               type: object
               properties:
