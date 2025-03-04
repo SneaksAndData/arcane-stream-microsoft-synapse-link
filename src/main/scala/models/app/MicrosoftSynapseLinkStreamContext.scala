@@ -99,10 +99,6 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val sourceDeleteDryRun: Boolean = sys.env.get("ARCANE_FRAMEWORK__SOURCE_DELETE_DRY_RUN").exists(v => v.toLowerCase == "true")
 
   override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
-//  override val retryPolicy: RetrySettings = new RetrySettings:
-//    override val policyType: RetryPolicyType = RetryPolicyType.None
-//    override val initialDurationSeconds: Int = 1
-//    override val retryCount: Int = 10
 
   val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
 
