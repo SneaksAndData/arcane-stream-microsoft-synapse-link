@@ -300,6 +300,9 @@ spec:
                     ruleType: all
                     fields: []
                 backfillStartDate:
+                  description: |
+                    The date and time to start backfilling data from.
+                    The date should be in the following format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
                   type: string
             status:
               type: object
