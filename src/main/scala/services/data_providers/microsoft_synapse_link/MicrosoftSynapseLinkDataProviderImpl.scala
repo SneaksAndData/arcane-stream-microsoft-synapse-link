@@ -42,7 +42,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            tablePropertiesSettings: TablePropertiesSettings,
                                            disposeBatchProcessor: DisposeBatchProcessor) extends MicrosoftSynapseLinkDataProvider:
 
-  private val backFillTableName = streamContext.backfillTableName
+  private val backFillTableName = streamContext.backfillTableFullName
   private val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
   private val mergeProcessor = MergeBatchProcessor(jdbcMergeServiceClient, jdbcMergeServiceClient, tempTargetTableSettings)
 
@@ -56,7 +56,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
     yield backFillCompletionBatch
 
   private def backfillStream =
-    cdmTableStream.getPrefixesFromBeginning
+    cdmTableStream.getPrefixesFromDate(backfillSettings.backfillStartDate.getOrElse(throw new IllegalArgumentException("Backfill start date is not set")))
       .mapZIOPar(parallelismSettings.parallelism)(blob => cdmTableStream.getStream(blob))
       .flatMap(reader => cdmTableStream.getData(reader))
       .via(fieldFilteringProcessor.process)

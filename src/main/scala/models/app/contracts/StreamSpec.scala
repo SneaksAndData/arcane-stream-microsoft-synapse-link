@@ -89,7 +89,8 @@ case class StreamSpec(sourceSettings: SourceSettings,
 
                       tableProperties: TablePropertiesSettings,
                       fieldSelectionRule: FieldSelectionRuleSpec,
-                      backfillBehavior: String)
+                      backfillBehavior: String,
+                      backfillStartDate: String)
   derives ReadWriter
 
 object StreamSpec:

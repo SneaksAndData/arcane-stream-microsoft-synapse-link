@@ -6,7 +6,7 @@ import models.app.contracts.{OptimizeSettingsSpec, SnapshotExpirationSettingsSpe
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings
 import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillTableSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
@@ -14,8 +14,10 @@ import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCrede
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
 import zio.ZLayer
 
-import java.time.Duration
+import java.time.format.DateTimeFormatter
+import java.time.{Duration, OffsetDateTime, ZoneOffset}
 import java.util.UUID
+import scala.util.Try
 
 trait AzureConnectionSettings:
   val endpoint: String
@@ -29,12 +31,6 @@ trait ParallelismSettings:
 
 trait GraphExecutionSettings:
   val sourceDeleteDryRun: Boolean
-  
-enum BackfillBehavior:
-  case Merge, Overwrite
-  
-trait BackfillSettings:
-  val backfillBehavior: BackfillBehavior
   
 /**
  * The context for the SQL Server Change Tracking stream.
@@ -109,7 +105,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
   
-  val backfillTableName: String = s"$stagingCatalog.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
+  val backfillTableFullName: String = s"$stagingCatalog.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
   
   val changeCapturePeriod: Duration = Duration.ofSeconds(spec.sourceSettings.changeCapturePeriodSeconds)
 
@@ -122,6 +118,14 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
     case "merge" => BackfillBehavior.Merge
     case "overwrite" => BackfillBehavior.Overwrite
     case _ => throw new IllegalArgumentException(s"Unknown backfill behavior: ${spec.backfillBehavior}")
+
+  override val backfillStartDate: Option[OffsetDateTime] = parseBackfillStartDate(spec.backfillStartDate)
+
+  private def parseBackfillStartDate(str: String): Option[OffsetDateTime] =
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ss'Z'").withZone(ZoneOffset.UTC)
+    Try(OffsetDateTime.parse(str, formatter)) match
+      case scala.util.Success(value) => Some(value)
+      case scala.util.Failure(e) => throw new IllegalArgumentException(s"Invalid backfill start date: $str. The backfill start date must be in the format 'yyyy-MM-dd'T'HH.mm.ss'Z'", e)
 
 given Conversion[StreamSpec, CdmTableSettings] with
   def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
@@ -143,7 +147,6 @@ object MicrosoftSynapseLinkStreamContext {
     & FieldSelectionRuleSettings
     & BackfillSettings
     & StagingDataSettings
-    & BackfillTableSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
@@ -156,9 +159,6 @@ object MicrosoftSynapseLinkStreamContext {
   private def combineSettingsLayer(spec: StreamSpec): ZLayer[Any, Throwable, Environment] =
     val context = MicrosoftSynapseLinkStreamContext(spec)
     val cdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
-    val backfillTableSettings: BackfillTableSettings = new BackfillTableSettings {
-      override val fullName: String = context.backfillTableName
-    }
 
-    ZLayer.succeed(context) ++ ZLayer.succeed(cdmTableSettings) ++ ZLayer.succeed(backfillTableSettings)
+    ZLayer.succeed(context) ++ ZLayer.succeed(cdmTableSettings)
 }
