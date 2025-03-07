@@ -21,7 +21,7 @@ import com.sneaksanddata.arcane.framework.services.cdm.AzureBlobStorageReaderExt
 import com.sneaksanddata.arcane.framework.services.cdm.AzureBlobStorageReaderExtensions.getRootPrefixes
 import microsoft.sql.DateTimeOffset
 import zio.stream.ZStream
-import zio.{Schedule, Task, ZIO, ZLayer}
+import zio.{Promise, Schedule, Task, ZIO, ZLayer}
 
 import java.io.{BufferedReader, IOException}
 import java.time.format.DateTimeFormatter
@@ -35,9 +35,11 @@ type BlobStream = ZStream[Any, Throwable, StoredBlob]
 
 type SchemaEnrichedBlobStream = ZStream[Any, Throwable, SchemaEnrichedBlob]
 
-case class SchemaEnrichedBlob(blob: StoredBlob, schemaProvider: SchemaProvider[ArcaneSchema])
+case class SchemaEnrichedBlob(blob: StoredBlob, schemaProvider: Promise[Throwable, ArcaneSchema])
 
-case class MetadataEnrichedReader(javaStream: BufferedReader, filePath: AdlsStoragePath, schemaProvider: SchemaProvider[ArcaneSchema])
+
+case class MetadataEnrichedReader(javaStream: BufferedReader, filePath: AdlsStoragePath, schemaProvider: Promise[Throwable, ArcaneSchema])
+
 
 case class SchemaEnrichedContent[TContent](content: TContent, schema: ArcaneSchema)
 
@@ -114,10 +116,14 @@ class CdmTableStream(name: String,
     yield prefixes
 
   private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    stream.filterZIO(prefix => azureBlogStorageReader.blobExists(storagePath + prefix.name + "model.json")).map(prefix => {
-      val schemaProvider = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
-      SchemaEnrichedBlob(prefix, schemaProvider)
-    })
+    stream.filterZIO(prefix => azureBlogStorageReader.blobExists(storagePath + prefix.name + "model.json"))
+      .mapZIO(prefix =>
+        for
+          promise <- Promise.make[Throwable, ArcaneSchema]
+          fiber <- promise.complete(CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name).getSchema).fork
+          _ <- fiber.join
+        yield SchemaEnrichedBlob(prefix, promise)
+    )
 
 
   def getStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, MetadataEnrichedReader] =
@@ -153,7 +159,7 @@ class CdmTableStream(name: String,
         .takeWhile(_.isDefined)
         .map(_.get)
         .map(_.replace("\n", ""))
-        .mapZIO(content => streamData.schemaProvider.getSchema.map(schema => SchemaEnrichedContent(content, schema)))
+        .mapZIO(content => streamData.schemaProvider.await.map(schema => SchemaEnrichedContent(content, schema)))
         .mapZIO(sec => ZIO.attempt(implicitly[DataRow](sec.content, sec.schema)))
         .mapError(e => new IOException(s"Failed to parse CSV content: ${e.getMessage} from file: ${streamData.filePath} with", e))
         .concat(ZStream.succeed(SourceCleanupRequest(streamData.filePath)))
@@ -165,7 +171,7 @@ class CdmTableStream(name: String,
 
 object CdmTableStream:
 
-  extension (stream: ZStream[Any, Throwable, StoredBlob]) def withSchema(schemaProvider: SchemaProvider[ArcaneSchema]): SchemaEnrichedBlobStream =
+  extension (stream: ZStream[Any, Throwable, StoredBlob]) def withSchema(schemaProvider: Promise[Throwable, ArcaneSchema]): SchemaEnrichedBlobStream =
     stream.map(blob => SchemaEnrichedBlob(blob, schemaProvider))
 
   type Environment = AzureConnectionSettings
