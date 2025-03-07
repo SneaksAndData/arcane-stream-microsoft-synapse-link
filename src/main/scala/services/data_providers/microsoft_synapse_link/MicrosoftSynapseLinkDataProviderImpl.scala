@@ -10,9 +10,12 @@ import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.settings.*
 import com.sneaksanddata.arcane.framework.services.base.TableManager
 import com.sneaksanddata.arcane.framework.services.consumers.*
+import com.sneaksanddata.arcane.framework.services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
+import org.apache.iceberg.rest.RESTCatalog
+import org.apache.iceberg.{Schema, Table}
 import zio.{Task, ZIO, ZLayer}
 
 type BackfillBatchInFlight = StagedBackfillBatch
@@ -33,18 +36,23 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            streamContext: MicrosoftSynapseLinkStreamContext,
                                            parallelismSettings: ParallelismSettings,
                                            groupingProcessor: CdmGroupingProcessor,
-                                           stageProcessor: StagingProcessor,
                                            tableManager: TableManager,
                                            sinkSettings: TargetTableSettings,
                                            fieldFilteringProcessor: FieldFilteringProcessor,
                                            backfillSettings: BackfillSettings,
                                            jdbcMergeServiceClient: JdbcMergeServiceClient,
                                            tablePropertiesSettings: TablePropertiesSettings,
+                                           stagingDataSettings: StagingDataSettings,
+                                           targetTableSettings: TargetTableSettings,
+                                           icebergCatalogSettings: IcebergCatalogSettings,
+                                           catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                                            disposeBatchProcessor: DisposeBatchProcessor) extends MicrosoftSynapseLinkDataProvider:
 
   private val backFillTableName = streamContext.backfillTableFullName
   private val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
   private val mergeProcessor = MergeBatchProcessor(jdbcMergeServiceClient, jdbcMergeServiceClient, tempTargetTableSettings)
+  
+  private val stagingProcessor = StagingProcessor(stagingDataSettings, tablePropertiesSettings, tempTargetTableSettings, icebergCatalogSettings, catalogWriter)
 
   def requestBackfill: Task[BackfillBatchInFlight] =
 
@@ -61,7 +69,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
       .flatMap(reader => cdmTableStream.getData(reader))
       .via(fieldFilteringProcessor.process)
       .via(groupingProcessor.process)
-      .via(stageProcessor.process(toInFlightBatch))
+      .via(stagingProcessor.process(toInFlightBatch))
       .via(mergeProcessor.process)
       .via(disposeBatchProcessor.process)
 
@@ -94,31 +102,41 @@ object MicrosoftSynapseLinkDataProviderImpl:
     & BackfillSettings
     & JdbcMergeServiceClient
     & DisposeBatchProcessor
+    & StagingDataSettings
+    & TargetTableSettings
+    & IcebergCatalogSettings
+    & CatalogWriter[RESTCatalog, Table, Schema] 
 
   def apply(cdmTableStream: CdmTableStream,
             streamContext: MicrosoftSynapseLinkStreamContext,
             parallelismSettings: ParallelismSettings,
             groupingProcessor: CdmGroupingProcessor,
-            stageProcessor: StagingProcessor,
             tableManager: TableManager,
             sinkSettings: TargetTableSettings,
             fieldFilteringProcessor: FieldFilteringProcessor,
             backfillSettings: BackfillSettings,
             jdbcMergeServiceClient: JdbcMergeServiceClient,
             tablePropertiesSettings: TablePropertiesSettings,
+            stagingDataSettings: StagingDataSettings,
+            targetTableSettings: TargetTableSettings,
+            icebergCatalogSettings: IcebergCatalogSettings,
+            catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
             disposeBatchProcessor: DisposeBatchProcessor): MicrosoftSynapseLinkDataProviderImpl =
     new MicrosoftSynapseLinkDataProviderImpl(
       cdmTableStream,
       streamContext,
       parallelismSettings,
       groupingProcessor,
-      stageProcessor,
       tableManager,
       sinkSettings,
       fieldFilteringProcessor,
       backfillSettings,
       jdbcMergeServiceClient,
       tablePropertiesSettings,
+      stagingDataSettings,
+      targetTableSettings,
+      icebergCatalogSettings,
+      catalogWriter,
       disposeBatchProcessor)
 
   def layer: ZLayer[Environment, Nothing, MicrosoftSynapseLinkDataProvider] =
@@ -136,17 +154,24 @@ object MicrosoftSynapseLinkDataProviderImpl:
         backfillSettings <- ZIO.service[BackfillSettings]
         jdbcMergeServiceClient <- ZIO.service[JdbcMergeServiceClient]
         disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
+        stagingDataSettings <- ZIO.service[StagingDataSettings]
+        targetTableSettings <- ZIO.service[TargetTableSettings]
+        icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
+        catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
       yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream,
         streamContext,
         parallelismSettings,
         groupingProcessor,
-        stageProcessor,
         tableManager,
         sinkSettings,
         fieldFilteringProcessor,
         backfillSettings,
         jdbcMergeServiceClient,
         tablePropertiesSettings,
+        stagingDataSettings,
+        targetTableSettings,
+        icebergCatalogSettings,
+        catalogWriter,
         disposeBatchProcessor)
     }
 
