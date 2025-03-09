@@ -25,8 +25,21 @@ lazy val plugin = (project in file("."))
     name := "arcane-stream-microsoft-synapse-link",
     idePackagePrefix := Some("com.sneaksanddata.arcane.microsoft_synapse_link"),
 
-      libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.3.7",
-      libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "0.3.7",
+    libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
+    // https://mvnrepository.com/artifact/io.trino/trino-jdbc
+    libraryDependencies += "io.trino" % "trino-jdbc" % "465",
+
+    // Azure dependencies
+    // https://mvnrepository.com/artifact/com.azure/azure-storage-blob
+    libraryDependencies += "com.azure" % "azure-storage-blob" % "12.29.1",
+    // https://mvnrepository.com/artifact/com.azure/azure-identity
+    libraryDependencies += "com.azure" % "azure-identity" % "1.15.3",
+    // Jackson pin
+    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.1",
+    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-core" % "2.18.1",
+    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-annotations" % "2.18.1",
+    libraryDependencies += "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.1",
 
     // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
@@ -49,7 +62,7 @@ lazy val plugin = (project in file("."))
       "-H:JNIConfigurationFiles=../../configs/jni-config.json",
       "-H:DynamicProxyConfigurationFiles=../../configs/proxy-config.json",
       "-H:SerializationConfigurationFiles=../../configs/serialization-config.json",
-      "--exclude-config", "azure-core-1.54.1.jar", ".*.properties"
+      "--exclude-config", "azure-core-1.55.2.jar", ".*.properties"
     ),
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
