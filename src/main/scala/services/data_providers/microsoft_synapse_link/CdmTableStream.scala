@@ -115,16 +115,17 @@ class CdmTableStream(name: String,
       prefixes <- ZIO.attempt(azureBlogStorageReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCapturePeriod))).map(stream => enrichWithSchema(stream))
     yield prefixes
 
+  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
+
   private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream.filterZIO(prefix => azureBlogStorageReader.blobExists(storagePath + prefix.name + "model.json"))
       .mapZIO(prefix =>
         for
           promise <- Promise.make[Throwable, ArcaneSchema]
-          fiber <- promise.complete(CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name).getSchema).fork
+          fiber <- promise.complete(CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name).getSchema.retry(retryPolicy)).fork
           _ <- fiber.join
         yield SchemaEnrichedBlob(prefix, promise)
     )
-
 
   def getStream(seb: SchemaEnrichedBlob): ZIO[Any, IOException, MetadataEnrichedReader] =
     azureBlogStorageReader.streamBlobContent(storagePath + seb.blob.name)
@@ -168,6 +169,7 @@ class CdmTableStream(name: String,
           case (e: SourceCleanupRequest, index: Long) => zlogStream(s"Received $index lines frm ${streamData.filePath}, completed file I/O") *> ZStream.succeed(e)
           case (r: DataRow, _) => ZStream.succeed(r)
         })
+
 
 object CdmTableStream:
 
