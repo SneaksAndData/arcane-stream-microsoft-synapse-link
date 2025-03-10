@@ -35,7 +35,7 @@ class IcebergSynapseConsumer(stagingProcessor: StagingProcessor,
    * @return ZSink (stream sink for the stream graph).
    */
   override def consume: ZSink[Any, Throwable, IncomingBatch, Any, Unit] =
-    stagingProcessor.process(toInFlightBatch) >>> mergeProcessor.process >>> disposeBatchProcessor.process >>> lifetimeGuard >>> logResults
+    stagingProcessor.process(toInFlightBatch).filter(_.groupedBySchema.nonEmpty)  >>> mergeProcessor.process >>> disposeBatchProcessor.process >>> lifetimeGuard >>> logResults
 
   private def lifetimeGuard: ZPipeline[Any, Throwable, MergeBatchProcessor#BatchType, MergeBatchProcessor#BatchType] =
     ZPipeline.takeUntil(_ => streamLifetimeService.cancelled)
