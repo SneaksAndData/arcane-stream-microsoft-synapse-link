@@ -120,9 +120,14 @@ class CdmTableStream(name: String,
   private def enrichWithSchema(stream: ZStream[Any, Throwable, StoredBlob]): ZStream[Any, Throwable, SchemaEnrichedBlob] =
     stream.filterZIO(prefix => azureBlogStorageReader.blobExists(storagePath + prefix.name + "model.json"))
       .mapZIO(prefix =>
+
+        val task = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
+          .getSchema
+          .tapErrorCause(e => zlog(s"Failed to read schema from: ${prefix.name}")).retry(retryPolicy)
+
         for
           promise <- Promise.make[Throwable, ArcaneSchema]
-          fiber <- promise.complete(CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name).getSchema.retry(retryPolicy)).fork
+          fiber <- promise.complete(task).fork
           _ <- fiber.join
         yield SchemaEnrichedBlob(prefix, promise)
     )
