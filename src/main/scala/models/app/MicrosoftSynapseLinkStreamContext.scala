@@ -96,7 +96,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
 
   override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
 
-  val stagingCatalog: String = s"${spec.stagingDataSettings.catalog.catalogName}.${spec.stagingDataSettings.catalog.schemaName}"
+  val stagingCatalogName: String = spec.stagingDataSettings.catalog.catalogName
+  val stagingSchemaName: String = spec.stagingDataSettings.catalog.schemaName
 
   val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
   val tableProperties: TablePropertiesSettings = spec.tableProperties
@@ -105,7 +106,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
   val parquetBloomFilterColumns: Array[String] = spec.tableProperties.parquetBloomFilterColumns
   
-  val backfillTableFullName: String = s"$stagingCatalog.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
+  val backfillTableFullName: String = s"$stagingCatalogName.$stagingSchemaName.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
   
   val changeCapturePeriod: Duration = Duration.ofSeconds(spec.sourceSettings.changeCapturePeriodSeconds)
 

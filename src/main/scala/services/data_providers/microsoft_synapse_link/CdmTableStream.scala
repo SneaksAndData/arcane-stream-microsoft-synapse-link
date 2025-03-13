@@ -60,7 +60,7 @@ class CdmTableStream(name: String,
    * @return A stream of rows for this table
    */
   def getPrefixesFromDate(startDate: OffsetDateTime): ZStream[Any, Throwable, SchemaEnrichedBlob] =
-    val streamTask = ZIO.attempt(enrichWithSchema(azureBlogStorageReader.getRootPrefixes(storagePath, startDate)))
+    val streamTask = ZIO.attempt(enrichWithSchema(azureBlogStorageReader.getRootPrefixes(storagePath, startDate, OffsetDateTime.now(ZoneOffset.UTC))))
     ZStream.fromZIO(dropLast(streamTask))
       .flatMap(x => ZStream.fromIterable(x))
       .flatMap(seb => azureBlogStorageReader.streamPrefixes(storagePath + seb.blob.name).withSchema(seb.schemaProvider))
@@ -112,7 +112,7 @@ class CdmTableStream(name: String,
       text <- ZIO.acquireReleaseWith(readerTask)(r => ZIO.succeed(r.close()))(reader => ZIO.attemptBlocking(reader.readLine()))
       _ <- zlog(s"Read latest prefix from changelog.info: $text")
       latestPrefix = OffsetDateTime.parse(text, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX"))
-      prefixes <- ZIO.attempt(azureBlogStorageReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCapturePeriod))).map(stream => enrichWithSchema(stream))
+      prefixes <- ZIO.attempt(azureBlogStorageReader.getRootPrefixes(storagePath, latestPrefix.minus(changeCapturePeriod), latestPrefix)).map(stream => enrichWithSchema(stream))
     yield prefixes
 
   private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)

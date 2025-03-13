@@ -13,7 +13,7 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
-import com.sneaksanddata.arcane.framework.services.cdm.CdmSchemaProvider
+import com.sneaksanddata.arcane.framework.services.cdm.{CdmSchemaProvider, SynapseHookManager}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
@@ -64,7 +64,8 @@ object main extends ZIOAppDefault {
     FrameworkFieldsFilteringService.layer,
     StagingProcessor.layer,
     JdbcMergeServiceClient.layer,
-    DisposeBatchProcessor.layer)
+    DisposeBatchProcessor.layer,
+    SynapseHookManager.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =

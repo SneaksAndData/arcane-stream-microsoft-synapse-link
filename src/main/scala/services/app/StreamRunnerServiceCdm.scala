@@ -38,7 +38,7 @@ private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
     lifetimeService.start()
     for {
       _ <- zlog("Starting the stream runner")
-      _ <- tableManager.cleanupStagingTables(streamContext.stagingCatalog, streamContext.stagingTablePrefix)
+      _ <- tableManager.cleanupStagingTables(streamContext.stagingCatalogName, streamContext.stagingSchemaName, streamContext.stagingTablePrefix)
       _ <- tableManager.createTargetTable
       _ <- tableManager.createBackFillTable
       _ <- builder.create.run(builder.consume)
