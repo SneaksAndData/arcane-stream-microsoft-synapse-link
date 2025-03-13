@@ -24,7 +24,8 @@ type InFlightBatch = ((Iterable[StagedVersionedBatch], Seq[SourceCleanupRequest]
 class IcebergSynapseConsumer(stagingProcessor: StagingProcessor,
                              mergeProcessor: MergeBatchProcessor,
                              disposeBatchProcessor: DisposeBatchProcessor,
-                             streamLifetimeService: StreamLifetimeService)
+                             streamLifetimeService: StreamLifetimeService,
+                             hookManager: HookManager)
   extends BatchConsumer[IncomingBatch]:
 
 
@@ -35,7 +36,7 @@ class IcebergSynapseConsumer(stagingProcessor: StagingProcessor,
    * @return ZSink (stream sink for the stream graph).
    */
   override def consume: ZSink[Any, Throwable, IncomingBatch, Any, Unit] =
-    stagingProcessor.process(toInFlightBatch).filter(_.groupedBySchema.nonEmpty)  >>> mergeProcessor.process >>> disposeBatchProcessor.process >>> lifetimeGuard >>> logResults
+    stagingProcessor.process(toInFlightBatch, hookManager.onBatchStaged).filter(_.groupedBySchema.nonEmpty)  >>> mergeProcessor.process >>> disposeBatchProcessor.process >>> lifetimeGuard >>> logResults
 
   private def lifetimeGuard: ZPipeline[Any, Throwable, MergeBatchProcessor#BatchType, MergeBatchProcessor#BatchType] =
     ZPipeline.takeUntil(_ => streamLifetimeService.cancelled)
@@ -50,8 +51,9 @@ object IcebergSynapseConsumer:
   def apply(stagingProcessor: StagingProcessor,
             mergeProcessor: MergeBatchProcessor,
             disposeBatchProcessor: DisposeBatchProcessor,
-            streamLifetimeService: StreamLifetimeService): IcebergSynapseConsumer =
-    new IcebergSynapseConsumer(stagingProcessor, mergeProcessor, disposeBatchProcessor, streamLifetimeService)
+            streamLifetimeService: StreamLifetimeService,
+            hookManager: HookManager): IcebergSynapseConsumer =
+    new IcebergSynapseConsumer(stagingProcessor, mergeProcessor, disposeBatchProcessor, streamLifetimeService, hookManager)
 
   /**
    * The required environment for the IcebergConsumer.
@@ -61,6 +63,7 @@ object IcebergSynapseConsumer:
     & MergeBatchProcessor
     & StreamLifetimeService
     & DisposeBatchProcessor
+    & HookManager
 
   /**
    * The ZLayer that creates the IcebergConsumer.
@@ -72,5 +75,6 @@ object IcebergSynapseConsumer:
         mergeProcessor <- ZIO.service[MergeBatchProcessor]
         streamLifetimeService <- ZIO.service[StreamLifetimeService]
         disposeBatchProcessor <- ZIO.service[DisposeBatchProcessor]
-      yield IcebergSynapseConsumer(stageProcessor, mergeProcessor, disposeBatchProcessor, streamLifetimeService)
+        hookManager <- ZIO.service[HookManager]
+      yield IcebergSynapseConsumer(stageProcessor, mergeProcessor, disposeBatchProcessor, streamLifetimeService, hookManager)
     }
