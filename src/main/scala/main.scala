@@ -15,7 +15,7 @@ import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.cdm.{CdmSchemaProvider, SynapseHookManager}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
+import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
@@ -65,7 +65,8 @@ object main extends ZIOAppDefault {
     StagingProcessor.layer,
     JdbcMergeServiceClient.layer,
     DisposeBatchProcessor.layer,
-    SynapseHookManager.layer)
+    SynapseHookManager.layer,
+    MutableSchemaCache.layer)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
