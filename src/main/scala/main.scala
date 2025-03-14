@@ -43,6 +43,8 @@ object main extends ZIOAppDefault {
     } yield AzureBlobStorageReader(connectionOptions.account, connectionOptions.endpoint, credentials)
   }
 
+  private val schemaCache = MutableSchemaCache()
+
   private lazy val streamRunner = streamApplication.provide(
     storageExplorerLayer,
     CdmTableStream.layer,
@@ -66,7 +68,7 @@ object main extends ZIOAppDefault {
     JdbcMergeServiceClient.layer,
     DisposeBatchProcessor.layer,
     SynapseHookManager.layer,
-    MutableSchemaCache.layer)
+    ZLayer.succeed(schemaCache))
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
