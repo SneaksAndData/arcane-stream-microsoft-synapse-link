@@ -79,7 +79,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
     new IndexedStagedBatchesImpl(batches, index)
 
   private def createBackfillBatch(tableName: String): Task[StagedBackfillBatch] =
-    for schema <- jdbcMergeServiceClient.getSchemaProvider(tableName).getSchema
+    for schema <- jdbcMergeServiceClient.getSchema(tableName)
     yield backfillSettings.backfillBehavior match
       case BackfillBehavior.Overwrite => SynapseLinkBackfillOverwriteBatch(tableName,
         schema,
