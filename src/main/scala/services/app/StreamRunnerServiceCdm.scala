@@ -38,6 +38,7 @@ private class StreamRunnerServiceCdm(builder: StreamGraphBuilder,
     lifetimeService.start()
     for {
       _ <- zlog("Starting the stream runner")
+      _ <- zlog("Number of rows per group: %s", streamContext.rowsPerGroup.toString)
       _ <- tableManager.cleanupStagingTables(streamContext.stagingCatalogName, streamContext.stagingSchemaName, streamContext.stagingTablePrefix)
       _ <- tableManager.createTargetTable
       _ <- tableManager.createBackFillTable

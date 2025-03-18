@@ -51,7 +51,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with StagingDataSettings
   with GraphExecutionSettings:
 
-  override val rowsPerGroup: Int = spec.rowsPerGroup
+  override val rowsPerGroup: Int = System.getenv().getOrDefault("STREAMCONTEXT__ROWS_PER_GROUP", spec.rowsPerGroup.toString).toInt
+  
   override val lookBackInterval: Duration = Duration.ofSeconds(spec.lookBackInterval)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration = Duration.ofSeconds(spec.groupingIntervalSeconds)
