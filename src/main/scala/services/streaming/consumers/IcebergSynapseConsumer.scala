@@ -11,7 +11,7 @@ import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeServic
 import com.sneaksanddata.arcane.framework.services.base.SchemaProvider
 import com.sneaksanddata.arcane.framework.services.consumers.{MergeableBatch, StagedVersionedBatch}
 import com.sneaksanddata.arcane.framework.services.streaming.base.*
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
 import zio.stream.{ZPipeline, ZSink}
 import zio.{Chunk, Schedule, ZIO, ZLayer}
