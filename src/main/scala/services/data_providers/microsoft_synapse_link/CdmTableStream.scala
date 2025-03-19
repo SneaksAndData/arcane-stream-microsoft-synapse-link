@@ -121,7 +121,7 @@ class CdmTableStream(name: String,
     stream.filterZIO(prefix => azureBlogStorageReader.blobExists(storagePath + prefix.name + "model.json"))
       .mapZIO(prefix =>
 
-        val task = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name)
+        val task = CdmSchemaProvider(reader, (storagePath + prefix.name).toHdfsPath, name, None)
           .getSchema
           .tapErrorCause(e => zlog(s"Failed to read schema from: ${prefix.name}")).retry(retryPolicy)
 

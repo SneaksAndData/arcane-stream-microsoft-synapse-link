@@ -130,7 +130,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
       case scala.util.Failure(e) => throw new IllegalArgumentException(s"Invalid backfill start date: $str. The backfill start date must be in the format 'yyyy-MM-dd'T'HH.mm.ss'Z'", e)
 
 given Conversion[StreamSpec, CdmTableSettings] with
-  def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
+  def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation, None)
 
 
 object MicrosoftSynapseLinkStreamContext {
@@ -160,7 +160,7 @@ object MicrosoftSynapseLinkStreamContext {
 
   private def combineSettingsLayer(spec: StreamSpec): ZLayer[Any, Throwable, Environment] =
     val context = MicrosoftSynapseLinkStreamContext(spec)
-    val cdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation)
+    val cdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation, None)
 
     ZLayer.succeed(context) ++ ZLayer.succeed(cdmTableSettings)
 }

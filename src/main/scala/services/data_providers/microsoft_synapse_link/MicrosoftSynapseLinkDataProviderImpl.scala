@@ -10,7 +10,7 @@ import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.settings.*
 import com.sneaksanddata.arcane.framework.services.base.TableManager
 import com.sneaksanddata.arcane.framework.services.consumers.*
-import com.sneaksanddata.arcane.framework.services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
+import com.sneaksanddata.arcane.framework.services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder, IcebergCatalogSettings}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.streaming.base.HookManager
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
@@ -46,7 +46,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            stagingDataSettings: StagingDataSettings,
                                            targetTableSettings: TargetTableSettings,
                                            icebergCatalogSettings: IcebergCatalogSettings,
-                                           catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+                                           catalogWriterBuilder: CatalogWriterBuilder[RESTCatalog, Table, Schema],
                                            disposeBatchProcessor: DisposeBatchProcessor,
                                            hookManager: HookManager) extends MicrosoftSynapseLinkDataProvider:
 
@@ -54,7 +54,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
   private val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
   private val mergeProcessor = MergeBatchProcessor(jdbcMergeServiceClient, jdbcMergeServiceClient, tempTargetTableSettings)
   
-  private val stagingProcessor = StagingProcessor(stagingDataSettings, tablePropertiesSettings, tempTargetTableSettings, icebergCatalogSettings, catalogWriter)
+  private val stagingProcessor = StagingProcessor(stagingDataSettings, tablePropertiesSettings, tempTargetTableSettings, icebergCatalogSettings, catalogWriterBuilder)
 
   def requestBackfill: Task[BackfillBatchInFlight] =
 
@@ -107,7 +107,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
     & StagingDataSettings
     & TargetTableSettings
     & IcebergCatalogSettings
-    & CatalogWriter[RESTCatalog, Table, Schema] 
+    & CatalogWriterBuilder[RESTCatalog, Table, Schema] 
     & HookManager
 
   def apply(cdmTableStream: CdmTableStream,
@@ -123,7 +123,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
             stagingDataSettings: StagingDataSettings,
             targetTableSettings: TargetTableSettings,
             icebergCatalogSettings: IcebergCatalogSettings,
-            catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+            catalogWriterBuilder: CatalogWriterBuilder[RESTCatalog, Table, Schema],
             disposeBatchProcessor: DisposeBatchProcessor,
             hookManager: HookManager): MicrosoftSynapseLinkDataProviderImpl =
     new MicrosoftSynapseLinkDataProviderImpl(
@@ -140,7 +140,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
       stagingDataSettings,
       targetTableSettings,
       icebergCatalogSettings,
-      catalogWriter,
+      catalogWriterBuilder,
       disposeBatchProcessor,
       hookManager)
 
@@ -162,7 +162,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
         stagingDataSettings <- ZIO.service[StagingDataSettings]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
-        catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+        catalogWriterBuilder <- ZIO.service[CatalogWriterBuilder[RESTCatalog, Table, Schema]]
         hookManager <- ZIO.service[HookManager]
       yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream,
         streamContext,
@@ -177,7 +177,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
         stagingDataSettings,
         targetTableSettings,
         icebergCatalogSettings,
-        catalogWriter,
+        catalogWriterBuilder,
         disposeBatchProcessor,
         hookManager)
     }
