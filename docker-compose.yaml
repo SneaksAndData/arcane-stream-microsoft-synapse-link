@@ -96,6 +96,7 @@ services:
       - "10.1.0.6"
       - "--blobPort"
       - "10001"
+      - "--skipApiVersionCheck"
     ports:
       - "10001:10001"
   create-cdm-container:

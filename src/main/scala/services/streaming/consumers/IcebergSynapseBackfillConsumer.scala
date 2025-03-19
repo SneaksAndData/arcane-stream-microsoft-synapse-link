@@ -37,7 +37,6 @@ class IcebergSynapseBackfillConsumer(mergeServiceClient: MergeServiceClient,
       _ <- zlog(s"Consuming backfill batch $batch")
       _ <- tableManager.migrateSchema(batch.schema, targetTableSettings.targetTableFullName)
       _ <- mergeServiceClient.applyBatch(batch)
-      _ <- disposeServiceClient.disposeBatch(batch)
       _ <- zlog(s"Target table has been overwritten")
     yield ()
 
