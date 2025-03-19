@@ -13,7 +13,7 @@ import com.sneaksanddata.arcane.framework.services.consumers.*
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder, IcebergCatalogSettings}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.streaming.base.HookManager
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}

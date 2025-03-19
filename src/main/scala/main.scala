@@ -14,15 +14,15 @@ import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, Ver
 import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.cdm.{CdmSchemaProvider, SynapseHookManager}
-import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.lakehouse.{IcebergS3CatalogWriter, IcebergS3CatalogWriterBuilder}
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.{CdmTableStream, MicrosoftSynapseLinkDataProviderImpl}
 import zio.*
 import zio.logging.backend.SLF4J
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService as FrameworkFieldsFilteringService
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 
 
 object main extends ZIOAppDefault {
@@ -52,7 +52,7 @@ object main extends ZIOAppDefault {
     MicrosoftSynapseLinkStreamContext.layer,
     PosixStreamLifetimeService.layer,
     StreamRunnerServiceCdm.layer,
-    IcebergS3CatalogWriter.layer,
+    IcebergS3CatalogWriterBuilder.layer,
     IcebergSynapseConsumer.layer,
     MergeBatchProcessor.layer,
     CdmGroupingProcessor.layer,
