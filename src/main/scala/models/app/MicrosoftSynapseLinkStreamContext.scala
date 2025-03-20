@@ -9,8 +9,8 @@ import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
 import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
-import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCredential
+import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
 import zio.ZLayer
 
