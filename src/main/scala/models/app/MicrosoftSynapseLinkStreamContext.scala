@@ -62,7 +62,10 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val catalogUri: String = spec.stagingDataSettings.catalog.catalogUri
   override val stagingLocation: Option[String] = spec.stagingDataSettings.dataLocation
 
-  override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+  override val additionalProperties: Map[String, String] = sys.env.get("ARCANE_FRAMEWORK__CATALOG_NO_AUTH") match
+    case Some(_) => Map()
+    case None => IcebergCatalogCredential.oAuth2Properties
+
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
