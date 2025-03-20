@@ -16,7 +16,7 @@ case class CatalogSettings(namespace: String,
 /**
  * The configuration of staging data.
  */
-case class StagingDataSettings(tableNamePrefix: String, catalog: CatalogSettings, dataLocation: Option[String]) derives ReadWriter
+case class StagingDataSettings(tableNamePrefix: String, catalog: CatalogSettings, dataLocation: Option[String] = None) derives ReadWriter
 
 /**
  * The configuration of Iceberg sink.
