@@ -46,7 +46,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
                                            stagingDataSettings: StagingDataSettings,
                                            targetTableSettings: TargetTableSettings,
                                            icebergCatalogSettings: IcebergCatalogSettings,
-                                           catalogWriterBuilder: CatalogWriterBuilder[RESTCatalog, Table, Schema],
+                                           catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                                            disposeBatchProcessor: DisposeBatchProcessor,
                                            hookManager: HookManager) extends MicrosoftSynapseLinkDataProvider:
 
@@ -54,7 +54,7 @@ class MicrosoftSynapseLinkDataProviderImpl(cdmTableStream: CdmTableStream,
   private val tempTargetTableSettings = BackfillTempTableSettings(backFillTableName)
   private val mergeProcessor = MergeBatchProcessor(jdbcMergeServiceClient, jdbcMergeServiceClient, tempTargetTableSettings)
   
-  private val stagingProcessor = StagingProcessor(stagingDataSettings, tablePropertiesSettings, tempTargetTableSettings, icebergCatalogSettings, catalogWriterBuilder)
+  private val stagingProcessor = StagingProcessor(stagingDataSettings, tablePropertiesSettings, tempTargetTableSettings, icebergCatalogSettings, catalogWriter)
 
   def requestBackfill: Task[BackfillBatchInFlight] =
 
@@ -107,7 +107,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
     & StagingDataSettings
     & TargetTableSettings
     & IcebergCatalogSettings
-    & CatalogWriterBuilder[RESTCatalog, Table, Schema] 
+    & CatalogWriter[RESTCatalog, Table, Schema] 
     & HookManager
 
   def apply(cdmTableStream: CdmTableStream,
@@ -123,7 +123,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
             stagingDataSettings: StagingDataSettings,
             targetTableSettings: TargetTableSettings,
             icebergCatalogSettings: IcebergCatalogSettings,
-            catalogWriterBuilder: CatalogWriterBuilder[RESTCatalog, Table, Schema],
+            catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
             disposeBatchProcessor: DisposeBatchProcessor,
             hookManager: HookManager): MicrosoftSynapseLinkDataProviderImpl =
     new MicrosoftSynapseLinkDataProviderImpl(
@@ -140,7 +140,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
       stagingDataSettings,
       targetTableSettings,
       icebergCatalogSettings,
-      catalogWriterBuilder,
+      catalogWriter,
       disposeBatchProcessor,
       hookManager)
 
@@ -162,7 +162,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
         stagingDataSettings <- ZIO.service[StagingDataSettings]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
-        catalogWriterBuilder <- ZIO.service[CatalogWriterBuilder[RESTCatalog, Table, Schema]]
+        catalogWriter<- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         hookManager <- ZIO.service[HookManager]
       yield MicrosoftSynapseLinkDataProviderImpl(cdmTableStream,
         streamContext,
@@ -177,7 +177,7 @@ object MicrosoftSynapseLinkDataProviderImpl:
         stagingDataSettings,
         targetTableSettings,
         icebergCatalogSettings,
-        catalogWriterBuilder,
+        catalogWriter,
         disposeBatchProcessor,
         hookManager)
     }

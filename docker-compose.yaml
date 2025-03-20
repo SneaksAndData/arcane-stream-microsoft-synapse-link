@@ -45,45 +45,7 @@ services:
         mc alias set e2e "http://10.1.0.2:9000" minioadmin minioadmin
         mc admin info e2e
         mc mb e2e/tmp && mc mb e2e/lakehouse
-  # https://github.com/databricks/docker-spark-iceberg/blob/main/docker-compose.yml
-  # note there is no publicly available image for Polaris yet
-  # follow guidelines from https://github.com/apache/polaris?tab=readme-ov-file#more-build-and-run-options to build one
-  polaris:
-    container_name: polaris
-    image: ghcr.io/sneaksanddata/apache-polaris:latest
-    restart: always
-    depends_on:
-      prepare_buckets:
-        condition: service_completed_successfully
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.4
-    ports:
-      - "8181:8181"
-      - "8182:8182"
-    environment:
-      AWS_REGION: us-east-1
-      AWS_ENDPOINT_URL_S3: http://10.1.0.2:9000
-      AWS_ENDPOINT_URL_STS: http://10.1.0.2:9000
-      # add aws keys as dropwizard config
-      JAVA_OPTS: -Ddw.awsAccessKey=minioadmin -Ddw.awsSecretKey=minioadmin
 
-    healthcheck:
-      test: ["CMD", "curl", "http://localhost:8182/healthcheck"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-  create-polaris-catalog:
-    image: curlimages/curl
-    networks:
-      mesh:
-        ipv4_address: 10.1.0.5
-    depends_on:
-      polaris:
-        condition: service_healthy
-    volumes:
-      - ./create-polaris-catalog.sh:/create-polaris-catalog.sh
-    command: ["/bin/sh", "/create-polaris-catalog.sh"]
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     restart: always
@@ -111,7 +73,7 @@ services:
     command: [ "/bin/sh", "-c", "pip install azure-storage-blob requests && python /populate-cdm-container.py" ]
   trino:
     depends_on:
-      polaris:
+      lakekeeper:
         condition: service_healthy
     networks:
       mesh:
@@ -136,3 +98,108 @@ services:
       - /etc/envoy/envoy.yaml
     volumes:
       - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
+  lakekeeper:
+    image: quay.io/lakekeeper/catalog:latest-main
+    environment:
+#      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:postgres@10.1.0.15:5432/postgres
+      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:postgres@10.1.0.15:5432/postgres
+      - RUST_LOG=trace,axum=trace,sqlx=trace,iceberg-catalog=trace
+    command: [ "serve" ]
+    healthcheck:
+      test: [ "CMD", "/home/nonroot/iceberg-catalog", "healthcheck" ]
+      interval: 1s
+      timeout: 10s
+      retries: 30
+    depends_on:
+      lakekeeper_migrate:
+        condition: service_completed_successfully
+      lakekeeper_db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.11
+    ports:
+      - "8181:8181"
+  lakekeeper_migrate:
+    image: quay.io/lakekeeper/catalog:latest-main
+    environment:
+#      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:postgres@10.1.0.15:5432/postgres
+      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:postgres@10.1.0.15:5432/postgres
+      - RUST_LOG=info
+    restart: "no"
+    command: [ "migrate" ]
+    depends_on:
+      lakekeeper_db:
+        condition: service_healthy
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.12
+  lakekeeper_bootstrap:
+    image: curlimages/curl
+    depends_on:
+      lakekeeper:
+        condition: service_healthy
+    restart: "no"
+    command:
+      - -w
+      - "%{http_code}"
+      - "-X"
+      - "POST"
+      - "-v"
+      - "http://10.1.0.11:8181/management/v1/bootstrap"
+      - "-H"
+      - "Content-Type: application/json"
+      - "--data"
+      - '{"accept-terms-of-use": true}'
+#      - "-o"
+#      - "/dev/null"
+      # - "--fail-with-body"
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.13
+  lakekeeper_initial_warehouse:
+    image: curlimages/curl
+    depends_on:
+      lakekeeper:
+        condition: service_healthy
+      lakekeeper_bootstrap:
+        condition: service_completed_successfully
+    restart: "no"
+    command:
+      - -w
+      - "%{http_code}"
+      - "-X"
+      - "POST"
+      - "-v"
+      - "http://10.1.0.11:8181/management/v1/warehouse"
+      - "-H"
+      - "Content-Type: application/json"
+      - "--data"
+      - "@create-default-warehouse.json"
+      - "-o"
+      - "/dev/null"
+      # - "--fail-with-body"
+    volumes:
+      - ./create-default-warehouse.json:/home/curl_user/create-default-warehouse.json
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.14
+  lakekeeper_db:
+    image: bitnami/postgresql:16.3.0
+    environment:
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=postgres
+      - POSTGRESQL_DATABASE=postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -p 5432 -d postgres" ]
+      interval: 2s
+      timeout: 10s
+      retries: 2
+    networks:
+      mesh:
+        ipv4_address: 10.1.0.15
+
