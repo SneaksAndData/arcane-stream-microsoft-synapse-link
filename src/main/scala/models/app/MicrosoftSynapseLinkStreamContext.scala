@@ -9,6 +9,7 @@ import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
 import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
 import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
+import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
 import zio.ZLayer
@@ -61,7 +62,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val catalogUri: String = spec.stagingDataSettings.catalog.catalogUri
   override val stagingLocation: Option[String] = spec.stagingDataSettings.dataLocation
 
-  override val additionalProperties: Map[String, String] = Map() //IcebergCatalogCredential.oAuth2Properties
+  override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
   override val connectionUrl: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
