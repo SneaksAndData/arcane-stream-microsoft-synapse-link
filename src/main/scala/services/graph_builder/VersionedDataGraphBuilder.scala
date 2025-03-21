@@ -104,7 +104,6 @@ object VersionedDataGraphBuilder:
   def layer: ZLayer[Environment, Nothing, VersionedDataGraphBuilder] =
     ZLayer {
       for
-        _ <- zlog("Running in streaming mode")
         sss <- ZIO.service[VersionedDataGraphBuilderSettings]
         dp <- ZIO.service[CdmTableStream]
         ls <- ZIO.service[StreamLifetimeService]
