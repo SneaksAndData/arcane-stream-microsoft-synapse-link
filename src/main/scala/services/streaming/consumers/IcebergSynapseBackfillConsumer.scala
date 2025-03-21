@@ -1,11 +1,10 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.consumers
 
-import services.data_providers.microsoft_synapse_link.BackfillBatchInFlight
-
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
 import com.sneaksanddata.arcane.framework.services.base.{DisposeServiceClient, MergeServiceClient, TableManager}
+import com.sneaksanddata.arcane.framework.services.consumers.StagedBackfillOverwriteBatch
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchConsumer
 import zio.stream.ZSink
@@ -19,22 +18,27 @@ class IcebergSynapseBackfillConsumer(mergeServiceClient: MergeServiceClient,
                                      reader: AzureBlobStorageReader,
                                      targetTableSettings: TargetTableSettings,
                                      tableManager: TableManager)
-  extends BatchConsumer[BackfillBatchInFlight]:
-
-  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
+  extends BatchConsumer[StagedBackfillOverwriteBatch|Unit]:
 
   /**
    * Returns the sink that consumes the batch.
    *
    * @return ZSink (stream sink for the stream graph).
    */
-  override def consume: ZSink[Any, Throwable, BackfillBatchInFlight, Any, Unit] =
+  override def consume: ZSink[Any, Throwable, StagedBackfillOverwriteBatch|Unit, Any, Unit] =
     ZSink.foreach(batch => consumeBackfillBatch(batch))
 
 
-  private def consumeBackfillBatch(batch: BackfillBatchInFlight): Task[Unit] =
+  private def consumeBackfillBatch(batch: StagedBackfillOverwriteBatch|Unit): Task[Unit] =
     for
       _ <- zlog(s"Consuming backfill batch $batch")
+      _ <- batch match
+        case batch: StagedBackfillOverwriteBatch => consumeBackfillBatch(batch)
+        case _ => ZIO.unit
+    yield ()
+
+  private def consumeBackfillBatch(batch: StagedBackfillOverwriteBatch): Task[Unit] =
+    for
       _ <- tableManager.migrateSchema(batch.schema, targetTableSettings.targetTableFullName)
       _ <- mergeServiceClient.applyBatch(batch)
       _ <- zlog(s"Target table has been overwritten")
