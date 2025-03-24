@@ -10,7 +10,7 @@ import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.settings.*
 import com.sneaksanddata.arcane.framework.services.base.TableManager
 import com.sneaksanddata.arcane.framework.services.consumers.*
-import com.sneaksanddata.arcane.framework.services.lakehouse.base.{CatalogWriter, CatalogWriterBuilder, IcebergCatalogSettings}
+import com.sneaksanddata.arcane.framework.services.lakehouse.base.{CatalogWriter, IcebergCatalogSettings}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.streaming.base.HookManager
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}

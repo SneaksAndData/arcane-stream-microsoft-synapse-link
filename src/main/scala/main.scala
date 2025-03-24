@@ -23,6 +23,7 @@ import zio.logging.backend.SLF4J
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService as FrameworkFieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.Services
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.MicrosoftSynapseLinkBackfillDataProvider
 
 
@@ -69,7 +70,8 @@ object main extends ZIOAppDefault {
     JdbcMergeServiceClient.layer,
     DisposeBatchProcessor.layer,
     SynapseHookManager.layer,
-    ZLayer.succeed(schemaCache))
+    ZLayer.succeed(schemaCache),
+    Services.restCatalog)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
