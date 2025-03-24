@@ -8,6 +8,7 @@ import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSyna
 import services.streaming.processors.*
 
 import com.azure.storage.common.StorageSharedKeyCredential
+import com.sneaksanddata.arcane.framework.excpetions.StreamFailException
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
@@ -23,6 +24,7 @@ import zio.logging.backend.SLF4J
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService as FrameworkFieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.Services
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.MicrosoftSynapseLinkBackfillDataProvider
 
 
@@ -45,6 +47,11 @@ object main extends ZIOAppDefault {
   }
 
   private val schemaCache = MutableSchemaCache()
+
+  private def getExitCode(exception: Throwable): zio.ExitCode =
+    exception match
+      case e: StreamFailException => zio.ExitCode(2)
+      case _ => zio.ExitCode(1)
 
   private lazy val streamRunner = streamApplication.provide(
     storageExplorerLayer,
@@ -69,7 +76,8 @@ object main extends ZIOAppDefault {
     JdbcMergeServiceClient.layer,
     DisposeBatchProcessor.layer,
     SynapseHookManager.layer,
-    ZLayer.succeed(schemaCache))
+    ZLayer.succeed(schemaCache),
+    Services.restCatalog)
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
@@ -78,7 +86,7 @@ object main extends ZIOAppDefault {
     app.catchAllCause { cause =>
       for {
         _ <- zlog(s"Application failed: ${cause.squashTrace.getMessage}", cause)
-        _ <- exit(zio.ExitCode(1))
+        _ <- exit(getExitCode(cause.squashTrace))
       } yield ()
     }
 }
