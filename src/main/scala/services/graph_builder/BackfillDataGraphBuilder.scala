@@ -1,13 +1,14 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.graph_builder
 
-import services.data_providers.microsoft_synapse_link.{DataStreamElement, MicrosoftSynapseLinkBackfillDataProvider}
+import services.data_providers.microsoft_synapse_link.DataStreamElement
 import services.streaming.consumers.IcebergSynapseBackfillConsumer
 
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.services.app.base.StreamLifetimeService
 import com.sneaksanddata.arcane.framework.services.consumers.StagedBackfillOverwriteBatch
 import com.sneaksanddata.arcane.framework.services.streaming.base.{BatchProcessor, StreamGraphBuilder}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.MicrosoftSynapseLinkBackfillDataProvider
 import zio.stream.{ZSink, ZStream}
 import zio.{Chunk, ZIO, ZLayer}
 

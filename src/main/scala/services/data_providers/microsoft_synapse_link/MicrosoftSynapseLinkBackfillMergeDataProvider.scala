@@ -15,6 +15,7 @@ import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClien
 import com.sneaksanddata.arcane.framework.services.streaming.base.HookManager
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.{BackfillBatchInFlight, MicrosoftSynapseLinkBackfillDataProvider}
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
 import zio.{Task, ZIO, ZLayer}
@@ -28,7 +29,7 @@ class MicrosoftSynapseLinkBackfillMergeDataProvider(cdmTableStream: CdmTableStre
                                                         mergeProcessor: MergeBatchProcessor,
                                                         hookManager: HookManager) extends MicrosoftSynapseLinkBackfillDataProvider:
 
-  def requestBackfill: Task[StagedBackfillOverwriteBatch|Unit] =
+  def requestBackfill: Task[BackfillBatchInFlight] =
     for
       _ <- backfillSettings.backfillBehavior match
         case BackfillBehavior.Merge => ZIO.unit

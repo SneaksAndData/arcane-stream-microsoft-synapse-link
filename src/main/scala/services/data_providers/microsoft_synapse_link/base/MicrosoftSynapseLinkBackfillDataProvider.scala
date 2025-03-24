@@ -1,14 +1,21 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
-package services.data_providers.microsoft_synapse_link
+package services.data_providers.microsoft_synapse_link.base
+
+import models.app.MicrosoftSynapseLinkStreamContext
+import services.data_providers.microsoft_synapse_link.{MicrosoftSynapseLinkBackfillMergeDataProvider, MicrosoftSynapseLinkBackfillOverwriteDataProvider}
 
 import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings}
 import com.sneaksanddata.arcane.framework.services.consumers.StagedBackfillOverwriteBatch
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.MicrosoftSynapseLinkStreamContext
 import zio.{Task, ZIO, ZLayer}
 
+type BackfillBatchInFlight = StagedBackfillOverwriteBatch | Unit
+
+/**
+ * Provides the backfill batch if the stream is running in the backfill mode.
+ */
 trait MicrosoftSynapseLinkBackfillDataProvider:
 
-  def requestBackfill: Task[StagedBackfillOverwriteBatch | Unit]
+  def requestBackfill: Task[BackfillBatchInFlight]
   
   
 object MicrosoftSynapseLinkBackfillDataProvider:

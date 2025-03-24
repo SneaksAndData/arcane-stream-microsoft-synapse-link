@@ -17,12 +17,13 @@ import com.sneaksanddata.arcane.framework.services.cdm.{CdmSchemaProvider, Synap
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.{CdmTableStream, MicrosoftSynapseLinkBackfillDataProvider, MicrosoftSynapseLinkBackfillMergeDataProvider, MicrosoftSynapseLinkBackfillOverwriteDataProvider}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.{CdmTableStream, MicrosoftSynapseLinkBackfillMergeDataProvider, MicrosoftSynapseLinkBackfillOverwriteDataProvider}
 import zio.*
 import zio.logging.backend.SLF4J
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService as FrameworkFieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.MicrosoftSynapseLinkBackfillDataProvider
 
 
 object main extends ZIOAppDefault {

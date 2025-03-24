@@ -7,6 +7,7 @@ import com.sneaksanddata.arcane.framework.services.base.{DisposeServiceClient, M
 import com.sneaksanddata.arcane.framework.services.consumers.StagedBackfillOverwriteBatch
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchConsumer
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.BackfillBatchInFlight
 import zio.stream.ZSink
 import zio.{Schedule, Task, ZIO, ZLayer}
 
@@ -18,18 +19,18 @@ class IcebergSynapseBackfillConsumer(mergeServiceClient: MergeServiceClient,
                                      reader: AzureBlobStorageReader,
                                      targetTableSettings: TargetTableSettings,
                                      tableManager: TableManager)
-  extends BatchConsumer[StagedBackfillOverwriteBatch|Unit]:
+  extends BatchConsumer[BackfillBatchInFlight]:
 
   /**
    * Returns the sink that consumes the batch.
    *
    * @return ZSink (stream sink for the stream graph).
    */
-  override def consume: ZSink[Any, Throwable, StagedBackfillOverwriteBatch|Unit, Any, Unit] =
+  override def consume: ZSink[Any, Throwable, BackfillBatchInFlight, Any, Unit] =
     ZSink.foreach(batch => consumeBackfillBatch(batch))
 
 
-  private def consumeBackfillBatch(batch: StagedBackfillOverwriteBatch|Unit): Task[Unit] =
+  private def consumeBackfillBatch(batch: BackfillBatchInFlight): Task[Unit] =
     for
       _ <- zlog(s"Consuming backfill batch $batch")
       _ <- batch match
