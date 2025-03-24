@@ -1,13 +1,13 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package services.streaming.consumers
 
-import services.data_providers.microsoft_synapse_link.BackfillBatchInFlight
-
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.*
 import com.sneaksanddata.arcane.framework.models.settings.TargetTableSettings
 import com.sneaksanddata.arcane.framework.services.base.{DisposeServiceClient, MergeServiceClient, TableManager}
+import com.sneaksanddata.arcane.framework.services.consumers.StagedBackfillOverwriteBatch
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.base.BatchConsumer
+import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.BackfillBatchInFlight
 import zio.stream.ZSink
 import zio.{Schedule, Task, ZIO, ZLayer}
 
@@ -21,8 +21,6 @@ class IcebergSynapseBackfillConsumer(mergeServiceClient: MergeServiceClient,
                                      tableManager: TableManager)
   extends BatchConsumer[BackfillBatchInFlight]:
 
-  private val retryPolicy = Schedule.exponential(Duration.ofSeconds(1)) && Schedule.recurs(10)
-
   /**
    * Returns the sink that consumes the batch.
    *
@@ -35,6 +33,13 @@ class IcebergSynapseBackfillConsumer(mergeServiceClient: MergeServiceClient,
   private def consumeBackfillBatch(batch: BackfillBatchInFlight): Task[Unit] =
     for
       _ <- zlog(s"Consuming backfill batch $batch")
+      _ <- batch match
+        case batch: StagedBackfillOverwriteBatch => consumeBackfillBatch(batch)
+        case _ => ZIO.unit
+    yield ()
+
+  private def consumeBackfillBatch(batch: StagedBackfillOverwriteBatch): Task[Unit] =
+    for
       _ <- tableManager.migrateSchema(batch.schema, targetTableSettings.targetTableFullName)
       _ <- mergeServiceClient.applyBatch(batch)
       _ <- zlog(s"Target table has been overwritten")
