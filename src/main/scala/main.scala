@@ -8,6 +8,7 @@ import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSyna
 import services.streaming.processors.*
 
 import com.azure.storage.common.StorageSharedKeyCredential
+import com.sneaksanddata.arcane.framework.excpetions.StreamFailException
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
@@ -47,6 +48,11 @@ object main extends ZIOAppDefault {
 
   private val schemaCache = MutableSchemaCache()
 
+  private def getExitCode(exception: Throwable): zio.ExitCode =
+    exception match
+      case e: StreamFailException => zio.ExitCode(2)
+      case _ => zio.ExitCode(1)
+
   private lazy val streamRunner = streamApplication.provide(
     storageExplorerLayer,
     CdmTableStream.layer,
@@ -80,7 +86,7 @@ object main extends ZIOAppDefault {
     app.catchAllCause { cause =>
       for {
         _ <- zlog(s"Application failed: ${cause.squashTrace.getMessage}", cause)
-        _ <- exit(zio.ExitCode(1))
+        _ <- exit(getExitCode(cause.squashTrace))
       } yield ()
     }
 }
