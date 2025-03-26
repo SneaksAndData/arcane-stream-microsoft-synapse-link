@@ -34,10 +34,10 @@ jobs:
         with:
           java-version: temurin:1.23.0.1
       - name: Build the Docker Compose stack
-        if: always()
         run: |
           docker compose up --quiet-pull -d
       - name: Get Compose Logs
+        if: always()
         run: docker compose logs
       - name: Build and test
         env:
