@@ -60,15 +60,6 @@ services:
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
 ##  http-proxy:
-##    networks:
-##      mesh:
-##        ipv4_address: 10.1.0.10
-##    extra_hosts:
-##      - "localhost:10.1.0.10"
-##    ports:
-##      - "9004:9004"
-##      - "9005:9005"
-##      - "443:443"
 ##    image: "envoyproxy/envoy:v1.31.2"
 ##    command:
 ##      - envoy
@@ -130,12 +121,14 @@ services:
   lakekeeper_db:
     image: bitnami/postgresql:16.3.0
     network_mode: host
+    restart: always
     environment:
       - POSTGRESQL_USERNAME=postgres
       - POSTGRESQL_PASSWORD=postgres
       - POSTGRESQL_DATABASE=postgres
+      - PGHOST=localhost
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -p 5432 -d postgres" ]
       interval: 2s
       timeout: 30s
-      retries: 2
+      retries: 8

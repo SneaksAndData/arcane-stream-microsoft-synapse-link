@@ -1,7 +1,7 @@
 admin:
   address:
     socket_address:
-      address: 10.1.0.10
+      address: localhost
       port_value: 9004
 layered_runtime:
   layers:
@@ -66,6 +66,6 @@ static_resources:
                 stat_prefix: dynamic_forward_proxy_upgrade
       address:
         socket_address:
-          address: 10.1.0.10
-          port_value: 9005
+          address: localhost
+          port_value: 9005    
       traffic_direction: OUTBOUND
