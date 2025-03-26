@@ -76,7 +76,6 @@ services:
       - LAKEKEEPER__METRICS_PORT=20002
       - LAKEKEEPER__BASE_URI=http://localhost:20001
       - ICEBERG_REST__BASE_URI=http://localhost:20001
-      - LAKEKEEPER__BIND_IP=http://localhost:20001
       - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:postgres@localhost:5432/postgres
       - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:postgres@localhost:5432/postgres
       - RUST_LOG=trace,axum=trace,sqlx=trace,iceberg-catalog=trace
