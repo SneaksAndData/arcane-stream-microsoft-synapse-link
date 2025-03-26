@@ -34,7 +34,9 @@ jobs:
         with:
           java-version: temurin:1.23.0.1
       - name: Build the Docker Compose stack
-        run: docker compose up --quiet-pull -d > /dev/null 2>&1 && docker compose logs --follow
+        run: |
+          docker compose up --quiet-pull -d
+          docker compose logs
       - name: Build and test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
