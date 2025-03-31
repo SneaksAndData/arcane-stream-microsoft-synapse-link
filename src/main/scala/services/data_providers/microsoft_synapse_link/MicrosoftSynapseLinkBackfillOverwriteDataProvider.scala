@@ -18,7 +18,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.transfor
 import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.MicrosoftSynapseLinkBackfillDataProvider
 import org.apache.iceberg.rest.RESTCatalog
 import org.apache.iceberg.{Schema, Table}
-import zio.{Task, ZIO, ZLayer}
+import zio.{Reloadable, Task, ZIO, ZLayer}
 
 
 case class BackfillTempTableSettings(override val targetTableFullName: String) extends TargetTableSettings:
@@ -42,7 +42,7 @@ class MicrosoftSynapseLinkBackfillOverwriteDataProvider(cdmTableStream: CdmTable
                                                         stagingDataSettings: StagingDataSettings,
                                                         targetTableSettings: TargetTableSettings,
                                                         icebergCatalogSettings: IcebergCatalogSettings,
-                                                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+                                                        catalogWriter: Reloadable[CatalogWriter[RESTCatalog, Table, Schema]],
                                                         disposeBatchProcessor: DisposeBatchProcessor,
                                                         hookManager: HookManager) extends MicrosoftSynapseLinkBackfillDataProvider:
 
@@ -58,7 +58,7 @@ class MicrosoftSynapseLinkBackfillOverwriteDataProvider(cdmTableStream: CdmTable
         case BackfillBehavior.Merge => ZIO.die(new IllegalArgumentException("Running backfill merge in overwrite runner"))
         case BackfillBehavior.Overwrite => ZIO.unit
       _ <- zlog(s"Starting backfill process. Backfill behavior: ${backfillSettings.backfillBehavior}")
-      cleanupRequests <- backfillStream.runDrain
+      _ <- backfillStream.runDrain
       _ <- zlog("Backfill process completed")
       backFillCompletionBatch <- createBackfillBatch(backFillTableName)
     yield backFillCompletionBatch
@@ -100,7 +100,7 @@ object MicrosoftSynapseLinkBackfillOverwriteDataProvider:
     & StagingDataSettings
     & TargetTableSettings
     & IcebergCatalogSettings
-    & CatalogWriter[RESTCatalog, Table, Schema] 
+    & Reloadable[CatalogWriter[RESTCatalog, Table, Schema]] 
     & HookManager
 
   def apply(cdmTableStream: CdmTableStream,
@@ -116,7 +116,7 @@ object MicrosoftSynapseLinkBackfillOverwriteDataProvider:
             stagingDataSettings: StagingDataSettings,
             targetTableSettings: TargetTableSettings,
             icebergCatalogSettings: IcebergCatalogSettings,
-            catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
+            catalogWriter: Reloadable[CatalogWriter[RESTCatalog, Table, Schema]],
             disposeBatchProcessor: DisposeBatchProcessor,
             hookManager: HookManager): MicrosoftSynapseLinkBackfillOverwriteDataProvider =
     new MicrosoftSynapseLinkBackfillOverwriteDataProvider(
@@ -146,7 +146,6 @@ object MicrosoftSynapseLinkBackfillOverwriteDataProvider:
         groupingProcessor <- ZIO.service[CdmGroupingProcessor]
         tableManager <- ZIO.service[TableManager]
         sinkSettings <- ZIO.service[TargetTableSettings]
-        stageProcessor <- ZIO.service[StagingProcessor]
         tablePropertiesSettings <- ZIO.service[TablePropertiesSettings]
         fieldFilteringProcessor <- ZIO.service[FieldFilteringProcessor]
         backfillSettings <- ZIO.service[BackfillSettings]
@@ -155,7 +154,7 @@ object MicrosoftSynapseLinkBackfillOverwriteDataProvider:
         stagingDataSettings <- ZIO.service[StagingDataSettings]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
-        catalogWriter<- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
+        catalogWriter <- ZIO.service[Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]]
         hookManager <- ZIO.service[HookManager]
       yield MicrosoftSynapseLinkBackfillOverwriteDataProvider(cdmTableStream,
         streamContext,
