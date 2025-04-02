@@ -42,7 +42,7 @@ class MicrosoftSynapseLinkBackfillOverwriteDataProvider(cdmTableStream: CdmTable
                                                         stagingDataSettings: StagingDataSettings,
                                                         targetTableSettings: TargetTableSettings,
                                                         icebergCatalogSettings: IcebergCatalogSettings,
-                                                        catalogWriter: Reloadable[CatalogWriter[RESTCatalog, Table, Schema]],
+                                                        catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
                                                         disposeBatchProcessor: DisposeBatchProcessor,
                                                         hookManager: HookManager) extends MicrosoftSynapseLinkBackfillDataProvider:
 
@@ -100,7 +100,7 @@ object MicrosoftSynapseLinkBackfillOverwriteDataProvider:
     & StagingDataSettings
     & TargetTableSettings
     & IcebergCatalogSettings
-    & Reloadable[CatalogWriter[RESTCatalog, Table, Schema]] 
+    & CatalogWriter[RESTCatalog, Table, Schema] 
     & HookManager
 
   def apply(cdmTableStream: CdmTableStream,
@@ -116,7 +116,7 @@ object MicrosoftSynapseLinkBackfillOverwriteDataProvider:
             stagingDataSettings: StagingDataSettings,
             targetTableSettings: TargetTableSettings,
             icebergCatalogSettings: IcebergCatalogSettings,
-            catalogWriter: Reloadable[CatalogWriter[RESTCatalog, Table, Schema]],
+            catalogWriter: CatalogWriter[RESTCatalog, Table, Schema],
             disposeBatchProcessor: DisposeBatchProcessor,
             hookManager: HookManager): MicrosoftSynapseLinkBackfillOverwriteDataProvider =
     new MicrosoftSynapseLinkBackfillOverwriteDataProvider(
@@ -154,7 +154,7 @@ object MicrosoftSynapseLinkBackfillOverwriteDataProvider:
         stagingDataSettings <- ZIO.service[StagingDataSettings]
         targetTableSettings <- ZIO.service[TargetTableSettings]
         icebergCatalogSettings <- ZIO.service[IcebergCatalogSettings]
-        catalogWriter <- ZIO.service[Reloadable[CatalogWriter[RESTCatalog, Table, Schema]]]
+        catalogWriter <- ZIO.service[CatalogWriter[RESTCatalog, Table, Schema]]
         hookManager <- ZIO.service[HookManager]
       yield MicrosoftSynapseLinkBackfillOverwriteDataProvider(cdmTableStream,
         streamContext,

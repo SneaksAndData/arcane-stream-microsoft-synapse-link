@@ -59,7 +59,7 @@ object main extends ZIOAppDefault {
     MicrosoftSynapseLinkStreamContext.layer,
     PosixStreamLifetimeService.layer,
     StreamRunnerServiceCdm.layer,
-    IcebergS3CatalogWriter.autoReloadable,
+    IcebergS3CatalogWriter.layer,
     IcebergSynapseConsumer.layer,
     MergeBatchProcessor.layer,
     CdmGroupingProcessor.layer,
