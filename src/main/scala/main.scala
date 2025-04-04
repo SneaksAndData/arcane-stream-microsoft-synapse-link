@@ -1,42 +1,41 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 
-import models.app.contracts.EnvironmentGarbageCollectorSettings
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
-import services.app.*
-import services.graph_builder.{BackfillDataGraphBuilder, VersionedDataGraphBuilder}
-import services.streaming.consumers.{IcebergSynapseBackfillConsumer, IcebergSynapseConsumer}
-import services.streaming.processors.*
 
 import com.azure.storage.common.StorageSharedKeyCredential
 import com.sneaksanddata.arcane.framework.excpetions.StreamFailException
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
-import com.sneaksanddata.arcane.framework.services.app.PosixStreamLifetimeService
+import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
-import com.sneaksanddata.arcane.framework.services.cdm.{CdmSchemaProvider, SynapseHookManager}
+import com.sneaksanddata.arcane.framework.services.cdm.SynapseHookManager
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.StagingProcessor
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.{CdmTableStream, MicrosoftSynapseLinkBackfillMergeDataProvider, MicrosoftSynapseLinkBackfillOverwriteDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import zio.*
 import zio.logging.backend.SLF4J
-import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService as FrameworkFieldsFilteringService
+import com.sneaksanddata.arcane.framework.services.filters.{FieldsFilteringService, FieldsFilteringService as FrameworkFieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
-import com.sneaksanddata.arcane.microsoft_synapse_link.services.data_providers.microsoft_synapse_link.base.MicrosoftSynapseLinkBackfillDataProvider
+import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
+import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBackfillOverwriteBatchFactory, SynapseLinkStreamingDataProvider}
+
 
 
 object main extends ZIOAppDefault {
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
-  private val streamApplication = for {
+  val appLayer: ZIO[StreamRunnerService, Throwable, Unit] = for
     _ <- zlog("Application starting")
-    _ <- ZIO.service[StreamContext]
     streamRunner <- ZIO.service[StreamRunnerService]
     _ <- streamRunner.run
-  } yield ()
+  yield ()
 
   private val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
     for {
@@ -49,32 +48,32 @@ object main extends ZIOAppDefault {
 
   private def getExitCode(exception: Throwable): zio.ExitCode =
     exception match
-      case e: StreamFailException => zio.ExitCode(2)
+      case _: StreamFailException => zio.ExitCode(2)
       case _ => zio.ExitCode(1)
 
-  private lazy val streamRunner = streamApplication.provide(
+  private lazy val streamRunner = appLayer.provide(
     storageExplorerLayer,
-    CdmTableStream.layer,
-    CdmSchemaProvider.layer,
-    MicrosoftSynapseLinkStreamContext.layer,
-    PosixStreamLifetimeService.layer,
-    StreamRunnerServiceCdm.layer,
-    IcebergS3CatalogWriter.layer,
-    IcebergSynapseConsumer.layer,
-    MergeBatchProcessor.layer,
-    CdmGroupingProcessor.layer,
-    TypeAlignmentService.layer,
-    BackfillDataGraphBuilder.layer,
-    VersionedDataGraphBuilder.layer,
-    MicrosoftSynapseLinkBackfillDataProvider.compositeLayer,
-    IcebergSynapseBackfillConsumer.layer,
-    FieldFilteringProcessor.layer,
-    FieldsFilteringService.layer,
-    FrameworkFieldsFilteringService.layer,
-    StagingProcessor.layer,
-    JdbcMergeServiceClient.layer,
+    GenericStreamRunnerService.layer,
+    GenericGraphBuilderFactory.composedLayer,
+    GenericGroupingTransformer.layer,
     DisposeBatchProcessor.layer,
+    FieldFilteringTransformer.layer,
+    MergeBatchProcessor.layer,
+    StagingProcessor.layer,
+    FieldsFilteringService.layer,
+    PosixStreamLifetimeService.layer,
+    SynapseLinkStreamingDataProvider.layer,
+    SynapseBackfillOverwriteBatchFactory.layer,
+    SynapseLinkReader.layer,
+    SynapseLinkDataProvider.layer,
+    MicrosoftSynapseLinkStreamContext.layer,
+    IcebergS3CatalogWriter.layer,
+    JdbcMergeServiceClient.layer,
     SynapseHookManager.layer,
+    BackfillApplyBatchProcessor.layer,
+    GenericBackfillStreamingOverwriteDataProvider.layer,
+    GenericBackfillStreamingMergeDataProvider.layer,
+    GenericStreamingGraphBuilder.backfillSubStreamLayer,
     ZLayer.succeed(schemaCache))
 
   @main
