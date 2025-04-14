@@ -16,7 +16,7 @@ case class CatalogSettings(namespace: String,
 /**
  * The configuration of staging data.
  */
-case class StagingDataSettings(tableNamePrefix: String, catalog: CatalogSettings, dataLocation: Option[String] = None) derives ReadWriter
+case class StagingDataSettings(tableNamePrefix: String, catalog: CatalogSettings, maxRowsPerFile: Int, dataLocation: Option[String] = None) derives ReadWriter
 
 /**
  * The configuration of Iceberg sink.
@@ -74,11 +74,13 @@ case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) deriv
  * @param lookBackInterval             The look back interval in seconds
  */
 case class StreamSpec(sourceSettings: SourceSettings,
+                     
+                     // Staging settings
+                     maxRowsPerFile: Int,
 
                       // Grouping settings
                       rowsPerGroup: Int,
                       groupingIntervalSeconds: Int,
-                      groupsPerFile: Int,
                       lookBackInterval: Int,
 
                       // Iceberg settings

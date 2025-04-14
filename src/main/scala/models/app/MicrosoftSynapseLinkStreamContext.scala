@@ -129,6 +129,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   override val baseLocation: String = spec.sourceSettings.baseLocation
   override val changeCaptureIntervalSeconds: Int = spec.sourceSettings.changeCaptureIntervalSeconds
 
+  override val maxRowsPerFile: Option[Int] = Some(spec.maxRowsPerFile)
+
   private def parseBackfillStartDate(str: String): Option[OffsetDateTime] =
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ss'Z'").withZone(ZoneOffset.UTC)
     Try(OffsetDateTime.parse(str, formatter)) match
