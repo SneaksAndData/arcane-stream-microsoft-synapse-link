@@ -1,13 +1,11 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app
 
-import models.app.contracts.{OptimizeSettingsSpec, SnapshotExpirationSettingsSpec, StreamSpec, given_Conversion_TablePropertiesSettings_TableProperties}
+import models.app.contracts.StreamSpec
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings
-import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
 import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, SynapseSourceSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
-import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
