@@ -74,9 +74,6 @@ case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) deriv
  * @param lookBackInterval             The look back interval in seconds
  */
 case class StreamSpec(sourceSettings: SourceSettings,
-                     
-                     // Staging settings
-                     maxRowsPerFile: Int,
 
                       // Grouping settings
                       rowsPerGroup: Int,
