@@ -1,6 +1,11 @@
 import os
+import sys
 from argparse import ArgumentParser
+from logging import StreamHandler
 
+from adapta.logs import LoggerInterface, SemanticLogger
+from adapta.logs.handlers.datadog_api_handler import DataDogApiHandler
+from adapta.logs.models import LogLevel
 from adapta.security.clients import AzureClient
 from adapta.storage.blob.azure_storage_client import AzureStorageClient
 from adapta.storage.blob.base import StorageClient
@@ -43,7 +48,7 @@ def setup_args(parser: ArgumentParser | None = None) -> ArgumentParser:
     return parser
 
 
-def create_synapse_client(source_path: AdlsGen2Path) -> StorageClient:
+def create_synapse_client(source_path: AdlsGen2Path) -> AzureStorageClient:
     """
     Configures HTTP session and a storage client.
     """
@@ -51,3 +56,22 @@ def create_synapse_client(source_path: AdlsGen2Path) -> StorageClient:
         os.environ["AZURE_STORAGE_ACCOUNT_NAME"] = source_path.account
 
     return AzureStorageClient(base_client=AzureClient(), path=source_path, implicit_login=False)
+
+
+def setup_logger() -> LoggerInterface:
+    """
+     Configures logger interface for the application.
+
+    :return:
+    """
+    log_handlers = [StreamHandler(sys.stdout)]
+
+    if "PROTEUS__DD_API_KEY" in os.environ and "PROTEUS__DD_APP_KEY" in os.environ and "PROTEUS__DD_SITE" in os.environ:
+        log_handlers.append(DataDogApiHandler(buffer_size=1))
+
+    return SemanticLogger().add_log_source(
+        log_source_name="synapse-batch-collector",
+        min_log_level=LogLevel.INFO,
+        log_handlers=log_handlers,
+        is_default=True,
+    )

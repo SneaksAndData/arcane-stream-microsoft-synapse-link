@@ -70,6 +70,8 @@ def upload_batches(
             )
             associated_blobs.append(synapse_blob)
 
+        logger.info("Finished archiving batch {batch}", batch=synapse_prefix.path)
+
         yield UploadedBatch(
             source_path=synapse_prefix,
             blobs=associated_blobs,
