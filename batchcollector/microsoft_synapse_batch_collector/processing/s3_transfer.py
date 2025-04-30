@@ -1,4 +1,5 @@
 import os
+import shutil
 from datetime import datetime, timedelta
 from typing import Iterator
 
@@ -62,6 +63,7 @@ def upload_batches(
 
             source_client.download_blobs(synapse_blob, "/tmp")
             target_client.upload_blob(f"/tmp/{synapse_blob.path}", target_path, doze_period_ms=0)
+            os.remove(f"/tmp/{synapse_blob.path}")
 
             logger.info(
                 "Successfully copied {synapse_file} to {target_path}",
