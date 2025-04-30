@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "microsoft-synapse-batch-collector"
+version = "0.0.0"
+description = "Collects Synapse Incremental CSV batches to S3 and removes old ones."
+authors = ["ECCO Sneaks & Data <esdsupport@ecco.com>"]
+maintainers = ["ECCO Sneaks & Data <esdsupport@ecco.com>"]
+license = 'Apache 2.0'
+readme = "README.md"
+repository = 'https://github.com/SneaksAndData/microsoft-synapse-batch-collector'
+
+[tool.poetry.dependencies]
+python = ">=3.11, <3.13"
+adapta = { version = "^3.3.14", extras = ["aws", "azure", "storage"] }
+dataclasses-json = ">=0.6,<0.7"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.1"
+pytest-mock = "~3.6.1"
+pytest-xdist = "~3.5.0"
+pytest-cov = "~2.12"
+pylint = "^3"
+black = "^23"
+
+[tool.black]
+line-length = 120
+
+[build-system]
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
