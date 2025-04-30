@@ -48,6 +48,7 @@ def upload_batches(
             batch_folder=synapse_prefix,
             threshold=threshold,
         )
+        associated_blobs = []
         for synapse_blob in source_client.list_blobs(
             blob_path=synapse_prefix, filter_predicate=lambda blob: blob.name.endswith(".csv")
         ):
@@ -67,8 +68,9 @@ def upload_batches(
                 synapse_file=synapse_blob.path,
                 target_path=target_path,
             )
+            associated_blobs.append(synapse_blob)
 
-            yield UploadedBatch(
-                source_path=synapse_blob.path,
-                target_path=target_path,
-            )
+        yield UploadedBatch(
+            source_path=synapse_prefix,
+            blobs=associated_blobs,
+        )
