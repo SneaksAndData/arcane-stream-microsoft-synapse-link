@@ -1,4 +1,10 @@
+import os
 from argparse import ArgumentParser
+
+from adapta.security.clients import AzureClient
+from adapta.storage.blob.azure_storage_client import AzureStorageClient
+from adapta.storage.blob.base import StorageClient
+from adapta.storage.models import AdlsGen2Path
 
 
 def setup_args(parser: ArgumentParser | None = None) -> ArgumentParser:
@@ -35,3 +41,13 @@ def setup_args(parser: ArgumentParser | None = None) -> ArgumentParser:
     parser.set_defaults(remove_processed_batches=True)
 
     return parser
+
+
+def create_synapse_client(source_path: AdlsGen2Path) -> StorageClient:
+    """
+    Configures HTTP session and a storage client.
+    """
+    if "AZURE_STORAGE_ACCOUNT_NAME" not in os.environ:
+        os.environ["AZURE_STORAGE_ACCOUNT_NAME"] = source_path.account
+
+    return AzureStorageClient(base_client=AzureClient(), path=source_path, implicit_login=False)
