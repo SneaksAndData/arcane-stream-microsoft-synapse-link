@@ -1,5 +1,6 @@
 import os
 
+from adapta.metrics.providers.datadog_provider import DatadogMetricsProvider
 from adapta.security.clients import AwsClient
 from adapta.security.clients.aws import ExplicitAwsCredentials
 from adapta.storage.blob.s3_storage_client import S3StorageClient
@@ -13,6 +14,8 @@ from microsoft_synapse_batch_collector.run_setup import setup_args, create_synap
 def main(config: RunConfig):
     synapse_client = create_synapse_client(config.synapse_source_path)
     logger = setup_logger()
+    metrics_provider = DatadogMetricsProvider(metric_namespace="synapse_batch_collector")
+
     for synapse_batch in upload_batches(
         source=config.synapse_source_path,
         bucket=config.upload_bucket_name,
@@ -31,8 +34,15 @@ def main(config: RunConfig):
                 allow_http=os.environ["S3_DESTINATION__ALLOW_HTTP"] == "1",
             )
         ),
+        metrics=metrics_provider,
     ):
-        remove_batch(batch=synapse_batch, client=synapse_client, logger=logger, dry_run=not config.delete_processed)
+        remove_batch(
+            batch=synapse_batch,
+            client=synapse_client,
+            logger=logger,
+            dry_run=not config.delete_processed,
+            metrics=metrics_provider,
+        )
 
 
 if __name__ == "__main__":

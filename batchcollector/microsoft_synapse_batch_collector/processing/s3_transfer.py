@@ -4,9 +4,11 @@ from datetime import datetime, timedelta
 from typing import Iterator
 
 from adapta.logs import LoggerInterface
+from adapta.metrics import MetricsProvider
 from adapta.storage.blob.azure_storage_client import AzureStorageClient
 from adapta.storage.blob.s3_storage_client import S3StorageClient
 from adapta.storage.models import AdlsGen2Path, S3Path
+from adapta.utils import operation_time
 
 from microsoft_synapse_batch_collector.models.uploaded_batch import UploadedBatch
 from microsoft_synapse_batch_collector.processing.synapse import filter_batches
@@ -31,6 +33,7 @@ def upload_batches(
     logger: LoggerInterface,
     source_client: AzureStorageClient,
     target_client: S3StorageClient,
+    metrics: MetricsProvider,
 ) -> Iterator[UploadedBatch]:
     """
     Process all files for the specified region, starting from dag_run_date
@@ -53,24 +56,27 @@ def upload_batches(
         for synapse_blob in source_client.list_blobs(
             blob_path=synapse_prefix, filter_predicate=lambda blob: blob.name.endswith(".csv")
         ):
-            local_dirs = "/".join(["/tmp"] + synapse_blob.path.split("/")[:-1])
-            target_path = transform_path(synapse_blob, bucket, prefix)
+            with operation_time() as ot:
+                local_dirs = "/".join(["/tmp"] + synapse_blob.path.split("/")[:-1])
+                target_path = transform_path(synapse_blob, bucket, prefix)
 
-            logger.info(
-                "Copying {synapse_file} to {target_path}", synapse_file=synapse_blob.path, target_path=target_path
-            )
-            os.makedirs(local_dirs, exist_ok=True)
+                logger.info(
+                    "Copying {synapse_file} to {target_path}", synapse_file=synapse_blob.path, target_path=target_path
+                )
+                os.makedirs(local_dirs, exist_ok=True)
 
-            source_client.download_blobs(synapse_blob, "/tmp")
-            target_client.upload_blob(f"/tmp/{synapse_blob.path}", target_path, doze_period_ms=0)
-            os.remove(f"/tmp/{synapse_blob.path}")
+                source_client.download_blobs(synapse_blob, "/tmp")
+                target_client.upload_blob(f"/tmp/{synapse_blob.path}", target_path, doze_period_ms=0)
+                os.remove(f"/tmp/{synapse_blob.path}")
 
-            logger.info(
-                "Successfully copied {synapse_file} to {target_path}",
-                synapse_file=synapse_blob.path,
-                target_path=target_path,
-            )
-            associated_blobs.append(synapse_blob)
+                logger.info(
+                    "Successfully copied {synapse_file} to {target_path}",
+                    synapse_file=synapse_blob.path,
+                    target_path=target_path,
+                )
+                associated_blobs.append(synapse_blob)
+
+            metrics.gauge("batch.copy_duration", ot.elapsed / 1e9, tags={"file": synapse_blob.path})
 
         logger.info("Finished archiving batch {batch}", batch=synapse_prefix.path)
         # include model.json for the batch

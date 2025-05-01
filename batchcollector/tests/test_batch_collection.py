@@ -11,7 +11,7 @@ def test_batch_collection():
         config=RunConfig(
             upload_bucket_name="synapse-archive",
             prefix="dev",
-            age_threshold=2,
+            age_threshold=1,
             synapse_source_path=AdlsGen2Path.from_hdfs_path(
                 "abfss://synapse-archiving-test@devstoreaccount1.dfs.core.windows.net"
             ),

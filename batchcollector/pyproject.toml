@@ -10,7 +10,7 @@ repository = 'https://github.com/SneaksAndData/microsoft-synapse-batch-collector
 
 [tool.poetry.dependencies]
 python = ">=3.11, <3.13"
-adapta = { version = "^3.3.18", extras = ["aws", "azure", "storage", "datadog"] }
+adapta = { version = "^3.3.19", extras = ["aws", "azure", "storage", "datadog"] }
 dataclasses-json = ">=0.6,<0.7"
 
 [tool.poetry.group.dev.dependencies]
