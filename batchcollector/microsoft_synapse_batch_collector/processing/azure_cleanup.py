@@ -1,3 +1,6 @@
+"""
+ Cleanup.
+"""
 from adapta.logs import LoggerInterface
 from adapta.metrics import MetricsProvider
 from adapta.storage.blob.azure_storage_client import AzureStorageClient
@@ -9,12 +12,13 @@ def remove_batch(
     batch: UploadedBatch, client: AzureStorageClient, dry_run: bool, logger: LoggerInterface, metrics: MetricsProvider
 ) -> None:
     """
-     Deletes all blobs that are part of the provided batch
-    :param batch:
-    :param client:
-    :param dry_run:
-    :param logger:
-    :param metrics:
+     Deletes all blobs that are part of the provided batch.
+
+    :param batch: UploadedBatch
+    :param client: AzureStorageClient
+    :param dry_run: Delete or just print blobs to be removed
+    :param logger: LoggerInterface
+    :param metrics: MetricsProvider
     :return:
     """
     logger.info("Removing archived Synapse batch {batch}", batch=batch.source_path)

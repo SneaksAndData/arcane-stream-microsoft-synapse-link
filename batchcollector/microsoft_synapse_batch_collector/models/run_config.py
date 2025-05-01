@@ -1,3 +1,6 @@
+"""
+ Models for runtime config.
+"""
 import argparse
 from dataclasses import dataclass
 
@@ -6,6 +9,10 @@ from adapta.storage.models import AdlsGen2Path
 
 @dataclass
 class RunConfig:
+    """
+    Run configuration
+    """
+
     upload_bucket_name: str
     prefix: str
     age_threshold: int

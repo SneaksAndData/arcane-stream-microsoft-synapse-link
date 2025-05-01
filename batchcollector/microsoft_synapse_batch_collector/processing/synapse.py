@@ -1,3 +1,6 @@
+"""
+ Synapse batch filter.
+"""
 from typing import Iterator
 
 from adapta.logs import LoggerInterface
@@ -15,7 +18,7 @@ def filter_batches(
     excluded_segments: list[str] | None = None,
 ) -> Iterator[AdlsGen2Path]:
     """
-      Filters prefixes in Synapse Linked storage account starting from `start_date`
+      Filters prefixes in Synapse Linked storage account starting from `start_date`, in reverse chronological order.
 
     :param storage_client: Storage client to read the CSV files
     :param base_path: Root location to list from

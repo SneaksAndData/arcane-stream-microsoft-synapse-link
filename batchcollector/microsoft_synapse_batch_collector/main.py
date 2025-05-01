@@ -1,3 +1,6 @@
+"""
+ Runtime.
+"""
 import os
 
 from adapta.metrics.providers.datadog_provider import DatadogMetricsProvider
@@ -12,6 +15,12 @@ from microsoft_synapse_batch_collector.run_setup import setup_args, create_synap
 
 
 def main(config: RunConfig):
+    """
+     Entry point for microsoft_synapse_batch_collector
+
+    :param config:
+    :return:
+    """
     synapse_client = create_synapse_client(config.synapse_source_path)
     logger = setup_logger()
     metrics_provider = DatadogMetricsProvider(metric_namespace="synapse_batch_collector")

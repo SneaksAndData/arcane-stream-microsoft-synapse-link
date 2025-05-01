@@ -1,3 +1,6 @@
+"""
+ App setup.
+"""
 import os
 import sys
 from argparse import ArgumentParser
@@ -8,7 +11,6 @@ from adapta.logs.handlers.datadog_api_handler import DataDogApiHandler
 from adapta.logs.models import LogLevel
 from adapta.security.clients import AzureClient
 from adapta.storage.blob.azure_storage_client import AzureStorageClient
-from adapta.storage.blob.base import StorageClient
 from adapta.storage.models import AdlsGen2Path
 
 
