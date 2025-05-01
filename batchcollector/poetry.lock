@@ -2,13 +2,13 @@
 
 [[package]]
 name = "adapta"
-version = "3.3.17"
+version = "3.3.18"
 description = "Logging, data connectors, monitoring, secret handling and general lifehacks to make data people lives easier."
 optional = false
 python-versions = "<3.13,>=3.11"
 files = [
-    {file = "adapta-3.3.17-py3-none-any.whl", hash = "sha256:073a986a7dfbf5d32df8d17fe4cd0f76635770b81f93c52db45731e7f6953a2a"},
-    {file = "adapta-3.3.17.tar.gz", hash = "sha256:0f17e01b403a9fb493c8231658f7950da729870470f23abcaaf45bc65bbd5dc0"},
+    {file = "adapta-3.3.18-py3-none-any.whl", hash = "sha256:ff494b803d628d71809660ab968f45de5ffdde73f7a728863bb6a6bf4022e18b"},
+    {file = "adapta-3.3.18.tar.gz", hash = "sha256:241e9632700d28ec9548a8a2a1c34bfda5f587a739f348a88df4c9bc725b687f"},
 ]
 
 [package.dependencies]
@@ -23,6 +23,8 @@ botocore = {version = ">=1.31,<2.0", optional = true, markers = "extra == \"aws\
 cassandra-driver = {version = ">=3.29.1,<3.30.0", optional = true, markers = "extra == \"storage\""}
 cryptography = ">=36"
 dataclasses-json = ">=0.6,<0.7"
+datadog = {version = ">=0.49.1,<0.50.0", optional = true, markers = "extra == \"datadog\""}
+datadog-api-client = {version = ">=2.18.0,<2.19.0", optional = true, markers = "extra == \"datadog\""}
 deltalake = {version = ">=0.18.1,<0.19.0", optional = true, markers = "extra == \"storage\""}
 fsspec = ">=2024,<2025"
 limits = ">=3.7,<3.8"
@@ -920,6 +922,43 @@ files = [
 [package.dependencies]
 marshmallow = ">=3.18.0,<4.0.0"
 typing-inspect = ">=0.4.0,<1"
+
+[[package]]
+name = "datadog"
+version = "0.49.1"
+description = "The Datadog Python library"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
+files = [
+    {file = "datadog-0.49.1-py2.py3-none-any.whl", hash = "sha256:4a56d57490ea699a0dfd9253547485a57b4120e93489defadcf95c66272374d6"},
+    {file = "datadog-0.49.1.tar.gz", hash = "sha256:4cb7a7991af6cadb868fe450cd456473e65f11fc678b7d7cf61044ff1c6074d8"},
+]
+
+[package.dependencies]
+requests = ">=2.6.0"
+
+[[package]]
+name = "datadog-api-client"
+version = "2.18.0"
+description = "Collection of all Datadog Public endpoints"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "datadog-api-client-2.18.0.tar.gz", hash = "sha256:bd4bd7512c99747545a9b6d6bf1155050f5544884968a90a4176c167f4917fe5"},
+    {file = "datadog_api_client-2.18.0-py3-none-any.whl", hash = "sha256:e6231ab2d26e3e231731f91be9061d03634670e90a9cb3cd5844d939078f1c9a"},
+]
+
+[package.dependencies]
+certifi = "*"
+python-dateutil = "*"
+typing-extensions = "*"
+urllib3 = ">=1.15"
+
+[package.extras]
+apm = ["ddtrace (>=1.15.0)"]
+async = ["aiosonic (==0.15.1)"]
+tests = ["aiosonic (==0.15.1)", "glom", "jinja2", "mypy", "pytest", "pytest-asyncio", "pytest-bdd (==6.0.1)", "pytest-randomly", "pytest-recording", "python-dateutil", "types-python-dateutil", "zstandard"]
+zstandard = ["zstandard"]
 
 [[package]]
 name = "deltalake"
@@ -2751,4 +2790,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11, <3.13"
-content-hash = "0db77febfc90647cbb8305df6f699a21ed493682e711052750c0ce6f33e45a35"
+content-hash = "552ad6881845e3ac539744efaf22c74a525e8328d3db3e76f30700cbc26a676a"

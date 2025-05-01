@@ -32,7 +32,7 @@ def main(config: RunConfig):
             )
         ),
     ):
-        remove_batch(batch=synapse_batch, client=synapse_client, logger=logger, dry_run=config.delete_processed)
+        remove_batch(batch=synapse_batch, client=synapse_client, logger=logger, dry_run=not config.delete_processed)
 
 
 if __name__ == "__main__":

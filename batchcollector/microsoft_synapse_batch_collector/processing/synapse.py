@@ -19,7 +19,7 @@ def filter_batches(
 
     :param storage_client: Storage client to read the CSV files
     :param base_path: Root location to list from
-    :param start_from: Batch to start yielding from
+    :param start_from: Batch value to start from (must be lower than this value)
     :param excluded_segments: Prefixes to exclude, if they contain these segments
     :param logger: Logger to use
     """
@@ -30,10 +30,10 @@ def filter_batches(
                 logger.debug("Skipping {path}: filtered out by exclusion ruleset", path=adls_path.path)
                 return False
 
-            if adls_path.path < start_from:
-                return False
+            if adls_path.path.rstrip("/") <= start_from:
+                return True
 
-        return True
+        return False
 
     if excluded_segments is None:
         excluded_segments = EXCLUDED_SEGMENTS
