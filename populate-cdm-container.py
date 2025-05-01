@@ -17,8 +17,10 @@
 # under the License.
 #
 
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, BlobLeaseClient
 from datetime import datetime, timedelta
+
+import random
 
 import os
 
@@ -1250,24 +1252,41 @@ MODEL_JSON_MODIFIED = """{
 
 AZURITE_CONNECTION_STRING='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://localhost:10001/devstoreaccount1'
 CONTAINER = "cdm-e2e"
+ARCHIVE_CONTAINER = "synapse-archiving-test"
 # Get the current date and time
 now = datetime.utcnow()
 
 # Subtract 6 hours
 start_time = now - timedelta(hours=6)
+# for archiving tests, subtract 1 week + 2 days
+archive_start_time = now - timedelta(hours=216)
 
 # Generate formatted strings for each hour
 FOLDERS = [(start_time + timedelta(hours=i)).strftime("%Y-%m-%dT%H.%M.%SZ") for i in range(8)]
+ARCHIVE_FOLDERS = [(archive_start_time + timedelta(hours=i)).strftime("%Y-%m-%dT%H.%M.%SZ") for i in range(216)]
 LATEST = max(FOLDERS)
+LATEST_ARCHIVE = max(ARCHIVE_FOLDERS)
 
 def upload_blob_file(blob_service_client: BlobServiceClient, container_name: str, blob_name: str, content: str):
     blob_service_client.get_container_client(container=container_name).upload_blob(name=blob_name, data=content.encode('utf-8'), overwrite=True)
+
+def lease_blob_file(blob_service_client: BlobServiceClient, container_name: str, blob_name: str):
+    BlobLeaseClient(blob_service_client.get_blob_client(container=container_name, blob=blob_name)).acquire()
+
 
 def create_container():
    # Create a container for Azurite for the first run
    blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
    try:
       blob_service_client.create_container(CONTAINER)
+   except Exception as e:
+      print(e)
+
+def create_archive_container():
+   # Create a container for Azurite for the first run
+   blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
+   try:
+      blob_service_client.create_container(ARCHIVE_CONTAINER)
    except Exception as e:
       print(e)
 
@@ -1282,10 +1301,26 @@ def create_blobs(model_json, content, folders):
     # upload changelog
     upload_blob_file(blob_service_client, CONTAINER, f"Changelog/changelog.info", LATEST)
 
+def create_archive_blobs(model_json, content, folders):
+    blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
+    for folder in folders:
+        upload_blob_file(blob_service_client, ARCHIVE_CONTAINER, f"{folder}/model.json", model_json)
+        upload_blob_file(blob_service_client, ARCHIVE_CONTAINER, f"{folder}/synapsetable/2020.csv", content)
+        upload_blob_file(blob_service_client, ARCHIVE_CONTAINER, f"{folder}/synapsetable/2021.csv", content)
+        upload_blob_file(blob_service_client, ARCHIVE_CONTAINER, f"{folder}/synapsetable/2022.csv", content)
+        upload_blob_file(blob_service_client, ARCHIVE_CONTAINER, f"{folder}/synapsetable_other/2020.csv", content)
+        if random.random() > 0.2:
+            lease_blob_file(blob_service_client, ARCHIVE_CONTAINER, f"{folder}/synapsetable/2020.csv")
+    # upload changelog
+    upload_blob_file(blob_service_client, ARCHIVE_CONTAINER, f"Changelog/changelog.info", LATEST_ARCHIVE)
+
 create_container()
+create_archive_container()
 create_blobs(MODEL_JSON_MODIFIED, CONTENT_MODIFIED, FOLDERS[:4])
 create_blobs(MODEL_JSON, CONTENT, FOLDERS[4:])
+create_archive_blobs(MODEL_JSON, CONTENT, ARCHIVE_FOLDERS)
 
 blob_service_client = BlobServiceClient.from_connection_string(AZURITE_CONNECTION_STRING)
 upload_blob_file(blob_service_client, CONTAINER, "model.json", MODEL_JSON_MODIFIED)
+upload_blob_file(blob_service_client, ARCHIVE_CONTAINER, "model.json", MODEL_JSON)
 

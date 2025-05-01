@@ -30,7 +30,7 @@ services:
       - |
         mc alias set e2e "http://localhost:9000" minioadmin minioadmin
         mc admin info e2e
-        mc mb e2e/tmp && mc mb e2e/lakehouse
+        mc mb e2e/tmp && mc mb e2e/lakehouse && mc mb e2e/synapse-archive
 
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
