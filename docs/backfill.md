@@ -67,7 +67,7 @@ processes.
    > 
    > This can be fixed with the backfill process with the `.spec.backfillBehavior` set to `merge`.
  
-3. Every `.spec.changeCaputureIntervalSeconds` the stream reads the data starting from the previous iteration of the
-   `.spec.changeCapturePeriod` until the timestamp recorded in the `Changelog/changelog.info` file.
+3. Every `.spec.changeCaputureIntervalSeconds` the stream reads the data starting from the previous iteration 
+   until the timestamp recorded in the `Changelog/changelog.info` file.
 
 4. The most recent folder is **always skipped** to avoid reading the incomplete data.
