@@ -84,12 +84,6 @@ spec:
                       description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
                       minimum: 1
                       maximum: 3600
-                    changeCapturePeriodSeconds:
-                      type: integer
-                      description: How far back to look for changes. Can be from 1 to 1 hour.
-                      minimum: 1
-                      maximum: 3600
-                      default: 1200
                 connectionStringRef:
                   description: |
                     Name of the secret containing the connection string.
@@ -137,9 +131,6 @@ spec:
                 groupsPerFile:
                   type: integer
                   description: Number of row groups per file.
-                sinkLocation:
-                  type: string
-                  description: Data location for parquet files.
                 sinkSettings:
                   type: object
                   properties:
@@ -202,24 +193,6 @@ spec:
                   minimum: 1
                   maximum: 1209600
                   default: 3600
-                catalogAuthSecretRef:
-                  description: |
-                    Name of the secret containing the catalog authentication.
-                    The secret should have the following mandatory keys:
-                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_URI
-                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_SCOPE
-                    And the authentication information in the following keys:
-                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_ID
-                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_CLIENT_SECRET
-                    OR
-                      - ARCANE_FRAMEWORK__S3_CATALOG_AUTH_INIT_TOKEN
-
-                    The authentication information is mutually exclusive.
-                    If init token is provided, client id and secret are not used.
-                  type: object
-                  properties:
-                    name:
-                      type: string
                 stagingDataSettings:
                   type: object
                   properties:
@@ -243,42 +216,6 @@ spec:
                           type: string
                         catalogUri:
                           type: string
-                mergeService:
-                  type: object
-                  properties:
-                    uri:
-                      type: string
-                    authSecretRef:
-                      description: |
-                        Not used in the operator version 0.0.x
-                        In operator version 0.1.x and above this field will replace the `mergeAuthSecretRef` field.
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                mergeAuthSecretRef:
-                  description: |
-                    Name of the secret containing the data storage authentication for the merge service.
-                    The secret should have a key named 'ARCANE_FRAMEWORK__MERGE_SERVICE__JDBC_URL'.
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                stagingStorageAuthSecretRef:
-                  description: |
-                    Name of the secret containing the data storage authentication for the S3 bucket containing staging data.
-                    The secret should have the following mandatory keys:
-                      - ARCANE_FRAMEWORK__S3_CATALOG_SECRET_ACCESS_KEY
-                      - ARCANE_FRAMEWORK__S3_CATALOG_ACCESS_KEY_ID
-                      - ARCANE_FRAMEWORK__S3_CATALOG_ENDPOINT
-                      - ARCANE_FRAMEWORK__S3_CATALOG_REGION
-                      - AWS_REGION
-                    The AWS_REGION key is used to set the region for the AWS SDK and it's value should be
-                    the same as ARCANE_FRAMEWORK__S3_STAGING_CATALOG_REGION.
-                  type: object
-                  properties:
-                    name:
-                      type: string
                 backfillBehavior:
                   type: string
                   enum:
