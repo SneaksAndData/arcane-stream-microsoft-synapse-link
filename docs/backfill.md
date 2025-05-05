@@ -56,23 +56,18 @@ The mode is defined by the `.spec.backfillBehavior` parameter in the stream defi
 The Arcane stream definition has a set of parameters that define the time intervals for the streaming and backfilling
 processes.
 
-1. If the stream is running in backfill mode, it always reads the folders from the first one in the container, sorted in descending order, converting folder string to a timestamp.
-2. When a job is started, in reads folders that were created on or after `now() - lookBackIntervalSeconds`. This is needed to
-   avoid data loss if the stream was offline for some time (for example, due to the spot node interruption).
-   > [!WARNING]  
-   > If the stream runner was offline more then the `lookBackIntervalSeconds`, the data will be lost.
-   > 
-   > This can be fixed with the backfill process with the `backfillBehavior` set to `merge`.
+1. If the stream is running in backfill mode, it always reads the folders starting from the date defined in
+   `.spec.backfillStartDate` until the end of the container.
  
-3. Every `.spec.changeCaputureIntervalSeconds` the stream reads the date form the `Changelog/changelog.info` file,
-   subtracts the `.spec.changeCapturePeriod` from the timestamp and reads the data starting from this timestamp.
-   > [!IMPORTANT]  
-   > The changeCapturePeriod should be set to a value such that time windows **overlap** in every cycle.
-   > The default value is `changeCaputureIntervalSeconds * 4` 
+2. When a job is started in streaming mode, in reads the content of the `Changelog/changelog.info` file and subtracts the
+   `.spec.lookBackIntervalSeconds` from the timestamp of the last change. Then it reads the data starting from this
+   timestamp until the date in the `Changelog/changelog.info` file.
+   > [!WARNING]  
+   > If the stream runner was offline more then the `.spec.lookBackIntervalSeconds`, the data will be lost.
+   > 
+   > This can be fixed with the backfill process with the `.spec.backfillBehavior` set to `merge`.
+ 
+3. Every `.spec.changeCaputureIntervalSeconds` the stream reads the data starting from the previous iteration of the
+   `.spec.changeCapturePeriod` until the timestamp recorded in the `Changelog/changelog.info` file.
 
 4. The most recent folder is **always skipped** to avoid reading the incomplete data.
-
-See the diagram below for the visual representation of the time intervals.
-
-![Arcane time intervals diagram](arcane_timeline.png)
-
