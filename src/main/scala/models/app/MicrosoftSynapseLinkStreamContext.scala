@@ -1,14 +1,11 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package models.app
 
-import models.app.contracts.{OptimizeSettingsSpec, SnapshotExpirationSettingsSpec, StreamSpec, given_Conversion_TablePropertiesSettings_TableProperties}
+import models.app.contracts.StreamSpec
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings
-import com.sneaksanddata.arcane.framework.models.settings.TableFormat.PARQUET
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
-import com.sneaksanddata.arcane.framework.services.base.MergeServiceClient
-import com.sneaksanddata.arcane.framework.services.cdm.CdmTableSettings
+import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, SynapseSourceSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
@@ -49,7 +46,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with FieldSelectionRuleSettings
   with BackfillSettings
   with StagingDataSettings
-  with GraphExecutionSettings:
+  with GraphExecutionSettings
+  with SynapseSourceSettings:
 
   override val rowsPerGroup: Int = System.getenv().getOrDefault("STREAMCONTEXT__ROWS_PER_GROUP", spec.rowsPerGroup.toString).toInt
   
@@ -104,7 +102,6 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   val stagingSchemaName: String = spec.stagingDataSettings.catalog.schemaName
 
   val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
-  val tableProperties: TablePropertiesSettings = spec.tableProperties
   
   val format: TableFormat = TableFormat.valueOf(spec.tableProperties.format)
   val sortedBy: Array[String] = spec.tableProperties.sortedBy
@@ -126,20 +123,21 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
 
   override val backfillStartDate: Option[OffsetDateTime] = parseBackfillStartDate(spec.backfillStartDate)
 
+  override val entityName: String = spec.sourceSettings.name
+  override val baseLocation: String = spec.sourceSettings.baseLocation
+  override val changeCaptureIntervalSeconds: Int = spec.sourceSettings.changeCaptureIntervalSeconds
+
+  override val maxRowsPerFile: Option[Int] = Some(spec.stagingDataSettings.maxRowsPerFile)
+
   private def parseBackfillStartDate(str: String): Option[OffsetDateTime] =
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ss'Z'").withZone(ZoneOffset.UTC)
     Try(OffsetDateTime.parse(str, formatter)) match
       case scala.util.Success(value) => Some(value)
       case scala.util.Failure(e) => throw new IllegalArgumentException(s"Invalid backfill start date: $str. The backfill start date must be in the format 'yyyy-MM-dd'T'HH.mm.ss'Z'", e)
 
-given Conversion[StreamSpec, CdmTableSettings] with
-  def apply(spec: StreamSpec): CdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation, None)
-
-
 object MicrosoftSynapseLinkStreamContext {
 
   type Environment = StreamContext
-    & CdmTableSettings
     & GroupingSettings
     & VersionedDataGraphBuilderSettings
     & IcebergCatalogSettings
@@ -152,18 +150,14 @@ object MicrosoftSynapseLinkStreamContext {
     & FieldSelectionRuleSettings
     & BackfillSettings
     & StagingDataSettings
+    & SynapseSourceSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
    */
   val layer: ZLayer[Any, Throwable, Environment] = StreamSpec
       .fromEnvironment("STREAMCONTEXT__SPEC")
-      .map(combineSettingsLayer)
+      .map(v => ZLayer.succeed(MicrosoftSynapseLinkStreamContext(v)))
       .getOrElse(ZLayer.fail(new Exception("The stream context is not specified.")))
 
-  private def combineSettingsLayer(spec: StreamSpec): ZLayer[Any, Throwable, Environment] =
-    val context = MicrosoftSynapseLinkStreamContext(spec)
-    val cdmTableSettings = CdmTableSettings(spec.sourceSettings.name.toLowerCase, spec.sourceSettings.baseLocation, None)
-
-    ZLayer.succeed(context) ++ ZLayer.succeed(cdmTableSettings)
 }

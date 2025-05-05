@@ -223,6 +223,9 @@ spec:
                 stagingDataSettings:
                   type: object
                   properties:
+                    maxRowsPerFile:
+                      type: integer
+                      default: 10000
                     dataLocation:
                       type: string
                     tableNamePrefix:
