@@ -16,7 +16,7 @@ case class CatalogSettings(namespace: String,
 /**
  * The configuration of staging data.
  */
-case class StagingDataSettings(tableNamePrefix: String, catalog: CatalogSettings, dataLocation: Option[String] = None) derives ReadWriter
+case class StagingDataSettings(tableNamePrefix: String, catalog: CatalogSettings, maxRowsPerFile: Int, dataLocation: Option[String] = None) derives ReadWriter
 
 /**
  * The configuration of Iceberg sink.
@@ -48,8 +48,7 @@ case class SinkSettings(targetTableName: String,
  */
 case class SourceSettings(name: String,
                           baseLocation: String,
-                          changeCaptureIntervalSeconds: Int,
-                          changeCapturePeriodSeconds: Int) derives ReadWriter
+                          changeCaptureIntervalSeconds: Int) derives ReadWriter
 
 case class TablePropertiesSettings(partitionExpressions: Array[String], sortedBy: Array[String], parquetBloomFilterColumns: Array[String], format: String) derives ReadWriter
 
@@ -78,7 +77,6 @@ case class StreamSpec(sourceSettings: SourceSettings,
                       // Grouping settings
                       rowsPerGroup: Int,
                       groupingIntervalSeconds: Int,
-                      groupsPerFile: Int,
                       lookBackInterval: Int,
 
                       // Iceberg settings
