@@ -5,7 +5,7 @@ import models.app.contracts.StreamSpec
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, StagingDataSettings, SynapseSourceSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, BufferingStrategy, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, SourceBufferingSettings, StagingDataSettings, SynapseSourceSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
@@ -47,7 +47,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   with BackfillSettings
   with StagingDataSettings
   with GraphExecutionSettings
-  with SynapseSourceSettings:
+  with SynapseSourceSettings
+  with SourceBufferingSettings:
 
   override val rowsPerGroup: Int = System.getenv().getOrDefault("STREAMCONTEXT__ROWS_PER_GROUP", spec.rowsPerGroup.toString).toInt
   
@@ -109,12 +110,15 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
   
   val backfillTableFullName: String = s"$stagingCatalogName.$stagingSchemaName.${stagingTablePrefix}__backfill_${UUID.randomUUID().toString}".replace('-', '_')
   
-  val changeCapturePeriod: Duration = Duration.ofSeconds(spec.sourceSettings.changeCapturePeriodSeconds)
-
   override val rule: FieldSelectionRule = spec.fieldSelectionRule.ruleType match
     case "include" => FieldSelectionRule.IncludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case _ => FieldSelectionRule.AllFields
+
+  override val essentialFields: Set[String] = Set("recid",
+    "versionnumber",
+    "isdelete",
+    "arcane_merge_key")
 
   override val backfillBehavior: BackfillBehavior = spec.backfillBehavior match
     case "merge" => BackfillBehavior.Merge
@@ -135,6 +139,12 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec) extends StreamCon
       case scala.util.Success(value) => Some(value)
       case scala.util.Failure(e) => throw new IllegalArgumentException(s"Invalid backfill start date: $str. The backfill start date must be in the format 'yyyy-MM-dd'T'HH.mm.ss'Z'", e)
 
+  override val bufferingEnabled: Boolean = false
+  override val bufferingStrategy: BufferingStrategy = BufferingStrategy.Buffering(0)
+
+  override val isUnifiedSchema: Boolean = false
+
+
 object MicrosoftSynapseLinkStreamContext {
 
   type Environment = StreamContext
@@ -151,6 +161,7 @@ object MicrosoftSynapseLinkStreamContext {
     & BackfillSettings
     & StagingDataSettings
     & SynapseSourceSettings
+    & SourceBufferingSettings
 
   /**
    * The ZLayer that creates the VersionedDataGraphBuilder.
