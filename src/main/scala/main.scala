@@ -12,29 +12,45 @@ import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeServi
 import com.sneaksanddata.arcane.framework.services.synapse.SynapseHookManager
 import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
 import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
+  FieldFilteringTransformer,
+  StagingProcessor
+}
 import zio.*
 import zio.logging.backend.SLF4J
-import com.sneaksanddata.arcane.framework.services.filters.{FieldsFilteringService, FieldsFilteringService as FrameworkFieldsFilteringService}
+import com.sneaksanddata.arcane.framework.services.filters.{
+  FieldsFilteringService,
+  FieldsFilteringService as FrameworkFieldsFilteringService
+}
 import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
+  GenericBackfillStreamingMergeDataProvider,
+  GenericBackfillStreamingOverwriteDataProvider
+}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
+  GenericGraphBuilderFactory,
+  GenericStreamingGraphBuilder
+}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
 import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor
+}
 import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBackfillOverwriteBatchFactory, SynapseLinkStreamingDataProvider}
-
-
+import com.sneaksanddata.arcane.framework.services.synapse.{
+  SynapseBackfillOverwriteBatchFactory,
+  SynapseLinkStreamingDataProvider
+}
 
 object main extends ZIOAppDefault {
 
   override val bootstrap: ZLayer[Any, Nothing, Unit] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   val appLayer: ZIO[StreamRunnerService, Throwable, Unit] = for
-    _ <- zlog("Application starting")
+    _            <- zlog("Application starting")
     streamRunner <- ZIO.service[StreamRunnerService]
-    _ <- streamRunner.run
+    _            <- streamRunner.run
   yield ()
 
   private val storageExplorerLayer: ZLayer[AzureConnectionSettings, Nothing, AzureBlobStorageReader] = ZLayer {
@@ -49,7 +65,7 @@ object main extends ZIOAppDefault {
   private def getExitCode(exception: Throwable): zio.ExitCode =
     exception match
       case _: StreamFailException => zio.ExitCode(2)
-      case _ => zio.ExitCode(1)
+      case _                      => zio.ExitCode(1)
 
   private lazy val streamRunner = appLayer.provide(
     storageExplorerLayer,
@@ -74,7 +90,8 @@ object main extends ZIOAppDefault {
     GenericBackfillStreamingOverwriteDataProvider.layer,
     GenericBackfillStreamingMergeDataProvider.layer,
     GenericStreamingGraphBuilder.backfillSubStreamLayer,
-    ZLayer.succeed(schemaCache))
+    ZLayer.succeed(schemaCache)
+  )
 
   @main
   def run: ZIO[Any, Throwable, Unit] =
