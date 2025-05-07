@@ -48,6 +48,8 @@ jobs:
           sbt clean coverage test coverageReport
 
       - name: Validate formatting
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: sbt scalafmtCheckAll
 
