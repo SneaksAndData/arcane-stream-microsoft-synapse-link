@@ -9,9 +9,9 @@ import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
+import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.synapse.SynapseHookManager
-import com.sneaksanddata.arcane.framework.services.merging.{JdbcMergeServiceClient, MutableSchemaCache}
-import com.sneaksanddata.arcane.framework.services.storage.services.AzureBlobStorageReader
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
   FieldFilteringTransformer,
   StagingProcessor
@@ -22,7 +22,8 @@ import com.sneaksanddata.arcane.framework.services.filters.{
   FieldsFilteringService,
   FieldsFilteringService as FrameworkFieldsFilteringService
 }
-import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
   GenericBackfillStreamingOverwriteDataProvider
