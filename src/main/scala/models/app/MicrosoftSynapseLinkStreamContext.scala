@@ -5,28 +5,9 @@ import models.app.contracts.StreamSpec
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings
-import com.sneaksanddata.arcane.framework.models.settings.{
-  BackfillBehavior,
-  BackfillSettings,
-  BufferingStrategy,
-  FieldSelectionRule,
-  FieldSelectionRuleSettings,
-  GroupingSettings,
-  OptimizeSettings,
-  OrphanFilesExpirationSettings,
-  SnapshotExpirationSettings,
-  SourceBufferingSettings,
-  StagingDataSettings,
-  SynapseSourceSettings,
-  TableFormat,
-  TableMaintenanceSettings,
-  TablePropertiesSettings,
-  TargetTableSettings,
-  VersionedDataGraphBuilderSettings
-}
-import com.sneaksanddata.arcane.framework.services.lakehouse.IcebergCatalogCredential
-import com.sneaksanddata.arcane.framework.services.lakehouse.base.{IcebergCatalogSettings, S3CatalogFileIO}
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClientOptions
+import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, BufferingStrategy, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, IcebergCatalogSettings, JdbcMergeServiceClientSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, SourceBufferingSettings, StagingDataSettings, SynapseSourceSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.services.iceberg.IcebergCatalogCredential
+import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
 import zio.ZLayer
 
 import java.time.format.DateTimeFormatter
@@ -55,7 +36,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
     extends StreamContext
     with GroupingSettings
     with IcebergCatalogSettings
-    with JdbcMergeServiceClientOptions
+    with JdbcMergeServiceClientSettings
     with VersionedDataGraphBuilderSettings
     with AzureConnectionSettings
     with TargetTableSettings
@@ -174,7 +155,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
 object MicrosoftSynapseLinkStreamContext {
 
   type Environment = StreamContext & GroupingSettings & VersionedDataGraphBuilderSettings & IcebergCatalogSettings &
-    JdbcMergeServiceClientOptions & AzureConnectionSettings & TargetTableSettings & MicrosoftSynapseLinkStreamContext &
+    JdbcMergeServiceClientSettings & AzureConnectionSettings & TargetTableSettings & MicrosoftSynapseLinkStreamContext &
     GraphExecutionSettings & TablePropertiesSettings & FieldSelectionRuleSettings & BackfillSettings &
     StagingDataSettings & SynapseSourceSettings & SourceBufferingSettings
 

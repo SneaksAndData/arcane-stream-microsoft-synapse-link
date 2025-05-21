@@ -68,7 +68,7 @@ services:
 ##    volumes:
 ##      - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:latest-main
+    image: quay.io/lakekeeper/catalog:v0.8.5
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -93,7 +93,7 @@ services:
       minio:
         condition: service_healthy
   lakekeeper_migrate:
-    image: quay.io/lakekeeper/catalog:latest-main
+    image: quay.io/lakekeeper/catalog:v0.8.5
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
