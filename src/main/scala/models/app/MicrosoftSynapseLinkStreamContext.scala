@@ -5,7 +5,27 @@ import models.app.contracts.StreamSpec
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings
-import com.sneaksanddata.arcane.framework.models.settings.{BackfillBehavior, BackfillSettings, BufferingStrategy, FieldSelectionRule, FieldSelectionRuleSettings, GroupingSettings, IcebergCatalogSettings, JdbcMergeServiceClientSettings, OptimizeSettings, OrphanFilesExpirationSettings, SnapshotExpirationSettings, SourceBufferingSettings, StagingDataSettings, SynapseSourceSettings, TableFormat, TableMaintenanceSettings, TablePropertiesSettings, TargetTableSettings, VersionedDataGraphBuilderSettings}
+import com.sneaksanddata.arcane.framework.models.settings.{
+  BackfillBehavior,
+  BackfillSettings,
+  BufferingStrategy,
+  FieldSelectionRule,
+  FieldSelectionRuleSettings,
+  GroupingSettings,
+  IcebergCatalogSettings,
+  JdbcMergeServiceClientSettings,
+  OptimizeSettings,
+  OrphanFilesExpirationSettings,
+  SnapshotExpirationSettings,
+  SourceBufferingSettings,
+  StagingDataSettings,
+  SynapseSourceSettings,
+  TableFormat,
+  TableMaintenanceSettings,
+  TablePropertiesSettings,
+  TargetTableSettings,
+  VersionedDataGraphBuilderSettings
+}
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
 import zio.ZLayer
