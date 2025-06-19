@@ -142,7 +142,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
     case "exclude" => FieldSelectionRule.ExcludeFields(spec.fieldSelectionRule.fields.map(f => f.toLowerCase()).toSet)
     case _         => FieldSelectionRule.AllFields
 
-  override val essentialFields: Set[String] = Set("versionnumber", "isdelete", "arcane_merge_key")
+  override val essentialFields: Set[String] = Set("id", "versionnumber", "isdelete", "arcane_merge_key")
 
   override val backfillBehavior: BackfillBehavior = spec.backfillBehavior match
     case "merge"     => BackfillBehavior.Merge
