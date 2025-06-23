@@ -34,7 +34,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.9
+        uses: SneaksAndData/github-actions/generate_version@v0.1.11
         id: version
 
       - name: Extract metadata (tags, labels) for Docker
@@ -92,7 +92,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.9
+        uses: SneaksAndData/github-actions/generate_version@v0.1.11
         id: version
 
       - name: Extract metadata (tags, labels) for Docker
@@ -148,7 +148,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.9
+        uses: SneaksAndData/github-actions/generate_version@v0.1.11
         id: version
 
       - name: Extract metadata (tags, labels) for Docker
