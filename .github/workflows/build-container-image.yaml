@@ -31,7 +31,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.9
+        uses: SneaksAndData/github-actions/generate_version@v0.1.11
         id: version
 
       - name: Extract metadata (tags, labels) for Docker
@@ -63,7 +63,7 @@ jobs:
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Chart
-        uses: SneaksAndData/github-actions/build_helm_chart@v0.1.9
+        uses: SneaksAndData/github-actions/build_helm_chart@v0.1.11
         with:
           application: arcane-stream-microsoft-synapse-link
           app_version: ${{ steps.meta.outputs.version }}
