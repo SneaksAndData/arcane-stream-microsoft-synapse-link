@@ -154,7 +154,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
   override val bufferingStrategy: BufferingStrategy = BufferingStrategy.Buffering(0)
 
   override val isUnifiedSchema: Boolean = false
-  
+
   override val isServerSide: Boolean = false
 
   val datadogSocketPath: String =
