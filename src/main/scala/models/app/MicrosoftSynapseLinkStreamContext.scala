@@ -5,30 +5,13 @@ import models.app.contracts.StreamSpec
 
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings
-import com.sneaksanddata.arcane.framework.models.settings.{
-  BackfillBehavior,
-  BackfillSettings,
-  BufferingStrategy,
-  FieldSelectionRule,
-  FieldSelectionRuleSettings,
-  GroupingSettings,
-  IcebergCatalogSettings,
-  JdbcMergeServiceClientSettings,
-  OptimizeSettings,
-  OrphanFilesExpirationSettings,
-  SnapshotExpirationSettings,
-  SourceBufferingSettings,
-  StagingDataSettings,
-  SynapseSourceSettings,
-  TableFormat,
-  TableMaintenanceSettings,
-  TablePropertiesSettings,
-  TargetTableSettings,
-  VersionedDataGraphBuilderSettings
-}
+import com.sneaksanddata.arcane.framework.models.settings.*
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergCatalogCredential
 import com.sneaksanddata.arcane.framework.services.iceberg.base.S3CatalogFileIO
 import zio.ZLayer
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, OffsetDateTime, ZoneOffset}
@@ -171,19 +154,43 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
   override val bufferingStrategy: BufferingStrategy = BufferingStrategy.Buffering(0)
 
   override val isUnifiedSchema: Boolean = false
+  
+  override val isServerSide: Boolean = false
+
+  val datadogSocketPath: String =
+    sys.env.getOrElse("ARCANE_FRAMEWORK__DATADOG_SOCKET_PATH", "/var/run/datadog/dsd.socket")
+  val metricsPublisherInterval: Duration = Duration.ofMillis(
+    sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "100").toInt
+  )
+
+given Conversion[MicrosoftSynapseLinkStreamContext, DatagramSocketConfig] with
+  def apply(context: MicrosoftSynapseLinkStreamContext): DatagramSocketConfig =
+    DatagramSocketConfig(context.datadogSocketPath)
+
+given Conversion[MicrosoftSynapseLinkStreamContext, MetricsConfig] with
+  def apply(context: MicrosoftSynapseLinkStreamContext): MetricsConfig =
+    MetricsConfig(context.metricsPublisherInterval)
 
 object MicrosoftSynapseLinkStreamContext {
 
   type Environment = StreamContext & GroupingSettings & VersionedDataGraphBuilderSettings & IcebergCatalogSettings &
     JdbcMergeServiceClientSettings & AzureConnectionSettings & TargetTableSettings & MicrosoftSynapseLinkStreamContext &
     GraphExecutionSettings & TablePropertiesSettings & FieldSelectionRuleSettings & BackfillSettings &
-    StagingDataSettings & SynapseSourceSettings & SourceBufferingSettings
+    StagingDataSettings & SynapseSourceSettings & SourceBufferingSettings & MetricsConfig & DatagramSocketConfig &
+    DatadogPublisherConfig
 
   /** The ZLayer that creates the VersionedDataGraphBuilder.
     */
   val layer: ZLayer[Any, Throwable, Environment] = StreamSpec
     .fromEnvironment("STREAMCONTEXT__SPEC")
-    .map(v => ZLayer.succeed(MicrosoftSynapseLinkStreamContext(v)))
+    .map(combineSettingsLayer)
     .getOrElse(ZLayer.fail(new Exception("The stream context is not specified.")))
 
+  private def combineSettingsLayer(spec: StreamSpec): ZLayer[Any, Throwable, Environment] =
+    val context = MicrosoftSynapseLinkStreamContext(spec)
+
+    ZLayer.succeed(context)
+      ++ ZLayer.succeed[DatagramSocketConfig](context)
+      ++ ZLayer.succeed[MetricsConfig](context)
+      ++ ZLayer.succeed(DatadogPublisherConfig())
 }
