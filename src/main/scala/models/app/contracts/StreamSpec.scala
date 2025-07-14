@@ -39,7 +39,6 @@ case class OrphanFilesExpirationSettings(batchThreshold: Int, retentionThreshold
   */
 case class SinkSettings(
     targetTableName: String,
-    archiveTableName: String,
     optimizeSettings: OptimizeSettingsSpec,
     snapshotExpirationSettings: SnapshotExpirationSettingsSpec,
     orphanFilesExpirationSettings: OrphanFilesExpirationSettings
