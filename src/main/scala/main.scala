@@ -23,6 +23,7 @@ import com.sneaksanddata.arcane.framework.services.filters.{
   FieldsFilteringService as FrameworkFieldsFilteringService
 }
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
@@ -91,7 +92,10 @@ object main extends ZIOAppDefault {
     GenericBackfillStreamingOverwriteDataProvider.layer,
     GenericBackfillStreamingMergeDataProvider.layer,
     GenericStreamingGraphBuilder.backfillSubStreamLayer,
-    ZLayer.succeed(schemaCache)
+    ZLayer.succeed(schemaCache),
+    DeclaredMetrics.layer,
+    ArcaneDimensionsProvider.layer,
+    DataDog.UdsPublisher.layer
   )
 
   @main
