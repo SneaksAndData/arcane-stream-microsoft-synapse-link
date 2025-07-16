@@ -25,7 +25,7 @@ lazy val plugin = (project in file("."))
     name := "arcane-stream-microsoft-synapse-link",
     idePackagePrefix := Some("com.sneaksanddata.arcane.microsoft_synapse_link"),
 
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "1.0.3-7-ge8cbf3c",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "1.1.2",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.65.Final",
 
     // bugfix for upgrade header
