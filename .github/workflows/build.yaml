@@ -114,8 +114,9 @@ jobs:
 
       - name: Run smoke tests
         run: |
+          version=$(echo "${{ steps.version.outputs.version }}" | tr -d 'v')
           docker run --net=host \
             -e _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true"  \
             --env-file smoke-tests.env \
-            ghcr.io/sneaksanddata/arcane-stream-microsoft-synapse-link:${{ steps.version.outputs.version }}
+          ${{ steps.meta.outputs.tags }}:$version
 
