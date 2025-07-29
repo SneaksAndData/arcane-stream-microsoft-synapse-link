@@ -118,7 +118,9 @@ jobs:
       - name: Run smoke tests
         run: |
           version=$(echo "${{ steps.version.outputs.version }}" | tr -d 'v')
-          image_name=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$version" | tr '[:upper:]' '[:lower:]')
+          image_name=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          
+          echo "Running $image_name:$version"
           docker run --net=host \
             -e _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true"  \
             --env-file smoke-tests.env \
