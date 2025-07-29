@@ -100,7 +100,7 @@ jobs:
           use: true
           platforms: linux/arm64,linux/amd64
 
-      - name: Build and push Docker image
+      - name: Build and Docker image without pushing
         uses: docker/build-push-action@v6.9.0
         with:
           context: .
@@ -118,5 +118,5 @@ jobs:
           docker run --net=host \
             -e _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true"  \
             --env-file smoke-tests.env \
-          ${{ steps.meta.outputs.tags }}:$version
+          "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$version"
 
