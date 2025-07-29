@@ -122,6 +122,7 @@ jobs:
           
           echo "Running $image_name:$version"
           docker run --net=host \
+          -v "/var/run/docker.sock":"/var/run/docker.sock" \
             -e _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true"  \
             --env-file smoke-tests.env \
           "$image_name:$version"
