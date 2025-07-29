@@ -57,8 +57,11 @@ jobs:
        # with:
         #  path: ./target/scala-3.6.1/coverage-report/cobertura.xml
          # minimum_coverage: 0
+
   fat_jar_smoke_test:
+    ## This job runs the stream in backfill mode and validates that final artifact is runnable
     name: Fat JAR smoke test
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     if: ${{ github.ref != 'refs/heads/main' }}
     permissions:
@@ -115,8 +118,9 @@ jobs:
       - name: Run smoke tests
         run: |
           version=$(echo "${{ steps.version.outputs.version }}" | tr -d 'v')
+          image_name=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$version" | tr '[:upper:]' '[:lower:]')
           docker run --net=host \
             -e _JAVA_OPTIONS="-Djava.net.preferIPv4Stack=true"  \
             --env-file smoke-tests.env \
-          "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$version"
+          "$image_name:$version"
 
