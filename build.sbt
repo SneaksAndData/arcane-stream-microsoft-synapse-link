@@ -79,6 +79,7 @@ lazy val plugin = (project in file("."))
 
       // for javax.activation package take the first one
       case PathList("javax", "activation", _*) => MergeStrategy.last
+      case PathList("javax", "xml", _*) => MergeStrategy.last
 
       // For other files we use the default strategy (deduplicate)
       case x => MergeStrategy.deduplicate
