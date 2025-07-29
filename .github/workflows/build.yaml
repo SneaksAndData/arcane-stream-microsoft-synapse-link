@@ -57,3 +57,4 @@ jobs:
        # with:
         #  path: ./target/scala-3.6.1/coverage-report/cobertura.xml
          # minimum_coverage: 0
+
