@@ -19,16 +19,16 @@ spec:
       additionalPrinterColumns:
         - name: Source location
           type: string
-          jsonPath: .spec.baseLocation
+          jsonPath: .spec.sourceSettings.baseLocation
         - name: Entity
           type: string
-          jsonPath: .spec.entityName
+          jsonPath: .spec.sourceSettings.name
         - name: Refresh Interval
           type: string
           jsonPath: .spec.sourceSettings.changeCaptureIntervalSeconds
         - name: Sink location
           type: string
-          jsonPath: .spec.sinkLocation
+          jsonPath: .spec.sinkSettings.targetTableName
         - name: Phase
           type: string
           jsonPath: .status.phase
@@ -78,7 +78,7 @@ spec:
                       type: string
                     baseLocation:
                       type: string
-                      description: Location root for CDM entities, in Proteus format.
+                      description: Location root for Synapse Link data (Dataverse container)
                     changeCaptureIntervalSeconds:
                       type: integer
                       description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
@@ -86,8 +86,7 @@ spec:
                       maximum: 3600
                 connectionStringRef:
                   description: |
-                    Name of the secret containing the connection string.
-                    The secret should have a key named 'ARCANE_CONNECTIONSTRING'.
+                    Name of the secret containing connection details to Synapse storage account and Trino.
                   type: object
                   properties:
                     name:
@@ -128,15 +127,12 @@ spec:
                   description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
                   minimum: 1
                   maximum: 60
-                groupsPerFile:
-                  type: integer
-                  description: Number of row groups per file.
                 sinkSettings:
                   type: object
                   properties:
                     optimizeSettings:
                       type: object
-                      description: Data location for parquet files.
+                      description: Optimization settings for Iceberg tables.
                       properties:
                         batchThreshold:
                           type: integer
@@ -145,18 +141,18 @@ spec:
                         fileSizeThreshold:
                           type: string
                           default: 100MB
-                          description: File size to accumulate in the optimization query.
+                          description: File size to target for the optimization query.
                       default:
                         batchThreshold: 60
                         fileSizeThreshold: 100MB
                     snapshotExpirationSettings:
                       type: object
-                      description: Data location for parquet files.
+                      description: Expiration query configuration for Iceberg tables.
                       properties:
                         batchThreshold:
                           type: integer
                           default: 60
-                          description: Number of batches to accumulate before running the optimization query.
+                          description: Number of batches to accumulate before running the snapshot expiration query.
                         retentionThreshold:
                           type: string
                           default: 6h
@@ -166,12 +162,12 @@ spec:
                         retentionThreshold: 6h
                     orphanFilesExpirationSettings:
                       type: object
-                      description: Data location for parquet files.
+                      description: Orphan files cleanup settings.
                       properties:
                         batchThreshold:
                           type: integer
                           default: 60
-                          description: Number of batches to accumulate before running the optimization query.
+                          description: Number of batches to accumulate before running the expire orphan files query.
                         retentionThreshold:
                           type: string
                           default: 6h
@@ -181,10 +177,7 @@ spec:
                         retentionThreshold: 6h
                     targetTableName:
                       type: string
-                      description: Data location for parquet files.
-                    archiveTableName:
-                      type: string
-                      description: Data location for parquet files.
+                      description: Name for the target Iceberg table.
                 lookBackInterval:
                   type: integer
                   description: |
