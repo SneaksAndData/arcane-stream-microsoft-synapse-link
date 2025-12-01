@@ -3,7 +3,7 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 import models.app.{AzureConnectionSettings, GraphExecutionSettings, MicrosoftSynapseLinkStreamContext}
 
 import com.azure.storage.common.StorageSharedKeyCredential
-import com.sneaksanddata.arcane.framework.excpetions.StreamFailException
+import com.sneaksanddata.arcane.framework.exceptions.StreamFailException
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.StreamContext
 import com.sneaksanddata.arcane.framework.models.settings.{GroupingSettings, VersionedDataGraphBuilderSettings}
