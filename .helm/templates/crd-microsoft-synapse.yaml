@@ -175,6 +175,23 @@ spec:
                       default:
                         batchThreshold: 60
                         retentionThreshold: 6h
+                    analyzeSettings:
+                      type: object
+                      description: Settings for running ANALYZE on target.
+                      properties:
+                        batchThreshold:
+                          type: integer
+                          default: 60
+                          description: Number of batches to accumulate before running the ANALYZE query.
+                        includedColumns:
+                          type: array
+                          description: Columns to include in the ANALYZE query. If empty, ALL columns will be included.
+                          items:
+                            type: string
+                          default: []
+                      default:
+                        batchThreshold: 60
+                        includedColumns: []
                     targetTableName:
                       type: string
                       description: Name for the target Iceberg table.
