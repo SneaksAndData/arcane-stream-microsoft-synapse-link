@@ -95,6 +95,13 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
       }
     )
 
+    override val targetAnalyzeSettings: Option[AnalyzeSettings] = Some(
+      new AnalyzeSettings {
+        override val batchThreshold: Int          = spec.sinkSettings.analyzeSettings.batchThreshold
+        override val includedColumns: Seq[String] = spec.sinkSettings.analyzeSettings.includedColumns
+      }
+    )
+
   override val endpoint: String  = sys.env("ARCANE_FRAMEWORK__STORAGE_ENDPOINT")
   override val container: String = sys.env("ARCANE_FRAMEWORK__STORAGE_CONTAINER")
   override val account: String   = sys.env("ARCANE_FRAMEWORK__STORAGE_ACCOUNT")
