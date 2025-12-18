@@ -220,8 +220,6 @@ spec:
                           type: string
                         schemaName:
                           type: string
-                        namespace:
-                          type: string
                         warehouse:
                           type: string
                         catalogUri:

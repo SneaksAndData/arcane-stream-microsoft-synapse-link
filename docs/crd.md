@@ -79,9 +79,6 @@ spec:
       # The name of the catalog
       catalogName: staging_data_catalog
       
-      # The namespace that contains the staging tables
-      namespace: staging
-      
       # The schema name that contains the staging tables
       schemaName: dbo
       

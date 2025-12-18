@@ -59,7 +59,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration      = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
-  override val namespace: String               = spec.stagingDataSettings.catalog.namespace
+  override val namespace: String               = spec.stagingDataSettings.catalog.schemaName
   override val warehouse: String               = spec.stagingDataSettings.catalog.warehouse
   override val catalogUri: String              = spec.stagingDataSettings.catalog.catalogUri
   override val stagingLocation: Option[String] = spec.stagingDataSettings.dataLocation
