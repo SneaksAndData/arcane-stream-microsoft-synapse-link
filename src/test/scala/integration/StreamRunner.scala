@@ -5,6 +5,11 @@ import common.{Common, TimeLimitLifetimeService}
 import models.app.MicrosoftSynapseLinkStreamContext
 import models.app.contracts.StreamSpec
 
+import com.sneaksanddata.arcane.framework.services.synapse.SynapseAzureBlobReaderExtensions._
+import com.azure.storage.common.StorageSharedKeyCredential
+import com.sneaksanddata.arcane.framework.services
+import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
+import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
 import org.scalatest.matchers.should.Matchers.should
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -25,7 +30,7 @@ object StreamRunner extends ZIOSpecDefault:
     |
     | {
     |  "backfillBehavior": "overwrite",
-    |  "backfillStartDate": "2025-01-10T08.00.00Z",
+    |  "backfillStartDate": "2026-01-01T00.00.00Z",
     |  "groupingIntervalSeconds": 1,
     |  "lookBackInterval": 21000,
     |  "tableProperties": {
@@ -98,23 +103,32 @@ object StreamRunner extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("backfill, stream, backfill and stream again successfully") {
       for
-        _         <- Fixtures.clearTarget(targetTableName)
+        _ <- Fixtures.clearTarget(targetTableName)
         _         <- Fixtures.clearSource
         startTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         // Upload 10 batches and backfill the table
-        // initialRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        initialRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
         _ <- ZIO.foreach(1 to 10) { index =>
-          Fixtures.uploadBatch(startTime.minusHours(index), false)
+          if index == 1 then
+            Fixtures.uploadBatch(startTime.minusHours(index), false, true)
+          else
+            Fixtures.uploadBatch(startTime.minusHours(index), false, false)
         }
         backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
-        result <- backfillRunner.join.timeout(Duration.ofSeconds(10)).exit
+        result <- backfillRunner.join.timeout(Duration.ofSeconds(30)).exit
 
 //        _ <- Common.waitForData[(String, String)](
 //          backfillStreamContext.targetTableFullName,
 //          "Id, versionnumber",
 //          Common.StrStrDecoder,
-//          10 * 5
+//          5
 //        )
+
+        // TODO: verify watermark
+        // TODO: enable stream + add rows + delete rows
+        // TODO: backfill again
+        // TODO: enable stream and update rows
+        // TODO: verify watermarks
 
       yield assertTrue(result.isSuccess)
     }

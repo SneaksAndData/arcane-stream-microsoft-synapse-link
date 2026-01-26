@@ -40,10 +40,9 @@ object Fixtures:
       containerClient.getBlobClient("model.json").upload(BinaryData.fromString(SynapseMetadata.modelJson))
     )
 
-  def uploadBatch(timestamp: OffsetDateTime, addDelete: Boolean): Task[Unit] =
+  def uploadBatch(timestamp: OffsetDateTime, addDelete: Boolean, updateChangelog: Boolean): Task[Unit] =
     for
       batchFolderName <- ZIO.attempt(s"${formatter.format(timestamp)}Z")
-      batchContent    <- ZIO.attempt(Random.shuffle(SynapseMetadata.fileContent.split("\n").toList).mkString("\n"))
       _ <- ZIO.attemptBlocking(
         containerClient
           .getBlobClient(s"$batchFolderName/model.json")
@@ -51,19 +50,21 @@ object Fixtures:
       )
       _ <- ZIO.attemptBlocking(
         containerClient
-          .getBlobClient(s"$batchFolderName/${SynapseMetadata.entityName}/${Random.between(2020, 2026).toString}")
-          .upload(BinaryData.fromString(batchContent))
+          .getBlobClient(s"$batchFolderName/${SynapseMetadata.entityName}/${Random.between(2020, 2026).toString}.csv")
+          .upload(BinaryData.fromString(SynapseMetadata.fileContent))
       )
       _ <- ZIO.when(addDelete) {
         ZIO.attemptBlocking(
           containerClient
-            .getBlobClient(s"$batchFolderName/${SynapseMetadata.entityName}/${Random.between(1, 10).toString}")
+            .getBlobClient(s"$batchFolderName/${SynapseMetadata.entityName}/${Random.between(1, 10).toString}.csv")
             .upload(BinaryData.fromString(SynapseMetadata.deleteFileContent))
         )
       }
-      _ <- ZIO.attemptBlocking(
-        containerClient
-          .getBlobClient(s"Changelog/changelog.info")
-          .upload(BinaryData.fromString(batchFolderName), true)
-      )
+      _ <- ZIO.when(updateChangelog) {
+        ZIO.attemptBlocking(
+          containerClient
+            .getBlobClient(s"Changelog/changelog.info")
+            .upload(BinaryData.fromString(batchFolderName), true)
+        )
+      }
     yield ()
