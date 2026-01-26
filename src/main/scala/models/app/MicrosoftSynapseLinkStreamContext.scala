@@ -115,7 +115,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
   override val stagingTablePrefix: String = spec.stagingDataSettings.tableNamePrefix
 
   val stagingCatalogName: String = spec.stagingDataSettings.catalog.catalogName
-  val stagingSchemaName: String  = spec.stagingDataSettings.catalog.schemaName
+  val stagingSchemaName: String  = spec.stagingDataSettings.catalog.namespace
 
   val partitionExpressions: Array[String] = spec.tableProperties.partitionExpressions
 

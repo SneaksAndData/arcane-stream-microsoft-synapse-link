@@ -218,8 +218,6 @@ spec:
                       properties:
                         catalogName:
                           type: string
-                        schemaName:
-                          type: string
                         namespace:
                           type: string
                         warehouse:

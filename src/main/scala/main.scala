@@ -12,38 +12,20 @@ import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeServi
 import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.synapse.SynapseHookManager
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import zio.*
 import zio.logging.backend.SLF4J
-import com.sneaksanddata.arcane.framework.services.filters.{
-  FieldsFilteringService,
-  FieldsFilteringService as FrameworkFieldsFilteringService
-}
+import com.sneaksanddata.arcane.framework.services.filters.{FieldsFilteringService, FieldsFilteringService as FrameworkFieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
-  GenericBackfillStreamingMergeDataProvider,
-  GenericBackfillStreamingOverwriteDataProvider
-}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
-  GenericGraphBuilderFactory,
-  GenericStreamingGraphBuilder
-}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.BackfillApplyBatchProcessor
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor
-}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
 import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-import com.sneaksanddata.arcane.framework.services.synapse.{
-  SynapseBackfillOverwriteBatchFactory,
-  SynapseLinkStreamingDataProvider
-}
+import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBackfillOverwriteBatchFactory, SynapseLinkStreamingDataProvider}
 
 object main extends ZIOAppDefault {
 
@@ -95,7 +77,9 @@ object main extends ZIOAppDefault {
     ZLayer.succeed(schemaCache),
     DeclaredMetrics.layer,
     ArcaneDimensionsProvider.layer,
-    DataDog.UdsPublisher.layer
+    DataDog.UdsPublisher.layer,
+    WatermarkProcessor.layer,
+    BackfillOverwriteWatermarkProcessor.layer
   )
 
   @main

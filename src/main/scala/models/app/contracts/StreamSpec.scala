@@ -10,8 +10,7 @@ case class CatalogSettings(
     namespace: String,
     warehouse: String,
     catalogUri: String,
-    catalogName: String,
-    schemaName: String
+    catalogName: String
 ) derives ReadWriter
 
 /** The configuration of staging data.
@@ -102,3 +101,5 @@ object StreamSpec:
 
   def fromEnvironment(envVarName: String): Option[StreamSpec] =
     sys.env.get(envVarName).map(env => read[StreamSpec](env))
+
+  def fromString(value: String): StreamSpec = read[StreamSpec](value)
