@@ -95,13 +95,12 @@ object StreamRunner extends ZIOSpecDefault:
     ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))
     ++ ZLayer.succeed(DatadogPublisherConfig())
 
-
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("backfill, stream, backfill and stream again successfully") {
       for
         startTime <- ZIO.succeed(OffsetDateTime.now())
         // Upload 10 batches and backfill the table
-        //initialRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        // initialRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
         _ <- ZIO.foreach(1 to 10) { index =>
           Fixtures.uploadBatch(startTime.minusHours(index), false)
         }
@@ -114,7 +113,6 @@ object StreamRunner extends ZIOSpecDefault:
           10 * 5
         )
         _ <- backfillRunner.await.timeout(Duration.ofSeconds(10))
-        
       yield assertTrue(1 == 1)
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock

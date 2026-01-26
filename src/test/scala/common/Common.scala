@@ -13,13 +13,33 @@ import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWrite
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
+  GenericBackfillStreamingMergeDataProvider,
+  GenericBackfillStreamingOverwriteDataProvider
+}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
+  GenericGraphBuilderFactory,
+  GenericStreamingGraphBuilder
+}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBackfillOverwriteBatchFactory, SynapseHookManager, SynapseLinkStreamingDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
+  BackfillApplyBatchProcessor,
+  BackfillOverwriteWatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
+  FieldFilteringTransformer,
+  StagingProcessor
+}
+import com.sneaksanddata.arcane.framework.services.synapse.{
+  SynapseBackfillOverwriteBatchFactory,
+  SynapseHookManager,
+  SynapseLinkStreamingDataProvider
+}
 import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import zio.{ZIO, ZLayer}
 
@@ -114,8 +134,7 @@ object Common:
     yield data
   }
 
-  val StrStrDecoder: ResultSet => (String, String) = (rs: ResultSet) =>
-    (rs.getString(1), rs.getString(2))
+  val StrStrDecoder: ResultSet => (String, String) = (rs: ResultSet) => (rs.getString(1), rs.getString(2))
 
   def waitForData[T](
       tableName: String,
