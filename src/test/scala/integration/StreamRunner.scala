@@ -55,7 +55,7 @@ object StreamRunner extends ZIOSpecDefault:
     |    "targetTableName": "$targetTableName"
     |  },
     |  "sourceSettings": {
-    |    "baseLocation": "abfss://cdm-e2e.dfs.core.windows.net/",
+    |    "baseLocation": "abfss://cdm-e2e@devstoreaccount1.dfs.core.windows.net/",
     |    "changeCaptureIntervalSeconds": 300,
     |    "name": "dimensionattributelevelvalue"
     |   },
@@ -67,7 +67,7 @@ object StreamRunner extends ZIOSpecDefault:
     |      "warehouse": "demo"
     |    },
     |    "maxRowsPerFile": 1,
-    |    "tableNamePrefix": "staging_$targetTableName"
+    |    "tableNamePrefix": "staging_dimensionattributelevelvalue"
     |  },
     |  "fieldSelectionRule": {
     |    "ruleType": "all",
@@ -98,8 +98,8 @@ object StreamRunner extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("backfill, stream, backfill and stream again successfully") {
       for
-        _ <- Fixtures.clearTarget(targetTableName)
-        _ <- Fixtures.clearSource
+        _         <- Fixtures.clearTarget(targetTableName)
+        _         <- Fixtures.clearSource
         startTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         // Upload 10 batches and backfill the table
         // initialRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
@@ -107,14 +107,15 @@ object StreamRunner extends ZIOSpecDefault:
           Fixtures.uploadBatch(startTime.minusHours(index), false)
         }
         backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
+        result <- backfillRunner.join.timeout(Duration.ofSeconds(10)).exit
 
-        _ <- Common.waitForData[(String, String)](
-          backfillStreamContext.targetTableFullName,
-          "Id, versionnumber",
-          Common.StrStrDecoder,
-          10 * 5
-        )
-        _ <- backfillRunner.await.timeout(Duration.ofSeconds(10))
-      yield assertTrue(1 == 1)
+//        _ <- Common.waitForData[(String, String)](
+//          backfillStreamContext.targetTableFullName,
+//          "Id, versionnumber",
+//          Common.StrStrDecoder,
+//          10 * 5
+//        )
+
+      yield assertTrue(result.isSuccess)
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock

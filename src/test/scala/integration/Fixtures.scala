@@ -28,17 +28,21 @@ object Fixtures:
   def clearTarget(targetFullName: String): Task[Unit] =
     for
       trinoConnection <- ZIO.attempt(DriverManager.getConnection(trinoConnectionString))
-      query           = s"drop table if exists $targetFullName"
-      statement       <- ZIO.attempt(trinoConnection.createStatement())
-      _ <- ZIO.attemptBlocking(statement.executeUpdate(query))
+      query = s"drop table if exists $targetFullName"
+      statement <- ZIO.attempt(trinoConnection.createStatement())
+      _         <- ZIO.attemptBlocking(statement.executeUpdate(query))
     yield ()
 
   def clearSource: Task[Unit] =
-    ZIO.attemptBlocking(containerClient.deleteIfExists()) *> ZIO.attemptBlocking(containerClient.createIfNotExists()) *> ZIO.attemptBlocking(containerClient.getBlobClient("model.json").upload(BinaryData.fromString(SynapseMetadata.modelJson)))
+    ZIO.attemptBlocking(containerClient.deleteIfExists()) *> ZIO.attemptBlocking(
+      containerClient.createIfNotExists()
+    ) *> ZIO.attemptBlocking(
+      containerClient.getBlobClient("model.json").upload(BinaryData.fromString(SynapseMetadata.modelJson))
+    )
 
   def uploadBatch(timestamp: OffsetDateTime, addDelete: Boolean): Task[Unit] =
     for
-      batchFolderName <- ZIO.attempt(formatter.format(timestamp))
+      batchFolderName <- ZIO.attempt(s"${formatter.format(timestamp)}Z")
       batchContent    <- ZIO.attempt(Random.shuffle(SynapseMetadata.fileContent.split("\n").toList).mkString("\n"))
       _ <- ZIO.attemptBlocking(
         containerClient
@@ -57,7 +61,9 @@ object Fixtures:
             .upload(BinaryData.fromString(SynapseMetadata.deleteFileContent))
         )
       }
-      _ <- ZIO.attemptBlocking(containerClient
+      _ <- ZIO.attemptBlocking(
+        containerClient
           .getBlobClient(s"Changelog/changelog.info")
-          .upload(BinaryData.fromString(batchFolderName), true))
+          .upload(BinaryData.fromString(batchFolderName), true)
+      )
     yield ()

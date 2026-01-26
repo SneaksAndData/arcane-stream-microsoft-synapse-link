@@ -1,45 +1,26 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package common
 
-import main.appLayer
+import main.{appLayer, schemaCache, storageExplorerLayer}
+
 import com.azure.storage.common.StorageSharedKeyCredential
 import models.app.{AzureConnectionSettings, MicrosoftSynapseLinkStreamContext}
 
-import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
+import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.app.base.{InterruptionToken, StreamLifetimeService}
 import com.sneaksanddata.arcane.framework.services.caching.schema_cache.MutableSchemaCache
 import com.sneaksanddata.arcane.framework.services.filters.{ColumnSummaryFieldsFilteringService, FieldsFilteringService}
 import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWriter
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DeclaredMetrics}
+import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
-  GenericBackfillStreamingMergeDataProvider,
-  GenericBackfillStreamingOverwriteDataProvider
-}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
-  GenericGraphBuilderFactory,
-  GenericStreamingGraphBuilder
-}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
-  BackfillApplyBatchProcessor,
-  BackfillOverwriteWatermarkProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
-  DisposeBatchProcessor,
-  MergeBatchProcessor,
-  WatermarkProcessor
-}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
-import com.sneaksanddata.arcane.framework.services.synapse.{
-  SynapseBackfillOverwriteBatchFactory,
-  SynapseHookManager,
-  SynapseLinkStreamingDataProvider
-}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBackfillOverwriteBatchFactory, SynapseHookManager, SynapseLinkStreamingDataProvider}
 import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import zio.{ZIO, ZLayer}
 
@@ -74,8 +55,6 @@ object Common:
   ): ZIO[Any, Throwable, Unit] =
     appLayer.provide(
       storageExplorerLayer,
-      streamContextLayer,
-      lifetimeService,
       GenericStreamRunnerService.layer,
       GenericGraphBuilderFactory.composedLayer,
       GenericGroupingTransformer.layer,
@@ -84,20 +63,23 @@ object Common:
       MergeBatchProcessor.layer,
       StagingProcessor.layer,
       FieldsFilteringService.layer,
+      PosixStreamLifetimeService.layer,
+      SynapseLinkStreamingDataProvider.layer,
+      SynapseBackfillOverwriteBatchFactory.layer,
       SynapseLinkReader.layer,
       SynapseLinkDataProvider.layer,
+      streamContextLayer,
       IcebergS3CatalogWriter.layer,
       JdbcMergeServiceClient.layer,
-      SynapseLinkStreamingDataProvider.layer,
       SynapseHookManager.layer,
-      ZLayer.succeed(MutableSchemaCache()),
       BackfillApplyBatchProcessor.layer,
       GenericBackfillStreamingOverwriteDataProvider.layer,
       GenericBackfillStreamingMergeDataProvider.layer,
       GenericStreamingGraphBuilder.backfillSubStreamLayer,
-      SynapseBackfillOverwriteBatchFactory.layer,
+      ZLayer.succeed(MutableSchemaCache()),
       DeclaredMetrics.layer,
       ArcaneDimensionsProvider.layer,
+      DataDog.UdsPublisher.layer,
       WatermarkProcessor.layer,
       BackfillOverwriteWatermarkProcessor.layer
     )
