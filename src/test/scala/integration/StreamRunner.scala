@@ -1,21 +1,19 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 package integration
 
-import com.sneaksanddata.arcane.framework.services.mssql.*
-import com.sneaksanddata.arcane.framework.services.mssql.base.ConnectionOptions
-import com.sneaksanddata.arcane.microsoft_synapse_link.common.{Common, TimeLimitLifetimeService}
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.MicrosoftSynapseLinkStreamContext
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.contracts.StreamSpec
+import common.{Common, TimeLimitLifetimeService}
+import models.app.MicrosoftSynapseLinkStreamContext
+import models.app.contracts.StreamSpec
+
 import org.scalatest.matchers.should.Matchers.should
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
-import zio.test.TestAspect.timeout
 import zio.test.*
+import zio.test.TestAspect.timeout
 import zio.{Scope, Unsafe, ZIO, ZLayer}
 
-import java.sql.ResultSet
-import java.time.{Duration, OffsetDateTime}
+import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 import scala.language.postfixOps
 
 object StreamRunner extends ZIOSpecDefault:
@@ -26,6 +24,8 @@ object StreamRunner extends ZIOSpecDefault:
   private val streamContextStr = s"""
     |
     | {
+    |  "backfillBehavior": "overwrite",
+    |  "backfillStartDate": "2025-01-10T08.00.00Z",
     |  "groupingIntervalSeconds": 1,
     |  "lookBackInterval": 21000,
     |  "tableProperties": {
@@ -55,9 +55,9 @@ object StreamRunner extends ZIOSpecDefault:
     |    "targetTableName": "$targetTableName"
     |  },
     |  "sourceSettings": {
-    |    baseLocation: abfss://cdm-e2e.dfs.core.windows.net/
-    |    changeCaptureIntervalSeconds: 300
-    |    name: dimensionattributelevelvalue
+    |    "baseLocation": "abfss://cdm-e2e.dfs.core.windows.net/",
+    |    "changeCaptureIntervalSeconds": 300,
+    |    "name": "dimensionattributelevelvalue"
     |   },
     |  "stagingDataSettings": {
     |    "catalog": {
@@ -98,7 +98,9 @@ object StreamRunner extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("backfill, stream, backfill and stream again successfully") {
       for
-        startTime <- ZIO.succeed(OffsetDateTime.now())
+        _ <- Fixtures.clearTarget(targetTableName)
+        _ <- Fixtures.clearSource
+        startTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         // Upload 10 batches and backfill the table
         // initialRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
         _ <- ZIO.foreach(1 to 10) { index =>

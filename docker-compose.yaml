@@ -43,14 +43,6 @@ services:
       - "--blobPort"
       - "10001"
       - "--skipApiVersionCheck"
-  create-cdm-container:
-    image: python:3.11-slim-bookworm
-    network_mode: host
-    depends_on:
-      - azurite
-    volumes:
-      - ./populate-cdm-container.py:/populate-cdm-container.py
-    command: [ "/bin/sh", "-c", "pip install azure-storage-blob requests && python /populate-cdm-container.py" ]
   trino:
     depends_on:
       lakekeeper:

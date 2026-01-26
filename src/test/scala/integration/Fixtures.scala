@@ -2,14 +2,11 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package integration
 
 import com.azure.core.util.BinaryData
-import com.azure.identity.DefaultAzureCredentialBuilder
 import com.azure.storage.blob.BlobServiceClientBuilder
 import com.azure.storage.common.StorageSharedKeyCredential
-import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
-import zio.stream.ZStream
 import zio.{Task, ZIO}
 
-import java.sql.{Connection, DriverManager}
+import java.sql.DriverManager
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import scala.util.Random
@@ -26,13 +23,18 @@ object Fixtures:
   private val containerClient = serviceClient.getBlobContainerClient("cdm-e2e")
 
   val trinoConnectionString: String = sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")
-  val formatter: DateTimeFormatter  = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ssX")
+  val formatter: DateTimeFormatter  = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH.mm.ss")
 
-  def clearTarget(targetFullName: String): Unit =
-    val trinoConnection = DriverManager.getConnection(trinoConnectionString)
-    val query           = s"drop table if exists $targetFullName"
-    val statement       = trinoConnection.createStatement()
-    statement.executeUpdate(query)
+  def clearTarget(targetFullName: String): Task[Unit] =
+    for
+      trinoConnection <- ZIO.attempt(DriverManager.getConnection(trinoConnectionString))
+      query           = s"drop table if exists $targetFullName"
+      statement       <- ZIO.attempt(trinoConnection.createStatement())
+      _ <- ZIO.attemptBlocking(statement.executeUpdate(query))
+    yield ()
+
+  def clearSource: Task[Unit] =
+    ZIO.attemptBlocking(containerClient.deleteIfExists()) *> ZIO.attemptBlocking(containerClient.createIfNotExists()) *> ZIO.attemptBlocking(containerClient.getBlobClient("model.json").upload(BinaryData.fromString(SynapseMetadata.modelJson)))
 
   def uploadBatch(timestamp: OffsetDateTime, addDelete: Boolean): Task[Unit] =
     for
@@ -55,4 +57,7 @@ object Fixtures:
             .upload(BinaryData.fromString(SynapseMetadata.deleteFileContent))
         )
       }
+      _ <- ZIO.attemptBlocking(containerClient
+          .getBlobClient(s"Changelog/changelog.info")
+          .upload(BinaryData.fromString(batchFolderName), true))
     yield ()
