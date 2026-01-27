@@ -7,7 +7,6 @@ import upickle.default.*
 /** The configuration of Iceberg catalog
   */
 case class CatalogSettings(
-    namespace: String,
     warehouse: String,
     catalogUri: String,
     catalogName: String,
