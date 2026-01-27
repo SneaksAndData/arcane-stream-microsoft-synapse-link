@@ -53,6 +53,15 @@ jobs:
         shell: bash
         run: sbt scalafmtCheckAll
 
+      - name: Import the environment variables
+        run: cat integration-tests.env >> $GITHUB_ENV
+
+      - name: Build and test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: sbt clean coverage test coverageReport
+
       - uses: 5monkeys/cobertura-action@v14
         with:
           path: ./target/scala-3.6.1/coverage-report/cobertura.xml

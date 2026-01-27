@@ -7,10 +7,10 @@ import upickle.default.*
 /** The configuration of Iceberg catalog
   */
 case class CatalogSettings(
-    namespace: String,
     warehouse: String,
     catalogUri: String,
-    catalogName: String
+    catalogName: String,
+    schemaName: String
 ) derives ReadWriter
 
 /** The configuration of staging data.

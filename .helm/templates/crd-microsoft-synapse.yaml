@@ -218,7 +218,7 @@ spec:
                       properties:
                         catalogName:
                           type: string
-                        namespace:
+                        schemaName:
                           type: string
                         warehouse:
                           type: string
