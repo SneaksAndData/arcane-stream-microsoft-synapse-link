@@ -40,7 +40,12 @@ object Fixtures:
       containerClient.getBlobClient("model.json").upload(BinaryData.fromString(SynapseMetadata.modelJson))
     )
 
-  def uploadBatch(timestamp: OffsetDateTime, addDelete: Boolean, updateChangelog: Boolean, addUpsert: Boolean): Task[Unit] =
+  def uploadBatch(
+      timestamp: OffsetDateTime,
+      addDelete: Boolean,
+      updateChangelog: Boolean,
+      addUpsert: Boolean
+  ): Task[Unit] =
     for
       batchFolderName <- ZIO.attempt(s"${formatter.format(timestamp)}Z")
       _ <- ZIO.attemptBlocking(

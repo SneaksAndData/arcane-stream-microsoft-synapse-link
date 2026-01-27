@@ -2,10 +2,10 @@ package com.sneaksanddata.arcane.microsoft_synapse_link
 package integration
 
 import common.{Common, TimeLimitLifetimeService}
+import integration.Fixtures.formatter
 import models.app.MicrosoftSynapseLinkStreamContext
 import models.app.contracts.StreamSpec
 
-import com.sneaksanddata.arcane.microsoft_synapse_link.integration.Fixtures.formatter
 import org.scalatest.matchers.should.Matchers.should
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -99,35 +99,35 @@ object StreamRunner extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("backfill, stream, backfill and stream again successfully") {
       for
-        _ <- Fixtures.clearTarget(targetTableName)
+        _         <- Fixtures.clearTarget(targetTableName)
         _         <- Fixtures.clearSource
         startTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         // Upload 2 batches and backfill the table
         _ <- ZIO.foreach(1 to 2) { index =>
-          if index == 1 then
-            Fixtures.uploadBatch(startTime.minusHours(index), false, true, false)
-          else
-            Fixtures.uploadBatch(startTime.minusHours(index), false, false, false)
+          if index == 1 then Fixtures.uploadBatch(startTime.minusHours(index), false, true, false)
+          else Fixtures.uploadBatch(startTime.minusHours(index), false, false, false)
         }
         backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
-        result <- backfillRunner.join.timeout(Duration.ofSeconds(30)).exit
+        result         <- backfillRunner.join.timeout(Duration.ofSeconds(30)).exit
 
-        backfilledCount <- Common.getData(
-          backfillStreamContext.targetTableFullName,
-          "Id, versionnumber",
-          Common.StrStrDecoder
-        ).map(_.size)
+        backfilledCount <- Common
+          .getData(
+            backfillStreamContext.targetTableFullName,
+            "Id, versionnumber",
+            Common.StrStrDecoder
+          )
+          .map(_.size)
 
         backfilledWatermark <- Common.getWatermark(backfillStreamContext.targetTableFullName.split('.').last)
 
         streamingRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-        // drop some no-op updates and stamp the new change log. This will be merged without actual updates
-        _ <- Fixtures.uploadBatch(startTime.minusMinutes(5), false, true, false)
+        // drop some updates + inserts. 2 new rows should be inserted, row with id = 5b4bc74e-2132-4d8e-8572-48ce4260f182 - updated
+        _ <- Fixtures.uploadBatch(startTime.minusMinutes(15), true, false, true)
         // drop no-op updates and a DELETE. Record with id = 50bff458-d47a-4924-804b-31c0a83108e6 should disappear
         _ <- Fixtures.uploadBatch(startTime.minusMinutes(10), true, false, false)
-        // drop some updates + inserts. 2 new rows should be inserted, row with id = 5b4bc74e-2132-4d8e-8572-48ce4260f182 - updated
-        _ <- Fixtures.uploadBatch(startTime.minusMinutes(10), true, false, true)
         // expected rows then will be initial 5 + 0 - 1 + 2
+        // drop some no-op updates and stamp the new change log. This will be merged without actual updates
+        _ <- Fixtures.uploadBatch(startTime.minusMinutes(5), false, true, false)
 
         streamingResult <- streamingRunner.join.timeout(Duration.ofSeconds(30)).exit
 
@@ -136,11 +136,18 @@ object StreamRunner extends ZIOSpecDefault:
           "Id, versionnumber",
           Common.StrStrDecoder
         )
-        
-        streamedWatermark <- Common.getWatermark(backfillStreamContext.targetTableFullName.split('.').last)
-        
-        // TODO: verify watermarks
 
-      yield assertTrue(result.isSuccess) implies assertTrue(backfilledCount == 5) implies assertTrue(backfilledWatermark.version == s"${formatter.format(startTime.minusHours(1))}Z") implies assertTrue(currentRows.size == 5 - 1 + 2)
+        streamedWatermark <- Common.getWatermark(streamingStreamContext.targetTableFullName.split('.').last)
+
+      // TODO: verify watermarks
+      yield assertTrue(result.isSuccess) implies assertTrue(backfilledCount == 5) implies assertTrue(
+        backfilledWatermark.version == s"${formatter.format(startTime.minusHours(1))}Z"
+      ) implies assertTrue(currentRows.size == 5 - 1 + 2) implies assertTrue(
+        !currentRows.exists(_._1 == "50bff458-d47a-4924-804b-31c0a83108e6")
+      ) implies assertTrue(
+        currentRows.find(_._1 == "5b4bc74e-2132-4d8e-8572-48ce4260f182").map(_._2).getOrElse("") == "2111000012"
+      ) implies assertTrue(
+        streamedWatermark.version == s"${formatter.format(startTime.minusMinutes(5))}Z"
+      )
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock

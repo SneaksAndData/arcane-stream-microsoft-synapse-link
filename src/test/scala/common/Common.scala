@@ -14,13 +14,33 @@ import com.sneaksanddata.arcane.framework.services.iceberg.IcebergS3CatalogWrite
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
 import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
+  GenericBackfillStreamingMergeDataProvider,
+  GenericBackfillStreamingOverwriteDataProvider
+}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
+  GenericGraphBuilderFactory,
+  GenericStreamingGraphBuilder
+}
 import com.sneaksanddata.arcane.framework.services.streaming.processors.GenericGroupingTransformer
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
-import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBackfillOverwriteBatchFactory, SynapseHookManager, SynapseLinkStreamingDataProvider}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
+  BackfillApplyBatchProcessor,
+  BackfillOverwriteWatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
+  FieldFilteringTransformer,
+  StagingProcessor
+}
+import com.sneaksanddata.arcane.framework.services.synapse.{
+  SynapseBackfillOverwriteBatchFactory,
+  SynapseHookManager,
+  SynapseLinkStreamingDataProvider
+}
 import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import zio.{ZIO, ZLayer}
@@ -122,9 +142,13 @@ object Common:
       connection <- ZIO.attempt(DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")))
       statement  <- ZIO.attempt(connection.createStatement())
       resultSet <- ZIO.fromAutoCloseable(
-        ZIO.attemptBlocking(statement.executeQuery(s"SELECT value FROM iceberg.test.\"$targetTableName$$properties\" WHERE key = 'comment'"))
+        ZIO.attemptBlocking(
+          statement.executeQuery(
+            s"SELECT value FROM iceberg.test.\"$targetTableName$$properties\" WHERE key = 'comment'"
+          )
+        )
       )
-      _ <- ZIO.attemptBlocking(resultSet.next())
+      _         <- ZIO.attemptBlocking(resultSet.next())
       watermark <- ZIO.attempt(SynapseWatermark.fromJson(resultSet.getString("value")))
     yield watermark
   }
