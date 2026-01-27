@@ -102,13 +102,12 @@ object StreamRunner extends ZIOSpecDefault:
         _ <- Fixtures.clearTarget(targetTableName)
         _         <- Fixtures.clearSource
         startTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
-        // Upload 10 batches and backfill the table
-        initialRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        // Upload 2 batches and backfill the table
         _ <- ZIO.foreach(1 to 2) { index =>
           if index == 1 then
-            Fixtures.uploadBatch(startTime.minusHours(index), false, true)
+            Fixtures.uploadBatch(startTime.minusHours(index), false, true, false)
           else
-            Fixtures.uploadBatch(startTime.minusHours(index), false, false)
+            Fixtures.uploadBatch(startTime.minusHours(index), false, false, false)
         }
         backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
         result <- backfillRunner.join.timeout(Duration.ofSeconds(30)).exit
@@ -121,12 +120,27 @@ object StreamRunner extends ZIOSpecDefault:
 
         backfilledWatermark <- Common.getWatermark(backfillStreamContext.targetTableFullName.split('.').last)
 
+        streamingRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
+        // drop some no-op updates and stamp the new change log. This will be merged without actual updates
+        _ <- Fixtures.uploadBatch(startTime.minusMinutes(5), false, true, false)
+        // drop no-op updates and a DELETE. Record with id = 50bff458-d47a-4924-804b-31c0a83108e6 should disappear
+        _ <- Fixtures.uploadBatch(startTime.minusMinutes(10), true, false, false)
+        // drop some updates + inserts. 2 new rows should be inserted, row with id = 5b4bc74e-2132-4d8e-8572-48ce4260f182 - updated
+        _ <- Fixtures.uploadBatch(startTime.minusMinutes(10), true, false, true)
+        // expected rows then will be initial 5 + 0 - 1 + 2
 
-        // TODO: enable stream + add rows + delete rows
-        // TODO: backfill again
-        // TODO: enable stream and update rows
+        streamingResult <- streamingRunner.join.timeout(Duration.ofSeconds(30)).exit
+
+        currentRows <- Common.getData(
+          streamingStreamContext.targetTableFullName,
+          "Id, versionnumber",
+          Common.StrStrDecoder
+        )
+        
+        streamedWatermark <- Common.getWatermark(backfillStreamContext.targetTableFullName.split('.').last)
+        
         // TODO: verify watermarks
 
-      yield assertTrue(result.isSuccess) implies assertTrue(backfilledCount == 5) implies assertTrue(backfilledWatermark.version == s"${formatter.format(startTime.minusHours(1))}Z")
+      yield assertTrue(result.isSuccess) implies assertTrue(backfilledCount == 5) implies assertTrue(backfilledWatermark.version == s"${formatter.format(startTime.minusHours(1))}Z") implies assertTrue(currentRows.size == 5 - 1 + 2)
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
