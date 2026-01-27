@@ -43,14 +43,6 @@ services:
       - "--blobPort"
       - "10001"
       - "--skipApiVersionCheck"
-  create-cdm-container:
-    image: python:3.11-slim-bookworm
-    network_mode: host
-    depends_on:
-      - azurite
-    volumes:
-      - ./populate-cdm-container.py:/populate-cdm-container.py
-    command: [ "/bin/sh", "-c", "pip install azure-storage-blob requests && python /populate-cdm-container.py" ]
   trino:
     depends_on:
       lakekeeper:
@@ -59,14 +51,6 @@ services:
     image: "trinodb/trino:474"
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
-##  http-proxy:
-##    image: "envoyproxy/envoy:v1.31.2"
-##    command:
-##      - envoy
-##      - "-c"
-##      - /etc/envoy/envoy.yaml
-##    volumes:
-##      - ./http-proxy-envoy-config.yaml:/etc/envoy/envoy.yaml
   lakekeeper:
     image: quay.io/lakekeeper/catalog:v0.9.2
     network_mode: host
