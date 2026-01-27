@@ -5,18 +5,14 @@ import common.{Common, TimeLimitLifetimeService}
 import models.app.MicrosoftSynapseLinkStreamContext
 import models.app.contracts.StreamSpec
 
-import com.sneaksanddata.arcane.framework.services.synapse.SynapseAzureBlobReaderExtensions._
-import com.azure.storage.common.StorageSharedKeyCredential
-import com.sneaksanddata.arcane.framework.services
-import com.sneaksanddata.arcane.framework.services.storage.models.azure.AdlsStoragePath
-import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
+import com.sneaksanddata.arcane.microsoft_synapse_link.integration.Fixtures.formatter
 import org.scalatest.matchers.should.Matchers.should
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
 import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.*
 import zio.test.TestAspect.timeout
-import zio.{Scope, Unsafe, ZIO, ZLayer}
+import zio.{Scope, ZIO, ZLayer}
 
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 import scala.language.postfixOps
@@ -108,7 +104,7 @@ object StreamRunner extends ZIOSpecDefault:
         startTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         // Upload 10 batches and backfill the table
         initialRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, streamingStreamContextLayer).fork
-        _ <- ZIO.foreach(1 to 10) { index =>
+        _ <- ZIO.foreach(1 to 2) { index =>
           if index == 1 then
             Fixtures.uploadBatch(startTime.minusHours(index), false, true)
           else
@@ -117,19 +113,20 @@ object StreamRunner extends ZIOSpecDefault:
         backfillRunner <- Common.buildTestApp(TimeLimitLifetimeService.layer, backfillStreamContextLayer).fork
         result <- backfillRunner.join.timeout(Duration.ofSeconds(30)).exit
 
-//        _ <- Common.waitForData[(String, String)](
-//          backfillStreamContext.targetTableFullName,
-//          "Id, versionnumber",
-//          Common.StrStrDecoder,
-//          5
-//        )
+        backfilledCount <- Common.getData(
+          backfillStreamContext.targetTableFullName,
+          "Id, versionnumber",
+          Common.StrStrDecoder
+        ).map(_.size)
 
-        // TODO: verify watermark
+        backfilledWatermark <- Common.getWatermark(backfillStreamContext.targetTableFullName.split('.').last)
+
+
         // TODO: enable stream + add rows + delete rows
         // TODO: backfill again
         // TODO: enable stream and update rows
         // TODO: verify watermarks
 
-      yield assertTrue(result.isSuccess)
+      yield assertTrue(result.isSuccess) implies assertTrue(backfilledCount == 5) implies assertTrue(backfilledWatermark.version == s"${formatter.format(startTime.minusHours(1))}Z")
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock

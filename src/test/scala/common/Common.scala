@@ -22,6 +22,7 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_pr
 import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
 import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBackfillOverwriteBatchFactory, SynapseHookManager, SynapseLinkStreamingDataProvider}
 import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
+import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import zio.{ZIO, ZLayer}
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -114,6 +115,18 @@ object Common:
           .toList
       }
     yield data
+  }
+
+  def getWatermark(targetTableName: String): ZIO[Any, Throwable, SynapseWatermark] = ZIO.scoped {
+    for
+      connection <- ZIO.attempt(DriverManager.getConnection(sys.env("ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI")))
+      statement  <- ZIO.attempt(connection.createStatement())
+      resultSet <- ZIO.fromAutoCloseable(
+        ZIO.attemptBlocking(statement.executeQuery(s"SELECT value FROM iceberg.test.\"$targetTableName$$properties\" WHERE key = 'comment'"))
+      )
+      _ <- ZIO.attemptBlocking(resultSet.next())
+      watermark <- ZIO.attempt(SynapseWatermark.fromJson(resultSet.getString("value")))
+    yield watermark
   }
 
   val StrStrDecoder: ResultSet => (String, String) = (rs: ResultSet) => (rs.getString(1), rs.getString(2))
