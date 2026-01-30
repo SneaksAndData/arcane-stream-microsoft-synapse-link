@@ -13,7 +13,7 @@ spec:
     shortNames:
       - mssynapsestream
   versions:
-    - name: v1beta1
+    - name: v1
       served: true
       storage: true
       additionalPrinterColumns:
@@ -23,7 +23,7 @@ spec:
         - name: Entity
           type: string
           jsonPath: .spec.sourceSettings.name
-        - name: Refresh Interval
+        - name: Change Capture Interval
           type: string
           jsonPath: .spec.sourceSettings.changeCaptureIntervalSeconds
         - name: Sink location
@@ -78,10 +78,10 @@ spec:
                       type: string
                     baseLocation:
                       type: string
-                      description: Location root for Synapse Link data (Dataverse container)
+                      description: Location root for Synapse Link data (Dataverse container), in a format abfss://account@container.dfs.core.windows.net/
                     changeCaptureIntervalSeconds:
                       type: integer
-                      description: How long to wait before polling for next result set. Can be from 1 to 1 hour.
+                      description: How long to wait before polling for next change set. Accepted range is between 1s and 3600s
                       minimum: 1
                       maximum: 3600
                 connectionStringRef:
@@ -93,7 +93,7 @@ spec:
                       type: string
                 jobTemplateRef:
                   description: |
-                    Name of the job template to be used for the streaming job if stream is running in normal mode.
+                    Name of the job template to be used for the application in streaming mode.
                   type: object
                   properties:
                     name:
@@ -104,7 +104,7 @@ spec:
                       type: string
                 backfillJobTemplateRef:
                   description: |
-                    Name of the job template to be used for the streaming job if stream is running in the backfill mode.
+                    Name of the job template to be used for the for the application in backfill mode.
                   type: object
                   properties:
                     name:
@@ -121,10 +121,10 @@ spec:
                   description: Max retry delay on blob reads for the http client.
                 rowsPerGroup:
                   type: integer
-                  description: Number of rows per parquet rowgroup.
+                  description: Maximum number of rows to be grouped together for the staging process to consume.
                 groupingIntervalSeconds:
                   type: integer
-                  description: Max time to wait for rowsPerGroup to accumulate. Can be from 1 to 60 seconds.
+                  description: Max time to wait for rowsPerGroup to accumulate and then proceed to staging. Can be from 1 to 60 seconds.
                   minimum: 1
                   maximum: 60
                 sinkSettings:
@@ -132,31 +132,31 @@ spec:
                   properties:
                     optimizeSettings:
                       type: object
-                      description: Optimization settings for Iceberg tables.
+                      description: Configuration for target table optimize (data file aggregation into bigger files)
                       properties:
                         batchThreshold:
                           type: integer
                           default: 60
-                          description: Number of batches to accumulate before running the optimization query.
+                          description: Number of batches to accumulate before triggering the OPTIMIZE
                         fileSizeThreshold:
                           type: string
                           default: 100MB
-                          description: File size to target for the optimization query.
+                          description: File size to target when running OPTIMIZE
                       default:
                         batchThreshold: 60
                         fileSizeThreshold: 100MB
                     snapshotExpirationSettings:
                       type: object
-                      description: Expiration query configuration for Iceberg tables.
+                      description: Configuration for EXPIRE SNAPSHOTS (table transaction log cutoff)
                       properties:
                         batchThreshold:
                           type: integer
                           default: 60
-                          description: Number of batches to accumulate before running the snapshot expiration query.
+                          description: Number of batches to accumulate triggering EXPIRE SNAPSHOTS
                         retentionThreshold:
                           type: string
                           default: 6h
-                          description: File retention period.
+                          description: Maximum age of records in the transaction log to keep
                       default:
                         batchThreshold: 60
                         retentionThreshold: 6h
@@ -167,17 +167,17 @@ spec:
                         batchThreshold:
                           type: integer
                           default: 60
-                          description: Number of batches to accumulate before running the expire orphan files query.
+                          description: Configuration for EXPIRE ORPHAN FILES (cleanup of files no longer referenced by Iceberg snapshots)
                         retentionThreshold:
                           type: string
                           default: 6h
-                          description: File retention period.
+                          description: Number of batches to accumulate before triggering EXPIRE ORPHAN FILES
                       default:
                         batchThreshold: 60
                         retentionThreshold: 6h
                     analyzeSettings:
                       type: object
-                      description: Settings for running ANALYZE on target.
+                      description: Configuration for ANALYZE (full refresh of extended statistics on the target)
                       properties:
                         batchThreshold:
                           type: integer
@@ -195,9 +195,21 @@ spec:
                     targetTableName:
                       type: string
                       description: Name for the target Iceberg table.
+                    sinkCatalogSettings:
+                      type: object
+                      description: Connection settings for Iceberg REST Catalog for the sink (target). This is used by watermarking process.
+                      properties:
+                        namespace:
+                          type: string
+                        warehouse:
+                          type: string
+                        catalogUri:
+                          type: string
                 lookBackInterval:
                   type: integer
                   description: |
+                    DEPRECATED - TO BE REMOVED IN 2.1 RELEASE. DO NOT USE THIS SETTING!
+                    
                     Number of seconds to look back when determining first set of changes to extract.
                     Can be set in interval from 1 second to 10 hours. Default is 1 hour.
                   minimum: 1
@@ -206,15 +218,19 @@ spec:
                 stagingDataSettings:
                   type: object
                   properties:
-                    maxRowsPerFile:
-                      type: integer
-                      default: 10000
                     dataLocation:
                       type: string
+                      description: Option data location override. Only use this setting for debugging and never in production environments.
+                    maxRowsPerFile:
+                      type: integer
+                      description: The maximum number of rows per each data file in the staging table.
+                      default: 10000
                     tableNamePrefix:
                       type: string
+                      description: Prefix for staging tables created by Arcane. Must be UNIQUE in the WAREHOUSE scope.
                     catalog:
                       type: object
+                      description: Settings for Iceberg REST Catalog used for staging tables
                       properties:
                         catalogName:
                           type: string
@@ -233,6 +249,7 @@ spec:
                     overwrite
                 fieldSelectionRule:
                   type: object
+                  description: INCLUDE will only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well. EXCLUDE will exclude provided fields instead. ALL (default) will use all fields without filters.
                   properties:
                     ruleType:
                       type: string

@@ -30,7 +30,7 @@ trait ParallelismSettings:
 trait GraphExecutionSettings:
   val sourceDeleteDryRun: Boolean
 
-/** The context for the SQL Server Change Tracking stream.
+/** The context for the Synapse Link stream.
   *
   * @param spec
   *   The stream specification
@@ -38,11 +38,11 @@ trait GraphExecutionSettings:
 case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
     extends StreamContext
     with GroupingSettings
-    with IcebergCatalogSettings
+    with IcebergStagingSettings
     with JdbcMergeServiceClientSettings
     with VersionedDataGraphBuilderSettings
     with AzureConnectionSettings
-    with TargetTableSettings
+    with SinkSettings
     with ParallelismSettings
     with TablePropertiesSettings
     with FieldSelectionRuleSettings
@@ -65,8 +65,8 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
   override val stagingLocation: Option[String] = spec.stagingDataSettings.dataLocation
 
   override val additionalProperties: Map[String, String] = sys.env.get("ARCANE_FRAMEWORK__CATALOG_NO_AUTH") match
-    case Some(_) => Map()
-    case None    => IcebergCatalogCredential.oAuth2Properties
+    case Some(_) => S3CatalogFileIO.properties
+    case None    => S3CatalogFileIO.properties ++ IcebergCatalogCredential.oAuth2Properties
 
   override val s3CatalogFileIO: S3CatalogFileIO = S3CatalogFileIO
 
@@ -169,6 +169,17 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
   val metricsPublisherInterval: Duration = Duration.ofMillis(
     sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "100").toInt
   )
+  override val icebergSinkSettings: IcebergSinkSettings = new IcebergSinkSettings {
+    override val namespace: String =
+      sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_NAMESPACE") // spec.sinkSettings.sinkCatalogSettings.namespace.getOrElse()
+    override val warehouse: String =
+      sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_WAREHOUSE") // spec.sinkSettings.sinkCatalogSettings.warehouse.getOrElse()
+    override val catalogUri: String =
+      sys.env(
+        "ARCANE_FRAMEWORK__ICEBERG_SINK_CATALOG_URI"
+      ) // spec.sinkSettings.sinkCatalogSettings.catalogUri.getOrElse()
+    override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
+  }
 
 given Conversion[MicrosoftSynapseLinkStreamContext, DatagramSocketConfig] with
   def apply(context: MicrosoftSynapseLinkStreamContext): DatagramSocketConfig =
@@ -180,8 +191,8 @@ given Conversion[MicrosoftSynapseLinkStreamContext, MetricsConfig] with
 
 object MicrosoftSynapseLinkStreamContext {
 
-  type Environment = StreamContext & GroupingSettings & VersionedDataGraphBuilderSettings & IcebergCatalogSettings &
-    JdbcMergeServiceClientSettings & AzureConnectionSettings & TargetTableSettings & MicrosoftSynapseLinkStreamContext &
+  type Environment = StreamContext & GroupingSettings & VersionedDataGraphBuilderSettings & IcebergStagingSettings &
+    JdbcMergeServiceClientSettings & AzureConnectionSettings & SinkSettings & MicrosoftSynapseLinkStreamContext &
     GraphExecutionSettings & TablePropertiesSettings & FieldSelectionRuleSettings & BackfillSettings &
     StagingDataSettings & SynapseSourceSettings & SourceBufferingSettings & MetricsConfig & DatagramSocketConfig &
     DatadogPublisherConfig
