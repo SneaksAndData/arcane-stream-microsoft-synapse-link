@@ -14,7 +14,7 @@ metadata:
 spec:
   apiGroupRef: streaming.sneaksanddata.com
   kindRef: MicrosoftSynapseStream
-  apiVersion: v1beta1
+  apiVersion: v1
   pluralName: microsoft-synapse-streams
   secretRefs:
     - connectionStringRef
