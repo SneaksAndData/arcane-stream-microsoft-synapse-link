@@ -1,4 +1,4 @@
-apiVersion: streaming.sneaksanddata.com/v1beta1
+apiVersion: streaming.sneaksanddata.com/v1
 kind: StreamClass
 metadata:
   name: {{ template "app.name" . }}-synapse
