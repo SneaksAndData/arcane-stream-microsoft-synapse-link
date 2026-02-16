@@ -53,7 +53,12 @@ object StreamRunner extends ZIOSpecDefault:
     |      "batchThreshold": 60,
     |      "includedColumns": []
     |    },
-    |    "targetTableName": "$targetTableName"
+    |    "targetTableName": "$targetTableName",
+    |    "sinkCatalogSettings": {
+    |      "namespace": "test",
+    |      "warehouse": "demo",
+    |      "catalogUri": "http://localhost:20001/catalog"
+    |    }
     |  },
     |  "sourceSettings": {
     |    "baseLocation": "abfss://cdm-e2e@devstoreaccount1.dfs.core.windows.net/",
@@ -138,8 +143,6 @@ object StreamRunner extends ZIOSpecDefault:
         )
 
         streamedWatermark <- Common.getWatermark(streamingStreamContext.targetTableFullName.split('.').last)
-
-      // TODO: verify watermarks
       yield assertTrue(result.isSuccess) implies assertTrue(backfilledCount == 5) implies assertTrue(
         backfilledWatermark.version == s"${formatter.format(startTime.minusHours(1))}Z"
       ) implies assertTrue(currentRows.size == 5 - 1 + 2) implies assertTrue(

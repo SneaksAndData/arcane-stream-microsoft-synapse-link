@@ -170,14 +170,9 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
     sys.env.getOrElse("ARCANE_FRAMEWORK__METRICS_PUBLISHER_INTERVAL_MILLIS", "100").toInt
   )
   override val icebergSinkSettings: IcebergSinkSettings = new IcebergSinkSettings {
-    override val namespace: String =
-      sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_NAMESPACE") // spec.sinkSettings.sinkCatalogSettings.namespace.getOrElse()
-    override val warehouse: String =
-      sys.env("ARCANE_FRAMEWORK__ICEBERG_SINK_WAREHOUSE") // spec.sinkSettings.sinkCatalogSettings.warehouse.getOrElse()
-    override val catalogUri: String =
-      sys.env(
-        "ARCANE_FRAMEWORK__ICEBERG_SINK_CATALOG_URI"
-      ) // spec.sinkSettings.sinkCatalogSettings.catalogUri.getOrElse()
+    override val namespace: String                         = spec.sinkSettings.sinkCatalogSettings.namespace
+    override val warehouse: String                         = spec.sinkSettings.sinkCatalogSettings.warehouse
+    override val catalogUri: String                        = spec.sinkSettings.sinkCatalogSettings.catalogUri
     override val additionalProperties: Map[String, String] = IcebergCatalogCredential.oAuth2Properties
   }
 

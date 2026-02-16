@@ -37,9 +37,9 @@ case class OrphanFilesExpirationSettings(batchThreshold: Int, retentionThreshold
 case class AnalyzeSettings(batchThreshold: Int, includedColumns: Seq[String]) derives ReadWriter
 
 case class IcebergSinkSettings(
-    namespace: Option[String] = None,
-    warehouse: Option[String] = None,
-    catalogUri: Option[String] = None
+    namespace: String,
+    warehouse: String,
+    catalogUri: String
 ) derives ReadWriter
 
 /** The configuration of Iceberg sink.
@@ -50,7 +50,7 @@ case class SinkSettings(
     snapshotExpirationSettings: SnapshotExpirationSettingsSpec,
     orphanFilesExpirationSettings: OrphanFilesExpirationSettings,
     analyzeSettings: AnalyzeSettings,
-    sinkCatalogSettings: Option[IcebergSinkSettings] = None
+    sinkCatalogSettings: IcebergSinkSettings
 ) derives ReadWriter
 
 /** The configuration of the stream source.
