@@ -42,12 +42,6 @@ spec:
   # The maximum number of rows in a group
   rowsPerGroup: 10000
 
-  # The time interval in seconds that Arcane will look back to find the changes if the stream was restarted.
-  # If the stream was offline (suspended or running in the backfill mode) for more than the lookBackInterval,
-  # the data can be lost. In this case the stream should be backfilled or user can set the lookBackInterval to
-  # a larger value.
-  lookBackInterval: 3600
-
   # The settings of the source table
   sourceSettings:
     
@@ -116,6 +110,25 @@ spec:
     # The target table full name
     # Arcane does not interact with the target table directly, so it needs only the name of the table.
     targetTableName: catalog_name.schema.table
+    
+    # settings for the Iceberg REST Catalog connection for the sink (target table)
+    sinkCatalogSettings:
+      # schema (namespace) name for the table
+      namespace: schema
+      
+      # warehouse name where the sink table is located
+      warehouse: iceberg_warehouse
+      
+      # URL of the REST Catalog endpoint
+      catalogUri: https://localhost/catalog
+      
+    # Settings for the task that collects extended statistics. Use this if you do not collect statistics on write and wish to limit columns used in statistics collection
+    analyzeSettings:
+      # Number of batches to wait before invoking the analyze task
+      batchThreshold: 60
+
+      # Columns to include in statistics collection. If none provided, all columns will be used.
+      includedColumns: []
     
     # Optimization tasks settings. Arcane can invoke the Trino optimization tasks during the streaming process.
     # The optimize command is used for rewriting the content of the specified table so that it is merged
