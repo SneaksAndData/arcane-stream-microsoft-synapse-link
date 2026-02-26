@@ -81,8 +81,6 @@ case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) deriv
   *   The number of rows per group in the staging table
   * @param groupingIntervalSeconds
   *   The grouping interval in seconds
-  * @param lookBackInterval
-  *   The look back interval in seconds
   */
 case class StreamSpec(
     sourceSettings: SourceSettings,
@@ -90,7 +88,6 @@ case class StreamSpec(
     // Grouping settings
     rowsPerGroup: Int,
     groupingIntervalSeconds: Int,
-    lookBackInterval: Int,
 
     // Iceberg settings
     stagingDataSettings: StagingDataSettings,

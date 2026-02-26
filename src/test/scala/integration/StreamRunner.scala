@@ -28,7 +28,6 @@ object StreamRunner extends ZIOSpecDefault:
     |  "backfillBehavior": "overwrite",
     |  "backfillStartDate": "2026-01-01T00.00.00Z",
     |  "groupingIntervalSeconds": 1,
-    |  "lookBackInterval": 21000,
     |  "tableProperties": {
     |    "partitionExpressions": [],
     |    "format": "PARQUET",
