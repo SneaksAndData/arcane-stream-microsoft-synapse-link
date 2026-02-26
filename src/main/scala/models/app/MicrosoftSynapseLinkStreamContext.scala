@@ -54,7 +54,7 @@ case class MicrosoftSynapseLinkStreamContext(spec: StreamSpec)
 
   override val rowsPerGroup: Int =
     System.getenv().getOrDefault("STREAMCONTEXT__ROWS_PER_GROUP", spec.rowsPerGroup.toString).toInt
-  
+
   override val changeCaptureInterval: Duration = Duration.ofSeconds(spec.sourceSettings.changeCaptureIntervalSeconds)
   override val groupingInterval: Duration      = Duration.ofSeconds(spec.groupingIntervalSeconds)
 
