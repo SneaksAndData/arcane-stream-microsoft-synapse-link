@@ -4,6 +4,12 @@ package models.app.contracts
 import com.sneaksanddata.arcane.framework.models.settings.{TableFormat, TablePropertiesSettings as TableProperties}
 import upickle.default.*
 
+/** Additional logging and metrics configurations
+  */
+case class ObservabilitySettings(
+    metricTags: Map[String, String]
+) derives ReadWriter
+
 /** The configuration of Iceberg catalog
   */
 case class CatalogSettings(
@@ -55,7 +61,16 @@ case class SinkSettings(
 
 /** The configuration of the stream source.
   */
-case class SourceSettings(name: String, baseLocation: String, changeCaptureIntervalSeconds: Int) derives ReadWriter
+case class SourceSettings(
+    name: String,
+    baseLocation: String,
+    changeCaptureIntervalSeconds: Int,
+    httpClientMaxRetries: Int,
+    httpClientMinRetryDelaySeconds: Double,
+    httpClientMaxRetryDelaySeconds: Double,
+    httpRetryTimeoutSeconds: Int,
+    maxResultsPerPage: Int
+) derives ReadWriter
 
 case class TablePropertiesSettings(
     partitionExpressions: Array[String],
@@ -83,6 +98,7 @@ case class FieldSelectionRuleSpec(ruleType: String, fields: Array[String]) deriv
   *   The grouping interval in seconds
   */
 case class StreamSpec(
+    observabilitySettings: ObservabilitySettings,
     sourceSettings: SourceSettings,
 
     // Grouping settings

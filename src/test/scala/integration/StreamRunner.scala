@@ -67,10 +67,21 @@ object StreamRunner extends ZIOSpecDefault:
     |      "catalogUri": "http://localhost:20001/catalog"
     |    }
     |  },
+    |  "observabilitySettings": {
+    |    "metricTags": {
+    |      "key1": "value0",
+    |      "key2": "value1"
+    |    }
+    |  },
     |  "sourceSettings": {
     |    "baseLocation": "abfss://cdm-e2e@devstoreaccount1.dfs.core.windows.net/",
     |    "changeCaptureIntervalSeconds": 300,
-    |    "name": "dimensionattributelevelvalue"
+    |    "name": "dimensionattributelevelvalue",
+    |    "httpClientMaxRetries": 3,
+    |    "httpClientMinRetryDelaySeconds": 0.1,
+    |    "httpClientMaxRetryDelaySeconds": 1,
+    |    "httpRetryTimeoutSeconds": 60,
+    |    "maxResultsPerPage": 5000
     |   },
     |  "stagingDataSettings": {
     |    "catalog": {
