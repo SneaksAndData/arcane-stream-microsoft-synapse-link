@@ -71,6 +71,18 @@ spec:
                         - ORC
                         - AVRO
                       default: PARQUET
+                observabilitySettings:
+                  type: object
+                  description: Configurations for enhancing logs and metrics produced by the plugin application
+                  properties:
+                    metricTags:
+                      type: object
+                      description: Additional tags to be assigned to all emitted metrics
+                      additionalProperties:
+                        type: string
+                      default: {}
+                  default:
+                    metricTags: {}
                 sourceSettings:
                   type: object
                   properties:
@@ -84,6 +96,26 @@ spec:
                       description: How long to wait before polling for next change set. Accepted range is between 1s and 3600s
                       minimum: 1
                       maximum: 3600
+                    httpClientMaxRetries:
+                      type: integer
+                      description: Maximum number of retries for the HTTP client
+                      default: 3
+                    httpClientMinRetryDelaySeconds:
+                      type: number
+                      description: Minimum delay between blob client call retries
+                      default: 0.1
+                    httpClientMaxRetryDelaySeconds:
+                      type: number
+                      description: Maximum delay between blob client call retries
+                      default: 1
+                    httpRetryTimeoutSeconds:
+                      type: number
+                      description: Retry timeout for blob storage operations
+                      default: 60
+                    maxResultsPerPage:
+                      type: integer
+                      description: Maximum number of objects per page in paginated responses
+                      default: 5000
                 connectionStringRef:
                   description: |
                     Name of the secret containing connection details to Synapse storage account and Trino.
@@ -113,12 +145,6 @@ spec:
                       type: string
                     apiGroup:
                       type: string
-                httpClientMaxRetries:
-                  type: integer
-                  description: Max number of retries on blob reads for the http client.
-                httpClientRetryDelaySeconds:
-                  type: integer
-                  description: Max retry delay on blob reads for the http client.
                 rowsPerGroup:
                   type: integer
                   description: Maximum number of rows to be grouped together for the staging process to consume.

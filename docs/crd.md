@@ -42,6 +42,14 @@ spec:
   # The maximum number of rows in a group
   rowsPerGroup: 10000
 
+  # enhancements for logging and metrics middleware
+  observabilitySettings:
+    # extra metric tags for ALL metrics emitted from the streaming app
+    # Note that tag name and value should only contain alphanumeric characters, separated by `_` if needed 
+    metricTags:
+      key1: value0
+      key2: value1
+
   # The settings of the source table
   sourceSettings:
     
@@ -55,12 +63,21 @@ spec:
     # The root location of the Microsoft Synapse export
     baseLocation: abfss://container@storage-account.dfs.core.windows.net/
 
-  # The maximum number of retries for the HTTP client
-  httpClientMaxRetries: 10
+    # The maximum number of retries for the HTTP client
+    httpClientMaxRetries: 10
+
+    # Minimum delay between blob client call retries
+    httpClientMinRetryDelaySeconds: 0.1
+
+    # Maximum delay between blob client call retries
+    httpClientMaxRetryDelaySeconds: 1
+
+    # Retry timeout for blob storage operations
+    httpRetryTimeoutSeconds: 60
+
+    # Maximum number of objects per page in paginated responses
+    maxResultsPerPage: 5000
     
-  # Delay in seconds between the retries  
-  httpClientRetryDelaySeconds: 5
-   
   # The staging data settings
   stagingDataSettings:
     
