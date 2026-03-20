@@ -1,0 +1,571 @@
+{{- if .Values.customResourceDefinitions.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name:  microsoft-synapse-beta-streams.streaming.sneaksanddata.com
+spec:
+  group: streaming.sneaksanddata.com
+  scope: Namespaced
+  names:
+    plural: microsoft-synapse-beta-streams
+    singular: microsoft-synapse-beta-stream
+    kind: MicrosoftSynapseBetaStream
+    shortNames:
+      - mssynapsebstream
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Table
+          type: string
+          jsonPath: .spec.sourceSettings.table
+        - name: Change Capture Interval
+          type: string
+          jsonPath: .spec.streamMode.changeCapture.changeCaptureInterval
+        - name: Sink location
+          type: string
+          jsonPath: .spec.sink.targetTableFullName
+        - name: Source location
+          type: string
+          jsonPath: .spec.source.configuration.baseLocation
+        - name: Source entity
+          type: string
+          jsonPath: .spec.source.configuration.entityName
+        - name: Throughput shaper
+          type: string
+          jsonPath: .spec.throughput.shaperImpl
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                suspended:
+                  description: Suspended indicates whether the stream is suspended.
+                  type: boolean
+                observability:
+                  type: object
+                  description: Configurations for enhancing logs and metrics produced by the plugin application
+                  properties:
+                    metricTags:
+                      type: object
+                      description: Additional tags to be assigned to all emitted metrics
+                      additionalProperties:
+                        type: string
+                      default: { }
+                  default:
+                    metricTags: { }
+                staging:
+                  type: object
+                  properties:
+                    table:
+                      type: object
+                      description: Staging table creation properties
+                      properties:
+                        stagingTablePrefix:
+                          type: string
+                          description: Prefix to use for staging table names
+                        maxRowsPerFile:
+                          type: integer
+                          description: Maximum number of rows to pack into a single staging table
+                          default: 10000
+                        stagingCatalogName:
+                          description: Name of a Trino catalog used for staging
+                          type: string
+                        stagingSchemaName:
+                          description: Schema name to use in the staging catalog
+                          type: string
+                        isUnifiedSchema:
+                          description: Set to true to disable automatic schema migrations between stage and target.
+                          type: boolean
+                          default: false
+                    icebergCatalog:
+                      type: object
+                      description: Iceberg REST Catalog connection properties
+                      properties:
+                        catalogProperties:
+                          description: Additional configurations for the catalog sessions. Refer to Iceberg documentation for what can be provided here.
+                          type: object
+                          additionalProperties:
+                            type: string
+                        namespace:
+                          type: string
+                          description: Catalog namespace to use for all sessions
+                        catalogUri:
+                          type: string
+                          description: Catalog server URL
+                        warehouse:
+                          type: string
+                          description: Catalog warehouse to use for all sessions
+                        maxCatalogInstanceLifetime:
+                          type: string
+                          description: Lifetime of RESTSessionCatalog instances
+                          default: 3500 second
+                streamMode:
+                  type: object
+                  description: Configuration for various modes of operation (backfill, change capture)
+                  properties:
+                    backfill:
+                      type: object
+                      description: Settings for backfill mode
+                      properties:
+                        backfillBehavior:
+                          type: string
+                          default: Overwrite
+                        backfillStartDate:
+                          type: string
+                          description: |
+                            The date and time to start backfilling data from, ISO format: 2026-01-01T00:00:00Z
+                          nullable: true
+                          default: null
+                    changeCapture:
+                      type: object
+                      description: Settings for change capture mode
+                      properties:
+                        changeCaptureInterval:
+                          type: string
+                          default: 300 second
+                        changeCaptureJitterVariance:
+                          type: number
+                          default: 0.1
+                        changeCaptureJitterSeed:
+                          type: number
+                          default: 0
+                sink:
+                  type: object
+                  description: Configuration for the Iceberg Sink
+                  properties:
+                    mergeServiceClient:
+                      type: object
+                      description: Merge service for the Iceberg Sink
+                      properties:
+                        extraConnectionParameters:
+                          type: object
+                          description: Additional connection parameters to attach to the final connection string
+                          additionalProperties:
+                            type: string
+                          default: { }
+                        queryRetryMaxAttempts:
+                          type: integer
+                          default: 3
+                        queryRetryScaleFactor:
+                          type: number
+                          default: 0.1
+                        queryRetryOnMessageContents:
+                          type: array
+                          items:
+                            type: string
+                          default: [ ]
+                        queryRetryBaseDuration:
+                          type: string
+                          default: 500 millisecond
+                        queryRetryMode:
+                          type: string
+                          default: Never
+                    targetTableProperties:
+                      type: object
+                      description: Additional configurations like partitioning, sort order etc. for a target table. These are not supported until 2.3 framework release.
+                      default:
+                        sortedBy: [ ]
+                        parquetBloomFilterColumns: [ ]
+                        format: PARQUET
+                      properties:
+                        sortedBy:
+                          type: array
+                          items:
+                            type: string
+                          default: [ ]
+                        parquetBloomFilterColumns:
+                          type: array
+                          items:
+                            type: string
+                          default: [ ]
+                        format:
+                          type: string
+                          enum:
+                            - PARQUET
+                            - ORC
+                            - AVRO
+                          default: PARQUET
+                    targetTableFullName:
+                      type: string
+                      description: Name of the target table in the Iceberg catalog. Must be fully qualified as `catalog.schema.table`
+                    maintenanceSettings:
+                      type: object
+                      properties:
+                        targetOrphanFilesExpirationSettings:
+                          type: object
+                          properties:
+                            batchThreshold:
+                              type: integer
+                              default: 60
+                              description: Number of batches to accumulate before triggering EXPIRE ORPHAN FILES
+                            retentionThreshold:
+                              type: string
+                              default: 6h
+                              description: Maximum age of files to keep while running this procedure
+                          default:
+                            batchThreshold: 60
+                            retentionThreshold: 6h
+                        targetSnapshotExpirationSettings:
+                          type: object
+                          properties:
+                            batchThreshold:
+                              type: integer
+                              default: 60
+                              description: Number of batches to accumulate triggering EXPIRE SNAPSHOTS
+                            retentionThreshold:
+                              type: string
+                              default: 6h
+                              description: Maximum age of records in the transaction log to keep
+                          default:
+                            batchThreshold: 60
+                            retentionThreshold: 6h
+                        targetOptimizeSettings:
+                          type: object
+                          properties:
+                            batchThreshold:
+                              type: integer
+                              default: 60
+                              description: Number of batches to accumulate before triggering the OPTIMIZE
+                            fileSizeThreshold:
+                              type: string
+                              default: 100MB
+                              description: File size to target when running OPTIMIZE
+                          default:
+                            batchThreshold: 60
+                            fileSizeThreshold: 100MB
+                        targetAnalyzeSettings:
+                          type: object
+                          description: Configuration for ANALYZE (full refresh of extended statistics on the target)
+                          properties:
+                            batchThreshold:
+                              type: integer
+                              default: 180
+                              description: Number of batches to accumulate before running the ANALYZE query.
+                            includedColumns:
+                              type: array
+                              description: Columns to include in the ANALYZE query. If empty, ALL columns will be included.
+                              items:
+                                type: string
+                              default: [ ]
+                          default:
+                            batchThreshold: 180
+                            includedColumns: [ ]
+                    icebergCatalog:
+                      type: object
+                      properties:
+                        catalogProperties:
+                          type: object
+                          additionalProperties:
+                            type: string
+                        namespace:
+                          type: string
+                        catalogUri:
+                          type: string
+                        warehouse:
+                          type: string
+                        maxCatalogInstanceLifetime:
+                          type: string
+                          description: Lifetime of RESTSessionCatalog instances
+                          default: 3500 second
+                throughput:
+                  type: object
+                  description: Configuration for throughput management controls
+                  default:
+                    advisedChunkSize: 10000
+                    advisedRateChunks: 1
+                    advisedRatePeriod: 15 second
+                    advisedChunksBurst: 1
+                    shaperImpl:
+                      static: { }
+                      memoryBound: null
+                  properties:
+                    advisedChunkSize:
+                      type: integer
+                      description: Chunk size orientation to the stream throughput management engine. For all shapers except Static, this setting is treated as a computation baseline.
+                      default: 10000
+                    advisedRateChunks:
+                      type: integer
+                      description: Chunk emission rate, elements. For all shapers except Static, this setting is treated as a computation baseline.
+                      default: 1
+                    advisedRatePeriod:
+                      type: string
+                      description: Chunk emission rate, period. For all shapers except Static, this setting is treated as a computation baseline.
+                      default: 15 seconds
+                    advisedChunksBurst:
+                      type: integer
+                      description: Chunk burst. For all shapers except Static, this setting is treated as a computation baseline.
+                      default: 1
+                    shaperImpl:
+                      type: object
+                      description: Implementation of a throughput shaper
+                      default:
+                        static: { }
+                        memoryBound: null
+                      properties:
+                        static:
+                          type: object
+                          nullable: true
+                          description: Enables StaticShaper, which provides fixed throughput according to advised values.
+                          default: { }
+                        memoryBound:
+                          type: object
+                          nullable: true
+                          description: Enables MemoryBoundShaper, which updates throughput based on available free memory vs chunk size, using sigmoid function for cost estimation. Advised values are used as a fallback and computation baseline.
+                          properties:
+                            meanStringTypeSizeEstimate:
+                              type: integer
+                              default: 500
+                              description: Mean length of a string or varchar data field in the source.
+                            meanObjectTypeSizeEstimate:
+                              type: integer
+                              default: 4096
+                              description: Mean size of a binary data field in the source.
+                            burstEstimateDivisionFactor:
+                              type: integer
+                              description: Affects the height of a chunk burst value estimation curve. Higher values result in a more conservative (lower) burst value estimations.
+                              default: 2
+                            rateEstimateDivisionFactor:
+                              type: integer
+                              description: Affects the height of a chunk rate estimation curve. Higher values result in a more conservative (lower) burst value estimations.
+                              default: 2
+                            chunkCostScale:
+                              type: integer
+                              description: Scale for the chunk cost sigmoid estimator. Higher values result in less even distribution, leading to a more significant slowdown of larger chunks compared to smaller ones.
+                              default: 1
+                            chunkCostMax:
+                              type: integer
+                              description: Maximum cost that can be assigned to any chunk. Setting this to 1 will result in all chunks cost 0 or 1. Increasing this value will lead to a more noticeable slowdown for streams with large chunks.
+                              default: 10
+                            tableRowCountWeight:
+                              type: number
+                              description: Weight of a table row's count in cost estimation.
+                              default: 0.5
+                            tableSizeWeight:
+                              type: number
+                              description: Weight of a table's physical size in bytes in cost estimation.
+                              default: 0.5
+                            tableSizeScaleFactor:
+                              type: integer
+                              description: Scale for the memory cutoff sigmoid estimator. This affects how much memory is considered reserved when estimating chunk sizes. Higher values will result in more conservative cutoffs for large tables.
+                              default: 1
+                source:
+                  type: object
+                  properties:
+                    fieldSelectionRule:
+                      type: object
+                      description: Select a subset of fields from source
+                      default:
+                        rule:
+                          all: { }
+                          include: null
+                          exclude: null
+                      properties:
+                        isServerSide:
+                          type: boolean
+                          description: If set to true, indicates that a source can provide field selection. This disables field filtering on the application level and relies on a source-specific filtering query instead.
+                          default: false
+                        essentialFields:
+                          type: array
+                          items:
+                            type: string
+                          default:
+                            - id
+                            - versionnumber
+                            - isdelete
+                            - arcane_merge_key
+                        rule:
+                          type: object
+                          properties:
+                            all:
+                              type: object
+                              nullable: true
+                              description: Use all fields without filters.
+                              default: { }
+                            include:
+                              type: object
+                              description: Only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well.
+                              nullable: true
+                              properties:
+                                fields:
+                                  type: array
+                                  items:
+                                    type: string
+                              default: null
+                            exclude:
+                              type: object
+                              description: Exclude provided fields.
+                              nullable: true
+                              properties:
+                                fields:
+                                  type: array
+                                  items:
+                                    type: string
+                              default: null
+                    buffering:
+                      type: object
+                      default:
+                        enabled: true
+                        strategy:
+                          unbounded: null
+                          buffered:
+                            maxBufferSize: 10000
+                      properties:
+                        enabled:
+                          type: boolean
+                          description: If `true`, source row buffering will be enabled for this stream. Note that this might lead to Out-of-Memory failures if container doesn't have enough heap space.
+                        strategy:
+                          type: object
+                          description: Buffering strategy to be applied, if enabled
+                          properties:
+                            unbounded:
+                              type: object
+                              nullable: true
+                              description: Use entire available memory as source row buffer. Only use this when you expect to always have more memory than the application might ever need.
+                              default: null
+                            buffered:
+                              type: object
+                              nullable: true
+                              description: Store up to `maxBufferSize` rows in application memory while waiting for the sink. Most preferable type of row buffering for stable operation.
+                              properties:
+                                maxBufferSize:
+                                  type: integer
+                                  default: 10000
+                    configuration:
+                      type: object
+                      description: Configuration for Synapse Link Storage connection
+                      properties:
+                        entityName:
+                          type: string
+                          description: Name of the entity (all lower case) to stream
+                        baseLocation:
+                          type: string
+                          description: Location root for Synapse Link data (Dataverse container), in a format abfss://account@container.dfs.core.windows.net/
+                          default: null
+                        storageConnection:
+                          type: object
+                          description: Azure storage connection properties
+                          properties:
+                            accountName:
+                              type: string
+                              description: Storage account name holding Synapse data
+                            endpoint:
+                              type: string
+                              nullable: true
+                              default: null
+                              description: Custom endpoint to the storage account
+                            httpClient:
+                              type: object
+                              properties:
+                                httpMaxRetries:
+                                  type: integer
+                                  description: Maximum retries for http calls to Azure
+                                  default: 10
+                                httpMaxRetryDelay:
+                                  type: string
+                                  description: Max delay between retries
+                                  default: 1 second
+                                httpMinRetryDelay:
+                                  type: string
+                                  description: Min delay between retries
+                                  default: 100 millisecond
+                                httpRetryTimeout:
+                                  type: string
+                                  description: Cumulative timeout for all retries
+                                  default: 1 minute
+                                maxResultsPerPage:
+                                  type: integer
+                                  description: Max items per page in paginated API responses
+                                  default: 5000
+                            credentialType:
+                              type: object
+                              description: Credential type to use
+                              properties:
+                                sharedKey:
+                                  type: object
+                                  description: Authenticate using AccessKey to the account.
+                                  properties:
+                                    accessKey:
+                                      type: string
+                                      nullable: true
+                                      description: Access key value. If not provided, will be inferred from ARCANE_FRAMEWORK__AZURE_STORAGE_ACCESS_KEY, if present.
+                                      default: null
+                                credentialChain:
+                                  type: object
+                                  nullable: true
+                                  description: Default credential chain
+                                  default: null
+
+                streamConfigurationSecretRef:
+                  description: |
+                    Name of the secret containing Synapse Storage and Trino connection information. Must contain the following: ARCANE_FRAMEWORK__MERGE_SERVICE_CONNECTION_URI (Trino) and ARCANE_FRAMEWORK__AZURE_STORAGE_ACCESS_KEY, if using shared key auth
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                jobTemplateRef:
+                  description: |
+                    Name of the job template to be used for the application in streaming mode.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    kind:
+                      type: string
+                    apiGroup:
+                      type: string
+                  default:
+                    apiGroup: streaming.sneaksanddata.com
+                    kind: StreamingJobTemplate
+                    name: standard-job
+                backfillJobTemplateRef:
+                  description: |
+                    Name of the job template to be used for the for the application in backfill mode.
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    kind:
+                      type: string
+                    apiGroup:
+                      type: string
+                  default:
+                    apiGroup: streaming.sneaksanddata.com
+                    kind: StreamingJobTemplate
+                    name: large-job
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                configurationHash:
+                  description: ConfigurationHash represents the hash of the current configuration.
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - status
+                      - type
+                    properties:
+                      message:
+                        type: string
+                      phase:
+                        type: string
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+{{- end }}

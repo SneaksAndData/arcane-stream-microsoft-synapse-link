@@ -3,8 +3,7 @@ package integration
 
 import common.Common
 import integration.Fixtures.formatter
-import models.app.MicrosoftSynapseLinkStreamContext
-import models.app.contracts.StreamSpec
+import models.app.MicrosoftSynapseLinkPluginStreamContext
 
 import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
@@ -27,101 +26,156 @@ import scala.language.postfixOps
 
 object StreamRunner extends ZIOSpecDefault:
 
-  private val sourceTableName = "StreamRunner"
   private val targetTableName = "iceberg.test.stream_dimensionattributelevelvalue"
 
-  private val streamContextStr = s"""
-    |
-    | {
-    |  "backfillBehavior": "overwrite",
-    |  "backfillStartDate": "2026-01-01T00.00.00Z",
-    |  "groupingIntervalSeconds": 1,
-    |  "tableProperties": {
-    |    "partitionExpressions": [],
-    |    "format": "PARQUET",
-    |    "sortedBy": [],
-    |    "parquetBloomFilterColumns": []
-    |  },
-    |  "rowsPerGroup": 1000,
-    |  "sinkSettings": {
-    |    "optimizeSettings": {
-    |      "batchThreshold": 60,
-    |      "fileSizeThreshold": "512MB"
-    |    },
-    |    "orphanFilesExpirationSettings": {
-    |      "batchThreshold": 60,
-    |      "retentionThreshold": "6h"
-    |    },
-    |    "snapshotExpirationSettings": {
-    |      "batchThreshold": 60,
-    |      "retentionThreshold": "6h"
-    |    },
-    |    "analyzeSettings": {
-    |      "batchThreshold": 60,
-    |      "includedColumns": []
-    |    },
-    |    "targetTableName": "$targetTableName",
-    |    "sinkCatalogSettings": {
-    |      "namespace": "test",
-    |      "warehouse": "demo",
-    |      "catalogUri": "http://localhost:20001/catalog"
-    |    }
-    |  },
-    |  "observabilitySettings": {
-    |    "metricTags": {
-    |      "key1": "value0",
-    |      "key2": "value1"
-    |    }
-    |  },
-    |  "sourceSettings": {
-    |    "baseLocation": "abfss://cdm-e2e@devstoreaccount1.dfs.core.windows.net/",
-    |    "changeCaptureIntervalSeconds": 300,
-    |    "name": "dimensionattributelevelvalue",
-    |    "httpClientMaxRetries": 3,
-    |    "httpClientMinRetryDelaySeconds": 0.1,
-    |    "httpClientMaxRetryDelaySeconds": 1,
-    |    "httpRetryTimeoutSeconds": 60,
-    |    "maxResultsPerPage": 5000
-    |   },
-    |  "stagingDataSettings": {
-    |    "catalog": {
-    |      "catalogName": "iceberg",
-    |      "catalogUri": "http://localhost:20001/catalog",
-    |      "schemaName": "test",
-    |      "warehouse": "demo"
-    |    },
-    |    "maxRowsPerFile": 1,
-    |    "tableNamePrefix": "staging_dimensionattributelevelvalue"
-    |  },
-    |  "fieldSelectionRule": {
-    |    "ruleType": "all",
-    |    "fields": []
-    |  }
-    |}
-    |
-    |""".stripMargin
+  private val streamContextStr =
+    s"""
+         {
+       |  "backfillJobTemplateRef": {
+       |    "apiGroup": "streaming.sneaksanddata.com",
+       |    "kind": "StreamingJobTemplate",
+       |    "name": "arcane-stream-synapse-large-job"
+       |  },
+       |  "jobTemplateRef": {
+       |    "apiGroup": "streaming.sneaksanddata.com",
+       |    "kind": "StreamingJobTemplate",
+       |    "name": "arcane-stream-synapse-standard-job"
+       |  },
+       |  "observability": {
+       |    "metricTags": {}
+       |  },
+       |  "staging": {
+       |    "table": {
+       |      "stagingTablePrefix": "staging_synapse_test",
+       |      "maxRowsPerFile": 10000,
+       |      "stagingCatalogName": "iceberg",
+       |      "stagingSchemaName": "test",
+       |      "isUnifiedSchema": false
+       |    },
+       |    "icebergCatalog": {
+       |      "catalogProperties": {},
+       |      "catalogUri": "http://localhost:20001/catalog",
+       |      "namespace": "test",
+       |      "warehouse": "demo",
+       |      "maxCatalogInstanceLifetime": "3600 second"
+       |    }
+       |  },
+       |  "streamMode": {
+       |    "backfill": {
+       |      "backfillBehavior": "Overwrite",
+       |      "backfillStartDate": "2026-01-01T00:00:00Z"
+       |    },
+       |    "changeCapture": {
+       |      "changeCaptureInterval": "5 second",
+       |      "changeCaptureJitterVariance": 0.1,
+       |      "changeCaptureJitterSeed": 0
+       |    }
+       |  },
+       |  "sink": {
+       |    "mergeServiceClient": {
+       |      "extraConnectionParameters": {
+       |        "clientTags": "test"
+       |      },
+       |      "queryRetryMode": "Never",
+       |      "queryRetryBaseDuration": "100 millisecond",
+       |      "queryRetryOnMessageContents": [],
+       |      "queryRetryScaleFactor": 0.1,
+       |      "queryRetryMaxAttempts": 3
+       |    },
+       |    "targetTableProperties": {
+       |      "format": "PARQUET",
+       |      "sortedBy": [],
+       |      "parquetBloomFilterColumns": []
+       |    },
+       |    "targetTableFullName": "$targetTableName",
+       |    "maintenanceSettings": {
+       |      "targetOptimizeSettings": {
+       |        "batchThreshold": 60,
+       |        "fileSizeThreshold": "512MB"
+       |      },
+       |      "targetOrphanFilesExpirationSettings": {
+       |        "batchThreshold": 60,
+       |        "retentionThreshold": "6h"
+       |      },
+       |      "targetSnapshotExpirationSettings": {
+       |        "batchThreshold": 60,
+       |        "retentionThreshold": "6h"
+       |      },
+       |      "targetAnalyzeSettings": {
+       |        "includedColumns": [],
+       |        "batchThreshold": 60
+       |      }
+       |    },
+       |    "icebergCatalog": {
+       |      "catalogProperties": {},
+       |      "catalogUri": "http://localhost:20001/catalog",
+       |      "namespace": "test",
+       |      "warehouse": "demo",
+       |      "maxCatalogInstanceLifetime": "3600 second"
+       |    }
+       |  },
+       |  "throughput": {
+       |    "shaperImpl": {
+       |      "memoryBound": {
+       |        "meanStringTypeSizeEstimate": 50,
+       |        "meanObjectTypeSizeEstimate": 4096,
+       |        "burstEstimateDivisionFactor": 2,
+       |        "rateEstimateDivisionFactor": 2,
+       |        "chunkCostScale": 1,
+       |        "chunkCostMax": 2,
+       |        "tableRowCountWeight": 0.05,
+       |        "tableSizeWeight": 0.05,
+       |        "tableSizeScaleFactor": 1
+       |      }
+       |    },
+       |    "advisedRatePeriod": "1 second",
+       |    "advisedChunksBurst": 1,
+       |    "advisedChunkSize": 1,
+       |    "advisedRateChunks": 1
+       |  },
+       |  "source": {
+       |    "configuration": {
+       |      "entityName": "dimensionattributelevelvalue",
+       |      "baseLocation": "abfss://cdm-e2e@devstoreaccount1.dfs.core.windows.net/",
+       |      "storageConnection": {
+       |        "accountName": "devstoreaccount1",
+       |        "endpoint": "http://localhost:10001/devstoreaccount1",
+       |        "httpClient": {
+       |          "httpMaxRetries": 3,
+       |          "httpMaxRetryDelay": "1 second",
+       |          "httpMinRetryDelay": "100 millisecond",
+       |          "httpRetryTimeout": "1 minute",
+       |          "maxResultsPerPage": 10000
+       |        },
+       |        "credentialType": {
+       |          "sharedKey": {
+       |            "accessKey": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+       |          }
+       |        }
+       |      }
+       |    },
+       |    "buffering": {
+       |      "enabled": false,
+       |      "strategy": {}
+       |    },
+       |    "fieldSelectionRule": {
+       |      "essentialFields": [],
+       |      "rule":{
+       |        "all": {}
+       |      },
+       |      "isServerSide": false
+       |    }
+       |  }
+       |}""".stripMargin
 
-  private val parsedSpec = StreamSpec.fromString(streamContextStr)
+  private val streamContext = MicrosoftSynapseLinkPluginStreamContext(streamContextStr)
 
-  private val streamingStreamContext = new MicrosoftSynapseLinkStreamContext(parsedSpec):
-    override val IsBackfilling: Boolean = false
-
-  private val backfillStreamContext = new MicrosoftSynapseLinkStreamContext(parsedSpec):
-    override val IsBackfilling: Boolean = true
-
-  private val streamingStreamContextLayer = ZLayer.succeed[MicrosoftSynapseLinkStreamContext](streamingStreamContext)
-    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
-    ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))
-    ++ ZLayer.succeed(DatadogPublisherConfig())
-
-  private val backfillStreamContextLayer = ZLayer.succeed[MicrosoftSynapseLinkStreamContext](backfillStreamContext)
-    ++ ZLayer.succeed(DatagramSocketConfig("/var/run/datadog/dsd.socket"))
-    ++ ZLayer.succeed(MetricsConfig(Duration.ofMillis(100)))
-    ++ ZLayer.succeed(DatadogPublisherConfig())
+  private val streamContextLayer = ZLayer.succeed[MicrosoftSynapseLinkPluginStreamContext](streamContext)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
-    test("backfill, stream, backfill and stream again successfully") {
+    test("backfill and then stream changes successfully") {
       for
+        _         <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "true")
         _         <- clearTarget(targetTableName)
         _         <- Fixtures.clearSource
         startTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
@@ -130,21 +184,23 @@ object StreamRunner extends ZIOSpecDefault:
           if index == 1 then Fixtures.uploadBatch(startTime.minusHours(index), false, true, false)
           else Fixtures.uploadBatch(startTime.minusHours(index), false, false, false)
         }
-        backfillRunner <- Common.getTestApp(Duration.ofSeconds(45), backfillStreamContextLayer).fork
-        result         <- backfillRunner.runOrFail(Duration.ofSeconds(30)).exit
+        backfillRunner <- Common.getTestApp(Duration.ofSeconds(45), streamContextLayer).fork
+        _              <- backfillRunner.runOrFail(Duration.ofSeconds(30))
 
         backfilledCount <- readTarget(
-          backfillStreamContext.targetTableFullName,
+          streamContext.sink.targetTableFullName,
           "Id, versionnumber",
           StrStrDecoder
         )
           .map(_.size)
 
-        backfilledWatermark <- getWatermark(backfillStreamContext.targetTableFullName.split('.').last)(
+        backfilledWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(
           SynapseWatermark.rw
         )
 
-        streamingRunner <- Common.getTestApp(Duration.ofSeconds(45), streamingStreamContextLayer).fork
+        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "false")
+
+        streamingRunner <- Common.getTestApp(Duration.ofSeconds(45), streamContextLayer).fork
         // drop some updates + inserts. 2 new rows should be inserted, row with id = 5b4bc74e-2132-4d8e-8572-48ce4260f182 - updated
         _ <- Fixtures.uploadBatch(startTime.minusMinutes(15), true, false, true)
         // drop no-op updates and a DELETE. Record with id = 50bff458-d47a-4924-804b-31c0a83108e6 should disappear
@@ -153,18 +209,18 @@ object StreamRunner extends ZIOSpecDefault:
         // drop some no-op updates and stamp the new change log. This will be merged without actual updates
         _ <- Fixtures.uploadBatch(startTime.minusMinutes(5), false, true, false)
 
-        streamingResult <- streamingRunner.runOrFail(Duration.ofSeconds(30)).exit
+        _ <- streamingRunner.runOrFail(Duration.ofSeconds(30))
 
         currentRows <- readTarget(
-          streamingStreamContext.targetTableFullName,
+          streamContext.sink.targetTableFullName,
           "Id, versionnumber",
           StrStrDecoder
         )
 
-        streamedWatermark <- getWatermark(streamingStreamContext.targetTableFullName.split('.').last)(
+        streamedWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(
           SynapseWatermark.rw
         )
-      yield assertTrue(result.isSuccess) implies assertTrue(backfilledCount == 5) implies assertTrue(
+      yield assertTrue(backfilledCount == 5) implies assertTrue(
         backfilledWatermark.version == s"${formatter.format(startTime.minusHours(1))}Z"
       ) implies assertTrue(currentRows.size == 5 - 1 + 2) implies assertTrue(
         !currentRows.exists(_._1 == "50bff458-d47a-4924-804b-31c0a83108e6")
