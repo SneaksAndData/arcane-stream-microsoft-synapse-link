@@ -12,11 +12,8 @@ import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerific
   getWatermark,
   readTarget
 }
-import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.runOrFail
+import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
 import org.scalatest.matchers.should.Matchers.should
-import zio.metrics.connectors.MetricsConfig
-import zio.metrics.connectors.datadog.DatadogPublisherConfig
-import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO, ZLayer}
@@ -230,4 +227,4 @@ object StreamRunner extends ZIOSpecDefault:
         streamedWatermark.version == s"${formatter.format(startTime.minusMinutes(5))}Z"
       )
     }
-  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock
+  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.before(liveSeed)

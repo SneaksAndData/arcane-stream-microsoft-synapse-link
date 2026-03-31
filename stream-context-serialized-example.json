@@ -1,0 +1,137 @@
+{
+  "backfillJobTemplateRef": {
+    "apiGroup": "streaming.sneaksanddata.com",
+    "kind": "StreamingJobTemplate",
+    "name": "arcane-stream-synapse-large-job"
+  },
+  "jobTemplateRef": {
+    "apiGroup": "streaming.sneaksanddata.com",
+    "kind": "StreamingJobTemplate",
+    "name": "arcane-stream-synapse-standard-job"
+  },
+  "observability": {
+    "metricTags": {}
+  },
+  "staging": {
+    "table": {
+      "stagingTablePrefix": "staging_synapse_test",
+      "maxRowsPerFile": 10000,
+      "stagingCatalogName": "iceberg",
+      "stagingSchemaName": "test",
+      "isUnifiedSchema": false
+    },
+    "icebergCatalog": {
+      "catalogProperties": {},
+      "catalogUri": "http://localhost:20001/catalog",
+      "namespace": "test",
+      "warehouse": "demo",
+      "maxCatalogInstanceLifetime": "3600 second"
+    }
+  },
+  "streamMode": {
+    "backfill": {
+      "backfillBehavior": "Overwrite",
+      "backfillStartDate": "2026-01-01T00:00:00Z"
+    },
+    "changeCapture": {
+      "changeCaptureInterval": "5 second",
+      "changeCaptureJitterVariance": 0.1,
+      "changeCaptureJitterSeed": 0
+    }
+  },
+  "sink": {
+    "mergeServiceClient": {
+      "extraConnectionParameters": {
+        "clientTags": "test"
+      },
+      "queryRetryMode": "Never",
+      "queryRetryBaseDuration": "100 millisecond",
+      "queryRetryOnMessageContents": [],
+      "queryRetryScaleFactor": 0.1,
+      "queryRetryMaxAttempts": 3
+    },
+    "targetTableProperties": {
+      "format": "PARQUET",
+      "sortedBy": [],
+      "parquetBloomFilterColumns": []
+    },
+    "targetTableFullName": "catalog.schema.table",
+    "maintenanceSettings": {
+      "targetOptimizeSettings": {
+        "batchThreshold": 60,
+        "fileSizeThreshold": "512MB"
+      },
+      "targetOrphanFilesExpirationSettings": {
+        "batchThreshold": 60,
+        "retentionThreshold": "6h"
+      },
+      "targetSnapshotExpirationSettings": {
+        "batchThreshold": 60,
+        "retentionThreshold": "6h"
+      },
+      "targetAnalyzeSettings": {
+        "includedColumns": [],
+        "batchThreshold": 60
+      }
+    },
+    "icebergCatalog": {
+      "catalogProperties": {},
+      "catalogUri": "http://localhost:20001/catalog",
+      "namespace": "test",
+      "warehouse": "demo",
+      "maxCatalogInstanceLifetime": "3600 second"
+    }
+  },
+  "throughput": {
+    "shaperImpl": {
+      "memoryBound": {
+        "meanStringTypeSizeEstimate": 50,
+        "meanObjectTypeSizeEstimate": 4096,
+        "burstEstimateDivisionFactor": 2,
+        "rateEstimateDivisionFactor": 2,
+        "chunkCostScale": 1,
+        "chunkCostMax": 2,
+        "tableRowCountWeight": 0.05,
+        "tableSizeWeight": 0.05,
+        "tableSizeScaleFactor": 1
+      }
+    },
+    "advisedRatePeriod": "1 second",
+    "advisedChunksBurst": 1,
+    "advisedChunkSize": 1,
+    "advisedRateChunks": 1
+  },
+  "source": {
+    "configuration": {
+      "entityName": "dimensionattributelevelvalue",
+      "baseLocation": "abfss://cdm-e2e@devstoreaccount1.dfs.core.windows.net/",
+      "storageConnection": {
+        "accountName": "devstoreaccount1",
+        "endpoint": "http://localhost:10001/devstoreaccount1",
+        "httpClient": {
+          "httpMaxRetries": 3,
+          "httpMaxRetryDelay": "1 second",
+          "httpMinRetryDelay": "100 millisecond",
+          "httpRetryTimeout": "1 minute",
+          "maxResultsPerPage": 10000
+        },
+        "credentialType": {
+          "sharedKey": {
+            "accessKey": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+          }
+        }
+      }
+    },
+    "buffering": {
+      "enabled": false,
+      "strategy": {}
+    },
+    "fieldSelectionRule": {
+      "essentialFields": [],
+      "rule":{
+        "all": {}
+      },
+      "isServerSide": false
+    }
+  }
+}
