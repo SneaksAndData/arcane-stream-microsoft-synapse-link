@@ -167,8 +167,20 @@ spec:
                           type: string
                           default: 500 millisecond
                         queryRetryMode:
-                          type: string
-                          default: Never
+                          type: object
+                          properties:
+                            never:
+                              type: object
+                              nullable: true
+                              default: null
+                            always:
+                              type: object
+                              nullable: true
+                              default: null
+                            backfillOnly:
+                              type: object
+                              nullable: true
+                              default: null
                     targetTableProperties:
                       type: object
                       description: Additional configurations like partitioning, sort order etc. for a target table. These are not supported until 2.3 framework release.
