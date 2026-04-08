@@ -17,9 +17,6 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
-        - name: Table
-          type: string
-          jsonPath: .spec.sourceSettings.table
         - name: Change Capture Interval
           type: string
           jsonPath: .spec.streamMode.changeCapture.changeCaptureInterval
