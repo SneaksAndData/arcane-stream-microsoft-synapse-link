@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM sbtscala/scala-sbt:eclipse-temurin-23.0.1_11_1.10.5_3.5.2 AS build
+FROM --platform=$BUILDPLATFORM sbtscala/scala-sbt:eclipse-temurin-25.0.1_8_1.12.9_3.8.3 AS build
 ARG GITHUB_TOKEN
 ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 
@@ -8,7 +8,7 @@ COPY . .
 
 RUN sbt assembly
 
-FROM gcr.io/distroless/java21-debian12
+FROM gcr.io/distroless/java25-debian13
 
 COPY --from=build /build/target/scala-3.6.1 /app
 
