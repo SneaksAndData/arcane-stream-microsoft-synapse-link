@@ -1,7 +1,7 @@
 apiVersion: streaming.sneaksanddata.com/v1
 kind: StreamClass
 metadata:
-  name: {{ template "app.name" . }}-synapse
+  name: {{ template "app.fullname" . }}-synapse
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "streamclass.labels" $ | nindent 4 }}
@@ -17,4 +17,4 @@ spec:
   apiVersion: v1
   pluralName: microsoft-synapse-streams
   secretRefs:
-    - connectionStringRef
+    - streamConfigurationSecretRef

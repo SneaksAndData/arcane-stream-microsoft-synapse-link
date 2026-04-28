@@ -52,7 +52,7 @@ services:
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:v0.11.3
+    image: quay.io/lakekeeper/catalog:v0.11.4
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -77,7 +77,7 @@ services:
       minio:
         condition: service_healthy
   lakekeeper_migrate:
-    image: quay.io/lakekeeper/catalog:v0.11.3
+    image: quay.io/lakekeeper/catalog:v0.11.4
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
