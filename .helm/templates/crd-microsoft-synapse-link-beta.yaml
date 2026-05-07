@@ -374,7 +374,7 @@ spec:
                       description: Select a subset of fields from source
                       default:
                         rule:
-                          all: { }
+                          all: null
                           include: null
                           exclude: null
                       properties:
@@ -398,7 +398,7 @@ spec:
                               type: object
                               nullable: true
                               description: Use all fields without filters.
-                              default: { }
+                              default: null
                             include:
                               type: object
                               description: Only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well.
