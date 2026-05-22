@@ -10,7 +10,7 @@ RUN sbt assembly
 
 FROM gcr.io/distroless/java25-debian13
 
-COPY --from=build /build/target/scala-3.6.1 /app
+COPY --from=build /build/target/scala-3.8.3 /app
 
 WORKDIR /app
 

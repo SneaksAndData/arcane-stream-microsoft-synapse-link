@@ -1,31 +1,21 @@
 package com.sneaksanddata.arcane.microsoft_synapse_link
 
-import com.azure.storage.common.StorageSharedKeyCredential
+import models.app.MicrosoftSynapseLinkPluginStreamContext
+
 import com.sneaksanddata.arcane.framework.exceptions.StreamFailException
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
+import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, PosixStreamLifetimeService}
-import com.sneaksanddata.arcane.framework.services.app.base.{StreamLifetimeService, StreamRunnerService}
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
-import com.sneaksanddata.arcane.framework.services.synapse.SynapseHookManager
-import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
-  FieldFilteringTransformer,
-  StagingProcessor
-}
-import zio.*
-import zio.logging.backend.SLF4J
-import com.sneaksanddata.arcane.framework.services.filters.{
-  FieldsFilteringService,
-  FieldsFilteringService as FrameworkFieldsFilteringService
-}
+import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
 import com.sneaksanddata.arcane.framework.services.iceberg.{
   IcebergEntityManager,
   IcebergS3CatalogWriter,
   IcebergTablePropertyManager
 }
-import com.sneaksanddata.arcane.framework.services.metrics.{ArcaneDimensionsProvider, DataDog, DeclaredMetrics}
-import com.sneaksanddata.arcane.framework.services.storage.services.azure.AzureBlobStorageReader
+import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
+import com.sneaksanddata.arcane.framework.services.metrics.{DataDog, DeclaredMetrics, GlobalMetricTagProvider}
 import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
   GenericBackfillStreamingMergeDataProvider,
   GenericBackfillStreamingOverwriteDataProvider
@@ -43,13 +33,19 @@ import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_pr
   MergeBatchProcessor,
   WatermarkProcessor
 }
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
+  FieldFilteringTransformer,
+  StagingProcessor
+}
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
 import com.sneaksanddata.arcane.framework.services.synapse.{
   SynapseBackfillOverwriteBatchFactory,
+  SynapseHookManager,
   SynapseLinkStreamingDataProvider
 }
-import com.sneaksanddata.arcane.microsoft_synapse_link.models.app.MicrosoftSynapseLinkPluginStreamContext
+import zio.*
+import zio.logging.backend.SLF4J
 
 object main extends ZIOAppDefault {
 
@@ -97,7 +93,7 @@ object main extends ZIOAppDefault {
     GenericBackfillStreamingMergeDataProvider.layer,
     GenericStreamingGraphBuilder.backfillSubStreamLayer,
     DeclaredMetrics.layer,
-    ArcaneDimensionsProvider.layer,
+    GlobalMetricTagProvider.layer,
     DataDog.UdsPublisher.layer,
     WatermarkProcessor.layer,
     BackfillOverwriteWatermarkProcessor.layer,

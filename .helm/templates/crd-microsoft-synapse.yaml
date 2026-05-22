@@ -143,6 +143,32 @@ spec:
                       type: object
                       description: Merge service for the Iceberg Sink
                       properties:
+                        connectionUrl:
+                          type: string
+                          description: Base URL for the Trino connection
+                        credentialType:
+                          type: object
+                          description: Credential to use when connecting to a Trino cluster
+                          default:
+                            basic: null
+                            anonymous: null
+                          properties:
+                            basic:
+                              type: object
+                              description: Basic auth
+                              properties:
+                                user:
+                                  type: string
+                                  nullable: true
+                                  default: null
+                                password:
+                                  type: string
+                                  nullable: true
+                                  default: null
+                            anonymous:
+                              type: object
+                              description: No auth credential
+                              default: null
                         extraConnectionParameters:
                           type: object
                           description: Additional connection parameters to attach to the final connection string
@@ -290,62 +316,56 @@ spec:
                   description: Configuration for throughput management controls
                   default:
                     advisedChunkSize: 10000
-                    advisedRateChunks: 1
-                    advisedRatePeriod: 15 second
-                    advisedChunksBurst: 1
+                    advisedRate: 1000 per 15 second
+                    advisedBurst: 1000
                     shaperImpl:
-                      static: { }
-                      memoryBound: null
+                      static: null
+                      memoryBound:
+                        fallbackStringTypeSizeEstimate: 50
+                        objectTypeSizeEstimate: 4096
+                        chunkCostScale: 1
+                        chunkCostMax: 10
+                        tableRowCountWeight: 0.02
+                        tableSizeWeight: 0.02
+                        tableSizeScaleFactor: 2
                   properties:
                     advisedChunkSize:
                       type: integer
                       description: Chunk size orientation to the stream throughput management engine. For all shapers except Static, this setting is treated as a computation baseline.
                       default: 10000
-                    advisedRateChunks:
+                    advisedRate:
                       type: integer
-                      description: Chunk emission rate, elements. For all shapers except Static, this setting is treated as a computation baseline.
-                      default: 1
-                    advisedRatePeriod:
-                      type: string
-                      description: Chunk emission rate, period. For all shapers except Static, this setting is treated as a computation baseline.
-                      default: 15 seconds
-                    advisedChunksBurst:
+                      description: Row intake rate. For all shapers except Static, this setting is treated as a computation baseline.
+                      default: 1000 per 15 second
+                    advisedBurst:
                       type: integer
-                      description: Chunk burst. For all shapers except Static, this setting is treated as a computation baseline.
-                      default: 1
+                      description: Row intake burst. For all shapers except Static, this setting is treated as a computation baseline.
+                      default: 1000
                     shaperImpl:
                       type: object
                       description: Implementation of a throughput shaper
                       default:
-                        static: { }
+                        static: null
                         memoryBound: null
                       properties:
                         static:
                           type: object
                           nullable: true
                           description: Enables StaticShaper, which provides fixed throughput according to advised values.
-                          default: { }
+                          default: null
                         memoryBound:
                           type: object
                           nullable: true
                           description: Enables MemoryBoundShaper, which updates throughput based on available free memory vs chunk size, using sigmoid function for cost estimation. Advised values are used as a fallback and computation baseline.
                           properties:
-                            meanStringTypeSizeEstimate:
+                            fallbackStringTypeSizeEstimate:
                               type: integer
-                              default: 500
-                              description: Mean length of a string or varchar data field in the source.
-                            meanObjectTypeSizeEstimate:
+                              default: 50
+                              description: Estimated length of a string or varchar data field in the source to use as a fallback when heuristic is not available.
+                            objectTypeSizeEstimate:
                               type: integer
                               default: 4096
-                              description: Mean size of a binary data field in the source.
-                            burstEstimateDivisionFactor:
-                              type: integer
-                              description: Affects the height of a chunk burst value estimation curve. Higher values result in a more conservative (lower) burst value estimations.
-                              default: 2
-                            rateEstimateDivisionFactor:
-                              type: integer
-                              description: Affects the height of a chunk rate estimation curve. Higher values result in a more conservative (lower) burst value estimations.
-                              default: 2
+                              description: Estimated size of a binary data field in the source.
                             chunkCostScale:
                               type: integer
                               description: Scale for the chunk cost sigmoid estimator. Higher values result in less even distribution, leading to a more significant slowdown of larger chunks compared to smaller ones.
@@ -357,15 +377,15 @@ spec:
                             tableRowCountWeight:
                               type: number
                               description: Weight of a table row's count in cost estimation.
-                              default: 0.5
+                              default: 0.02
                             tableSizeWeight:
                               type: number
                               description: Weight of a table's physical size in bytes in cost estimation.
-                              default: 0.5
+                              default: 0.02
                             tableSizeScaleFactor:
                               type: integer
                               description: Scale for the memory cutoff sigmoid estimator. This affects how much memory is considered reserved when estimating chunk sizes. Higher values will result in more conservative cutoffs for large tables.
-                              default: 1
+                              default: 2
                 source:
                   type: object
                   properties:

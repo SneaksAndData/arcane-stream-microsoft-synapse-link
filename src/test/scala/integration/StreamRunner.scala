@@ -70,6 +70,10 @@ object StreamRunner extends ZIOSpecDefault:
        |  },
        |  "sink": {
        |    "mergeServiceClient": {
+       |      "connectionUrl": "jdbc:trino://localhost:8080",
+       |      "credentialType": {
+       |        "basic": {}
+       |      },
        |      "extraConnectionParameters": {
        |        "clientTags": "test"
        |      },
@@ -116,21 +120,18 @@ object StreamRunner extends ZIOSpecDefault:
        |  "throughput": {
        |    "shaperImpl": {
        |      "memoryBound": {
-       |        "meanStringTypeSizeEstimate": 50,
-       |        "meanObjectTypeSizeEstimate": 4096,
-       |        "burstEstimateDivisionFactor": 2,
-       |        "rateEstimateDivisionFactor": 2,
+       |        "fallbackStringTypeSizeEstimate": 50,
+       |        "objectTypeSizeEstimate": 4096,
        |        "chunkCostScale": 1,
        |        "chunkCostMax": 2,
-       |        "tableRowCountWeight": 0.05,
-       |        "tableSizeWeight": 0.05,
+       |        "tableRowCountWeight": 0.02,
+       |        "tableSizeWeight": 0.02,
        |        "tableSizeScaleFactor": 1
        |      }
        |    },
-       |    "advisedRatePeriod": "1 second",
-       |    "advisedChunksBurst": 1,
-       |    "advisedChunkSize": 1,
-       |    "advisedRateChunks": 1
+       |    "advisedRate": "10000 per 15 second",
+       |    "advisedBurst": 1000,
+       |    "advisedChunkSize": 1
        |  },
        |  "source": {
        |    "configuration": {
