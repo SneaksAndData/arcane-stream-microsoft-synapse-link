@@ -7,17 +7,41 @@ import models.app.MicrosoftSynapseLinkPluginStreamContext
 import com.sneaksanddata.arcane.framework.services.app.GenericStreamRunnerService
 import com.sneaksanddata.arcane.framework.services.bootstrap.DefaultStreamBootstrapper
 import com.sneaksanddata.arcane.framework.services.filters.FieldsFilteringService
-import com.sneaksanddata.arcane.framework.services.iceberg.{IcebergEntityManager, IcebergS3CatalogWriter, IcebergTablePropertyManager}
+import com.sneaksanddata.arcane.framework.services.iceberg.{
+  IcebergEntityManager,
+  IcebergS3CatalogWriter,
+  IcebergTablePropertyManager
+}
 import com.sneaksanddata.arcane.framework.services.merging.JdbcMergeServiceClient
 import com.sneaksanddata.arcane.framework.services.metrics.{DeclaredMetrics, GlobalMetricTagProvider}
-import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{GenericBackfillStreamingMergeDataProvider, GenericBackfillStreamingOverwriteDataProvider}
-import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{GenericGraphBuilderFactory, GenericStreamingGraphBuilder}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{BackfillApplyBatchProcessor, BackfillOverwriteWatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{DisposeBatchProcessor, MergeBatchProcessor, WatermarkProcessor}
-import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{FieldFilteringTransformer, StagingProcessor}
+import com.sneaksanddata.arcane.framework.services.streaming.data_providers.backfill.{
+  GenericBackfillStreamingMergeDataProvider,
+  GenericBackfillStreamingOverwriteDataProvider
+}
+import com.sneaksanddata.arcane.framework.services.streaming.graph_builders.{
+  GenericGraphBuilderFactory,
+  GenericStreamingGraphBuilder
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.backfill.{
+  BackfillApplyBatchProcessor,
+  BackfillOverwriteWatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.batch_processors.streaming.{
+  DisposeBatchProcessor,
+  MergeBatchProcessor,
+  WatermarkProcessor
+}
+import com.sneaksanddata.arcane.framework.services.streaming.processors.transformers.{
+  FieldFilteringTransformer,
+  StagingProcessor
+}
 import com.sneaksanddata.arcane.framework.services.streaming.throughput.base.ThroughputShaperBuilder
 import com.sneaksanddata.arcane.framework.services.synapse.base.{SynapseLinkDataProvider, SynapseLinkReader}
-import com.sneaksanddata.arcane.framework.services.synapse.{SynapseBackfillOverwriteBatchFactory, SynapseHookManager, SynapseLinkStreamingDataProvider}
+import com.sneaksanddata.arcane.framework.services.synapse.{
+  SynapseBackfillOverwriteBatchFactory,
+  SynapseHookManager,
+  SynapseLinkStreamingDataProvider
+}
 import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
 import zio.{ZIO, ZLayer}
