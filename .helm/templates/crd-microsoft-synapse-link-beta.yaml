@@ -331,7 +331,7 @@ spec:
                       description: Chunk size orientation to the stream throughput management engine. For all shapers except Static, this setting is treated as a computation baseline.
                       default: 10000
                     advisedRate:
-                      type: integer
+                      type: string
                       description: Row intake rate. For all shapers except Static, this setting is treated as a computation baseline.
                       default: 100 per 1 second
                     advisedBurst:
