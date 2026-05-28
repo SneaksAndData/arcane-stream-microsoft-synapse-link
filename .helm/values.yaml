@@ -1,4 +1,3 @@
-environment: "Development"
 replicaCount: 1
 
 image:
@@ -109,8 +108,8 @@ jobTemplateSettings:
   extraEnv: [ ]
   # Example:
   #
-  #  - name: ASPNETCORE_ENVIRONMENT
-  #    value: production
+  #  - name: LOG_LEVEL
+  #    value: INFO
 
   # Extra environment variables referencing a ConfigMap or Secret
   extraEnvFrom: [ ]

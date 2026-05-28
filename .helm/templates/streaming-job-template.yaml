@@ -42,8 +42,6 @@ spec:
               {{- toYaml . | nindent 14 }}
             {{- end }}
             env:
-              - name: ASPNETCORE_ENVIRONMENT
-                value: {{ .Values.environment }}
               - name: APPLICATION_VERSION
                 value: "{{ (default (printf "v%s" .Chart.AppVersion) .Values.image.tag) }}"
             {{- with .Values.jobTemplateSettings.extraEnv }}
