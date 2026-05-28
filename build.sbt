@@ -60,6 +60,9 @@ lazy val plugin = (project in file("."))
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
 
+    // Put JAR in target/ directly, instead of in target/scala-x.x.x sub-directory
+    assembly / assemblyOutputPath := target.value / (assembly / assemblyJarName).value,
+
     // We do not use the version name here, because it's executable file name
     // and we want to keep it consistent with the name of the project
     assembly / assemblyJarName := "com.sneaksanddata.arcane.microsoft-synapse-link.assembly.jar",
