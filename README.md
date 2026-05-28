@@ -47,42 +47,43 @@ try out or test features in a dev setup.
 
 #### Setting up Kind
 Kind itself should be already installed if you ran `mise install`. Next steps:
-1. Create Kind cluster: `kind create cluster --name arcane-dev`
-2. Create namespace: `kubectl create namespace arcane --context kind-arcane-dev`
+1. Create Kind cluster: `kind create cluster --name arcane-microsoft-synapse-link-dev`
+2. Create namespace: `kubectl create namespace arcane --context kind-arcane-microsoft-synapse-link-dev`
 3. Install required [CRDs](github.com/SneaksAndData/arcane-crd):
 ```sh
-  helm install arcane-crd oci://ghcr.io/sneaksanddata/helm/arcane-crd \
-    --version vX.Y.Z \
-    --namespace arcane \
-    --kube-context kind-arcane-dev
+helm install arcane-crd oci://ghcr.io/sneaksanddata/helm/arcane-crd \
+  --version vX.Y.Z \
+  --namespace arcane \
+  --kube-context kind-arcane-microsoft-synapse-link-dev
   ```
 4. Install Arcane [operator](github.com/SneaksAndData/arcane-operator):
+helm uninstall arcane --namespace arcane --kube-context kind-arcane-microsoft-synapse-link-dev
+
 ```sh
-  helm install arcane oci://ghcr.io/sneaksanddata/helm/arcane-operator \
-    --version vX.Y.Z \
-    --namespace arcane \
-    --kube-context kind-arcane-dev
-  ```
+helm install arcane oci://ghcr.io/sneaksanddata/helm/arcane-operator \
+  --version vX.Y.Z \
+  --namespace arcane \
+  --kube-context kind-arcane-microsoft-synapse-link-dev
+```
 5. Build a Docker image for this project: `just docker-build kind-dev`
 6. Load the Docker image to Kind cluster:
 ```sh
 kind load docker-image \
     ghcr.io/sneaksanddata/arcane-stream-microsoft-synapse-link:kind-dev \
-    --name arcane-dev
+    --name arcane-microsoft-synapse-link-dev
 ```
 7. Install chart from this project:
 ```sh
-  helm upgrade --install arcane-synapse ./.helm \
-      --kube-context kind-arcane-dev \
-      --namespace arcane \
-      --set image.repository=ghcr.io/sneaksanddata/arcane-stream-microsoft-synapse-link \
-      --set image.tag=kind-dev \
-      --set image.pullPolicy=IfNotPresent
-  ```
+helm upgrade --install arcane-synapse ./.helm \
+    --kube-context kind-arcane-microsoft-synapse-link-dev \
+    --namespace arcane \
+    --set image.repository=ghcr.io/sneaksanddata/arcane-stream-microsoft-synapse-link \
+    --set image.tag=kind-dev \
+    --set image.pullPolicy=IfNotPresent
+```
 
 #### Running streams in Kind
 To be added...
 
 ### Development
-
 Project uses `Scala 3.8.3` and tested on JDK 25.
