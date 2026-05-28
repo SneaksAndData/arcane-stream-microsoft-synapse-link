@@ -152,17 +152,20 @@ jobTemplateSettings:
   # Node labels for pod assignment
   affinity: { }
 
+  # Security context settings for the pod
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
   # Security context settings for the container
-  securityContext:
+  containerSecurityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
     readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 1000
-    seccompProfile:
-      type: RuntimeDefault
 
 
   # Allows to specify a custom settings for pod failure policy
