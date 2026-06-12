@@ -14,7 +14,6 @@
   },
   "staging": {
     "table": {
-      "stagingTablePrefix": "staging_synapse_test",
       "maxRowsPerFile": 10000,
       "stagingCatalogName": "iceberg",
       "stagingSchemaName": "test",

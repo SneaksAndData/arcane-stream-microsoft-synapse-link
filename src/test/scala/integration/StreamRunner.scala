@@ -20,6 +20,7 @@ import zio.{Scope, ZIO, ZLayer}
 
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 import scala.language.postfixOps
+import scala.util.Random
 
 object StreamRunner extends ZIOSpecDefault:
 
@@ -43,7 +44,6 @@ object StreamRunner extends ZIOSpecDefault:
        |  },
        |  "staging": {
        |    "table": {
-       |      "stagingTablePrefix": "staging_synapse_test",
        |      "maxRowsPerFile": 10000,
        |      "stagingCatalogName": "iceberg",
        |      "stagingSchemaName": "test",
@@ -175,9 +175,10 @@ object StreamRunner extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("backfill and then stream changes successfully") {
       for
-        _         <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "true")
-        _         <- clearTarget(targetTableName)
-        _         <- Fixtures.clearSource
+        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "true")
+        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL_ID", Random.alphanumeric.take(10).mkString("").toLowerCase)
+        _ <- clearTarget(targetTableName)
+        _ <- Fixtures.clearSource
         startTime <- ZIO.succeed(OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC))
         // Upload 2 batches and backfill the table
         _ <- ZIO.foreach(1 to 2) { index =>
@@ -194,11 +195,12 @@ object StreamRunner extends ZIOSpecDefault:
         )
           .map(_.size)
 
-        backfilledWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(
+        backfilledWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(using
           SynapseWatermark.rw
         )
 
         _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "false")
+        _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL_ID", "")
 
         streamingRunner <- Common.getTestApp(Duration.ofSeconds(45), streamContextLayer).fork
         // drop some updates + inserts. 2 new rows should be inserted, row with id = 5b4bc74e-2132-4d8e-8572-48ce4260f182 - updated
@@ -217,7 +219,7 @@ object StreamRunner extends ZIOSpecDefault:
           StrStrDecoder
         )
 
-        streamedWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(
+        streamedWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(using
           SynapseWatermark.rw
         )
       yield assertTrue(backfilledCount == 5) implies assertTrue(
