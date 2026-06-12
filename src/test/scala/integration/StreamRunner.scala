@@ -195,7 +195,7 @@ object StreamRunner extends ZIOSpecDefault:
         )
           .map(_.size)
 
-        backfilledWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(
+        backfilledWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(using
           SynapseWatermark.rw
         )
 
@@ -219,7 +219,7 @@ object StreamRunner extends ZIOSpecDefault:
           StrStrDecoder
         )
 
-        streamedWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(
+        streamedWatermark <- getWatermark(streamContext.sink.targetTableFullName.split('.').last)(using
           SynapseWatermark.rw
         )
       yield assertTrue(backfilledCount == 5) implies assertTrue(
