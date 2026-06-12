@@ -114,8 +114,7 @@ object main extends ZIOAppDefault {
     DataDog.UdsPublisher.layer,
     WatermarkProcessor.layer,
     DefaultStreamBootstrapper.layer,
-    ThroughputShaperBuilder.layer,
-    DataDog.UdsPublisher.layer
+    ThroughputShaperBuilder.layer
   )
 
   @main
