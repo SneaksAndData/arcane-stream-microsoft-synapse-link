@@ -50,12 +50,15 @@ jobs:
         shell: bash
         run: sbt scalafmtCheckAll
 
-
       - name: Build and test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        run: sbt clean coverage test coverageReport
+        run: |
+          sbt clean && \
+          sbt coverage && \
+          sbt test && \
+          sbt coverageReport
 
       - uses: 5monkeys/cobertura-action@v14
         with:
