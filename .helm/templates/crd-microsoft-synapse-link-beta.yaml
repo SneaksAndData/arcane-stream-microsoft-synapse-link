@@ -51,163 +51,62 @@ spec:
                     but are meant to be used by the Arcane Operator alone for controlling the execution of the stream.
                   properties:
                     backfillJobTemplateRef:
-                      description: BackfillJobTemplateRef represents a reference to
-                        the job template.
+                      description: |
+                        Name of the job template to be used for the for the application in backfill mode.
+                      type: object
                       properties:
-                        apiVersion:
-                          description: API version of the referent.
-                          type: string
-                        fieldPath:
-                          description: |-
-                            If referring to a piece of an object instead of an entire object, this string
-                            should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                            For example, if the object reference is to a container within a pod, this would take on a value like:
-                            "spec.containers{name}" (where "name" refers to the name of the container that triggered
-                            the event) or if no container name is specified "spec.containers[2]" (container with
-                            index 2 in this pod). This syntax is chosen only to have some well-defined way of
-                            referencing a part of an object.
-                          type: string
-                        kind:
-                          description: |-
-                            Kind of the referent.
-                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-                          type: string
                         name:
-                          description: |-
-                            Name of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                           type: string
                         namespace:
-                          description: |-
-                            Namespace of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                           type: string
-                        resourceVersion:
-                          description: |-
-                            Specific resourceVersion to which this reference is made, if any.
-                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                        kind:
                           type: string
-                        uid:
-                          description: |-
-                            UID of the referent.
-                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                        apiGroup:
                           type: string
-                      type: object
-                      x-kubernetes-map-type: atomic
                     layoutVersion:
-                      description: LayoutVersion represents the layout version of the
-                        execution settings.
+                      description: LayoutVersion represents the layout version of the execution settings.
                       type: string
-                      default: "v1"
                     streamingBackend:
                       description: StreamingBackend represents the backend configuration for streaming.
                       properties:
                         batch:
-                          description: CronJobBackend represents the backend configuration
-                            for batch processing.
+                          description: CronJobBackend represents the backend configuration for batch processing.
                           properties:
                             jobTemplateRef:
-                              description: JobTemplateRef represents a reference to
-                                the job template.
+                              description: Name of the job template to be used for the application in streaming mode.
+                              type: object
                               properties:
-                                apiVersion:
-                                  description: API version of the referent.
-                                  type: string
-                                fieldPath:
-                                  description: |-
-                                    If referring to a piece of an object instead of an entire object, this string
-                                    should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                                    For example, if the object reference is to a container within a pod, this would take on a value like:
-                                    "spec.containers{name}" (where "name" refers to the name of the container that triggered
-                                    the event) or if no container name is specified "spec.containers[2]" (container with
-                                    index 2 in this pod). This syntax is chosen only to have some well-defined way of
-                                    referencing a part of an object.
-                                  type: string
-                                kind:
-                                  description: |-
-                                    Kind of the referent.
-                                    More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-                                  type: string
                                 name:
-                                  description: |-
-                                    Name of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                   type: string
                                 namespace:
-                                  description: |-
-                                    Namespace of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                                   type: string
-                                resourceVersion:
-                                  description: |-
-                                    Specific resourceVersion to which this reference is made, if any.
-                                    More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                                kind:
                                   type: string
-                                uid:
-                                  description: |-
-                                    UID of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                                apiGroup:
                                   type: string
-                              type: object
-                              x-kubernetes-map-type: atomic
                             schedule:
-                              description: Schedule represents the cron schedule for
-                                batch processing.
+                              description: Schedule represents the cron schedule for batch processing.
                               type: string
                           required:
                             - jobTemplateRef
                             - schedule
                           type: object
                         changeCapture:
-                          description: BatchJobBackend represents the backend configuration
-                            for real-time streaming.
+                          description: BatchJobBackend represents the backend configuration for real-time streaming.
                           properties:
                             jobTemplateRef:
-                              description: JobTemplateRef represents a reference to
-                                the job template.
+                              description: Name of the job template to be used for the application in streaming mode.
+                              type: object
                               properties:
-                                apiVersion:
-                                  description: API version of the referent.
-                                  type: string
-                                fieldPath:
-                                  description: |-
-                                    If referring to a piece of an object instead of an entire object, this string
-                                    should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                                    For example, if the object reference is to a container within a pod, this would take on a value like:
-                                    "spec.containers{name}" (where "name" refers to the name of the container that triggered
-                                    the event) or if no container name is specified "spec.containers[2]" (container with
-                                    index 2 in this pod). This syntax is chosen only to have some well-defined way of
-                                    referencing a part of an object.
-                                  type: string
-                                kind:
-                                  description: |-
-                                    Kind of the referent.
-                                    More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-                                  type: string
                                 name:
-                                  description: |-
-                                    Name of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                   type: string
                                 namespace:
-                                  description: |-
-                                    Namespace of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                                   type: string
-                                resourceVersion:
-                                  description: |-
-                                    Specific resourceVersion to which this reference is made, if any.
-                                    More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                                kind:
                                   type: string
-                                uid:
-                                  description: |-
-                                    UID of the referent.
-                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                                apiGroup:
                                   type: string
-                              type: object
-                              x-kubernetes-map-type: atomic
                           required:
-                            - changeCaptureInterval
                             - jobTemplateRef
                           type: object
                       type: object
@@ -215,10 +114,25 @@ spec:
                       description: Suspended indicates whether the stream is suspended.
                       type: boolean
                   required:
-                    - backfillJobTemplateRef
                     - layoutVersion
                     - streamingBackend
                     - suspended
+                  nullable: true
+                  default:
+                    layoutVersion: "v1"
+                    backfillJobTemplateRef:
+                      apiGroup: streaming.sneaksanddata.com
+                      kind: StreamingJobTemplate
+                      name: standard-job-template
+                      namespace: default
+                    streamingBackend:
+                      changeCapture:
+                        jobTemplateRef:
+                          apiGroup: streaming.sneaksanddata.com
+                          kind: StreamingJobTemplate
+                          name: standard-job-template
+                          namespace: default
+                    suspended: true
                   type: object
                 observability:
                   type: object
