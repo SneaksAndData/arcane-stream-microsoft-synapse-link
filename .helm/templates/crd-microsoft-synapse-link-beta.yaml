@@ -153,9 +153,6 @@ spec:
                       type: object
                       description: Staging table creation properties
                       properties:
-                        stagingTablePrefix:
-                          type: string
-                          description: Prefix to use for staging table names
                         maxRowsPerFile:
                           type: integer
                           description: Maximum number of rows to pack into a single staging table
