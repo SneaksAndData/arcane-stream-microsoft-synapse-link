@@ -44,9 +44,96 @@ spec:
             spec:
               type: object
               properties:
-                suspended:
-                  description: Suspended indicates whether the stream is suspended.
-                  type: boolean
+                execution:
+                  description: |
+                    ExecutionSettings represents the execution settings for the stream controlled by Arcane Operator.
+                    These settings should never be referenced by the plugin application and/or Arcane Framework,
+                    but are meant to be used by the Arcane Operator alone for controlling the execution of the stream.
+                  properties:
+                    backfillJobTemplateRef:
+                      description: |
+                        Name of the job template to be used for the for the application in backfill mode.
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        kind:
+                          type: string
+                        apiGroup:
+                          type: string
+                    layoutVersion:
+                      description: LayoutVersion represents the layout version of the execution settings.
+                      type: string
+                    streamingBackend:
+                      description: StreamingBackend represents the backend configuration for streaming.
+                      properties:
+                        batch:
+                          description: CronJobBackend represents the backend configuration for batch processing.
+                          properties:
+                            jobTemplateRef:
+                              description: Name of the job template to be used for the application in streaming mode.
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                kind:
+                                  type: string
+                                apiGroup:
+                                  type: string
+                            schedule:
+                              description: Schedule represents the cron schedule for batch processing.
+                              type: string
+                          required:
+                            - jobTemplateRef
+                            - schedule
+                          type: object
+                        changeCapture:
+                          description: BatchJobBackend represents the backend configuration for real-time streaming.
+                          properties:
+                            jobTemplateRef:
+                              description: Name of the job template to be used for the application in streaming mode.
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                kind:
+                                  type: string
+                                apiGroup:
+                                  type: string
+                          required:
+                            - jobTemplateRef
+                          type: object
+                      type: object
+                    suspended:
+                      description: Suspended indicates whether the stream is suspended.
+                      type: boolean
+                  required:
+                    - layoutVersion
+                    - streamingBackend
+                    - suspended
+                  nullable: true
+                  default:
+                    layoutVersion: "v1"
+                    backfillJobTemplateRef:
+                      apiGroup: streaming.sneaksanddata.com
+                      kind: StreamingJobTemplate
+                      name: standard-job-template
+                      namespace: default
+                    streamingBackend:
+                      changeCapture:
+                        jobTemplateRef:
+                          apiGroup: streaming.sneaksanddata.com
+                          kind: StreamingJobTemplate
+                          name: standard-job-template
+                          namespace: default
+                    suspended: true
+                  type: object
                 observability:
                   type: object
                   description: Configurations for enhancing logs and metrics produced by the plugin application
@@ -535,36 +622,6 @@ spec:
                   properties:
                     name:
                       type: string
-                jobTemplateRef:
-                  description: |
-                    Name of the job template to be used for the application in streaming mode.
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    kind:
-                      type: string
-                    apiGroup:
-                      type: string
-                  default:
-                    apiGroup: streaming.sneaksanddata.com
-                    kind: StreamingJobTemplate
-                    name: standard-job
-                backfillJobTemplateRef:
-                  description: |
-                    Name of the job template to be used for the for the application in backfill mode.
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    kind:
-                      type: string
-                    apiGroup:
-                      type: string
-                  default:
-                    apiGroup: streaming.sneaksanddata.com
-                    kind: StreamingJobTemplate
-                    name: large-job
             status:
               type: object
               properties:
