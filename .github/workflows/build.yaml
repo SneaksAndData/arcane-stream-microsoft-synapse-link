@@ -23,6 +23,7 @@ jobs:
       contents: read       # required for dependabot PRs
       checks: write        # required for cobertura-action
       packages: read       # required for building the SBT project
+      code-quality: write
 
     steps:
       - uses: actions/checkout@v5
@@ -55,13 +56,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          sbt clean && \
-          sbt coverage && \
-          sbt test && \
-          sbt coverageReport
+          sbt clean coverage test coverageReport
 
-      - uses: 5monkeys/cobertura-action@v14
+      - uses: actions/upload-code-coverage@v1
         with:
-          path: ./target/scala-3.8.3/coverage-report/cobertura.xml
-          minimum_coverage: 0
+          file: target/scala-3.8.3/coverage-report/cobertura.xml
+          language: Java
+          label: code-coverage/jacoco
 
