@@ -4,6 +4,7 @@ package common
 import main.{appLayer, synapseLinkReaderLayer}
 import models.app.MicrosoftSynapseLinkPluginStreamContext
 
+import com.sneaksanddata.arcane.framework.plugins.LayerAssemblies
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
 import com.sneaksanddata.arcane.framework.services.backfill.DefaultBackfillStateManager
 import com.sneaksanddata.arcane.framework.services.backfill.processors.{
@@ -44,6 +45,9 @@ import com.sneaksanddata.arcane.framework.services.synapse.backfill.{
 import com.sneaksanddata.arcane.framework.services.synapse.base.SynapseLinkDataProvider
 import com.sneaksanddata.arcane.framework.testkit.appbuilder.TestAppBuilder.buildTestApp
 import com.sneaksanddata.arcane.framework.testkit.streaming.TimeLimitLifetimeService
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.{ZIO, ZLayer}
 
 import java.time.Duration
@@ -60,54 +64,22 @@ object Common:
     */
   def getTestApp(
       runTimeout: Duration,
-      streamContextLayer: ZLayer[Any, Nothing, MicrosoftSynapseLinkPluginStreamContext]
+      streamContextLayer: ZLayer[
+        Any,
+        Nothing,
+        MicrosoftSynapseLinkPluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig
+      ]
   ): ZIO[Any, Throwable, Unit] =
     buildTestApp(
       appLayer,
       streamContextLayer
     )(
-      GenericStreamRunnerService.layer,
-      StreamGraphResolver.composedLayer,
-      DisposeBatchProcessor.layer,
-      FieldFilteringTransformer.layer,
-      MergeBatchProcessor.layer,
-      StagingProcessor.layer,
-      FieldsFilteringService.layer,
-      ZLayer.succeed(TimeLimitLifetimeService(runTimeout)),
-      IcebergS3CatalogWriter.layer,
-      JdbcMergeServiceClient.layer,
-      DeclaredMetrics.layer,
-      GlobalMetricTagProvider.layer,
-      WatermarkProcessor.layer,
-      IcebergEntityManager.sinkLayer,
-      IcebergEntityManager.stagingLayer,
-      IcebergTablePropertyManager.stagingLayer,
-      IcebergTablePropertyManager.sinkLayer,
-      SynapseLinkDataProvider.layer,
+      LayerAssemblies.synapseLinkSourceLayer,
+      LayerAssemblies.frameworkPipelineServicesLayer,
+      LayerAssemblies.frameworkStagingServicesLayer,
 
       // had to move these as they are Throwable instead of Nothing.
       synapseLinkReaderLayer,
-      DefaultStreamBootstrapper.layer,
-      ThroughputShaperBuilder.layer,
-      // streaming
-      SynapseLinkStreamingDataProvider.layer,
-      SynapseBatchFactory.layer,
-
-      // backfill
-      SynapseBackfillSourceDataProvider.layer,
-      SynapseShardFactory.layer,
-      SynapseShardedBackfillStreamDataProvider.layer,
-      SynapseBackfillMergeStreamDataProvider.layer,
-      DefaultBackfillStateManager.layer,
-      ShardStagingProcessor.layer,
-      BackfillCompletionProcessor.layer,
-
-      // schema
-      SchemaMigrationProcessor.layer,
-
-      // maintenance and cleanup
-      TargetMaintenanceProcessor.layer,
-      CatalogDisposeServiceClient.layer,
-      DefaultNameGenerator.layer,
-      DefaultStreamFinalizer.layer
+      GenericStreamRunnerService.layer,
+      StreamGraphResolver.composedLayer
     )
