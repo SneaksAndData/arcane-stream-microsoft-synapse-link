@@ -6,6 +6,7 @@ import com.sneaksanddata.arcane.framework.extensions.ZExtensions.*
 import com.sneaksanddata.arcane.framework.logging.ZIOLogAnnotations.zlog
 import com.sneaksanddata.arcane.framework.models.app.PluginStreamContext
 import com.sneaksanddata.arcane.framework.plugins.LayerAssemblies
+import com.sneaksanddata.arcane.framework.plugins.synapse.Services
 import com.sneaksanddata.arcane.framework.services.app.base.StreamRunnerService
 import com.sneaksanddata.arcane.framework.services.app.{GenericStreamRunnerService, StreamGraphResolver}
 import com.sneaksanddata.arcane.framework.services.streaming.base.StreamingGraphBuilder
@@ -29,7 +30,7 @@ object main extends ZIOAppDefault:
     )
 
   private lazy val streamRunner = appLayer.provide(
-    LayerAssemblies.synapseLinkSourceLayer,
+    Services.synapseLinkSourceLayer,
     LayerAssemblies.frameworkPipelineServicesLayer,
     LayerAssemblies.frameworkStagingServicesLayer,
     MicrosoftSynapseLinkPluginStreamContext.layer,
