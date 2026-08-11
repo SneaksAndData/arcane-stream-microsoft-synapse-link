@@ -129,7 +129,8 @@ object StreamRunner extends ZIOSpecDefault:
        |        "chunkCostMax": 2,
        |        "tableRowCountWeight": 0.02,
        |        "tableSizeWeight": 0.02,
-       |        "tableSizeScaleFactor": 1
+       |        "tableSizeScaleFactor": 1,
+       |        "chunkSizeCap": 1000000
        |      }
        |    },
        |    "advisedRate": "10000 per 15 second",
