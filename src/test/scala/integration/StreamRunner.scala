@@ -14,6 +14,9 @@ import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerific
 }
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
 import org.scalatest.matchers.should.Matchers.should
+import zio.metrics.connectors.MetricsConfig
+import zio.metrics.connectors.datadog.DatadogPublisherConfig
+import zio.metrics.connectors.statsd.DatagramSocketConfig
 import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO, ZLayer}
@@ -126,7 +129,8 @@ object StreamRunner extends ZIOSpecDefault:
        |        "chunkCostMax": 2,
        |        "tableRowCountWeight": 0.02,
        |        "tableSizeWeight": 0.02,
-       |        "tableSizeScaleFactor": 1
+       |        "tableSizeScaleFactor": 1,
+       |        "chunkSizeCap": 1000000
        |      }
        |    },
        |    "advisedRate": "10000 per 15 second",
@@ -170,7 +174,9 @@ object StreamRunner extends ZIOSpecDefault:
 
   private val streamContext = MicrosoftSynapseLinkPluginStreamContext(streamContextStr)
 
-  private val streamContextLayer = ZLayer.succeed[MicrosoftSynapseLinkPluginStreamContext](streamContext)
+  private val streamContextLayer = ZLayer.succeed[MicrosoftSynapseLinkPluginStreamContext](streamContext) ++ ZLayer
+    .succeed[DatagramSocketConfig](streamContext) ++ ZLayer
+    .succeed[MetricsConfig](streamContext) ++ ZLayer.succeed(DatadogPublisherConfig())
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
     test("backfill and then stream changes successfully") {

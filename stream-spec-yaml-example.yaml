@@ -67,6 +67,7 @@ throughput:
       tableRowCountWeight: 0.05
       tableSizeWeight: 0.05
       tableSizeScaleFactor: 2
+      chunkSizeCap: 1000000
   advisedRate: "10000 per 15 second"
   advisedBurst: 1000
   advisedChunkSize: 1
