@@ -413,9 +413,10 @@ spec:
                         objectTypeSizeEstimate: 4096
                         chunkCostScale: 1
                         chunkCostMax: 10
-                        tableRowCountWeight: 0.02
-                        tableSizeWeight: 0.02
+                        tableRowCountWeight: 0.03
+                        tableSizeWeight: 0.03
                         tableSizeScaleFactor: 2
+                        chunkSizeCap: 1000000
                   properties:
                     advisedChunkSize:
                       type: integer
@@ -475,6 +476,10 @@ spec:
                               type: integer
                               description: Scale for the memory cutoff sigmoid estimator. This affects how much memory is considered reserved when estimating chunk sizes. Higher values will result in more conservative cutoffs for large tables.
                               default: 2
+                            chunkSizeCap:
+                              type: integer
+                              description: Hard cap on estimated chunk size. Values above 1.000.000 or below 100.000 are not recommended.
+                              default: 1000000
                 source:
                   type: object
                   properties:

@@ -40,4 +40,4 @@ object main extends ZIOAppDefault:
   )
 
   @main
-  def run: ZIO[Any, Throwable, Unit] = streamRunner.handleAppFailure(_ => ZIO.unit)
+  def run: ZIO[Any, Throwable, Unit] = streamRunner.handleAppFailure(exit)
