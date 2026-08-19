@@ -94,6 +94,20 @@ spec:
                         changeCapture:
                           description: BatchJobBackend represents the backend configuration for real-time streaming.
                           properties:
+                            backfillJobTemplateRef:
+                              description: Name of the job template to be used for the for the application in backfill mode.
+                              type: object
+                              nullable: true
+                              default: null
+                              properties:
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                kind:
+                                  type: string
+                                apiGroup:
+                                  type: string
                             jobTemplateRef:
                               description: Name of the job template to be used for the application in streaming mode.
                               type: object
