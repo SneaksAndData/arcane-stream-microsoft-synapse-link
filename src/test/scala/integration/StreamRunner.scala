@@ -68,7 +68,8 @@ object StreamRunner extends ZIOSpecDefault:
        |    "changeCapture": {
        |      "changeCaptureInterval": "5 second",
        |      "changeCaptureJitterVariance": 0.1,
-       |      "changeCaptureJitterSeed": 0
+       |      "changeCaptureJitterSeed": 0,
+       |      "changeCaptureRangeLimit": 10
        |    }
        |  },
        |  "sink": {
@@ -130,7 +131,8 @@ object StreamRunner extends ZIOSpecDefault:
        |        "tableRowCountWeight": 0.02,
        |        "tableSizeWeight": 0.02,
        |        "tableSizeScaleFactor": 1,
-       |        "chunkSizeCap": 1000000
+       |        "chunkSizeCap": 1000000,
+       |        "maxStatisticsAge": 604800
        |      }
        |    },
        |    "advisedRate": "10000 per 15 second",
