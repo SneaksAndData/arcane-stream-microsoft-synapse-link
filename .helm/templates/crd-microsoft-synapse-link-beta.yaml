@@ -494,7 +494,7 @@ spec:
                         isServerSide:
                           type: boolean
                           description: If set to true, indicates that a source can provide field selection. This disables field filtering on the application level and relies on a source-specific filtering query instead.
-                          default: false
+                          default: true
                         essentialFields:
                           type: array
                           items:
