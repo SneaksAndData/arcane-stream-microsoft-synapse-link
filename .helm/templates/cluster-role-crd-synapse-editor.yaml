@@ -24,4 +24,6 @@ rules:
     resources:
       - microsoft-synapse-streams
       - microsoft-synapse-streams/status
+      - microsoft-synapse-beta-streams
+      - microsoft-synapse-beta-streams/status
 {{- end }}

@@ -23,6 +23,7 @@ jobs:
       contents: read       # required for dependabot PRs
       checks: write        # required for cobertura-action
       packages: read       # required for building the SBT project
+      code-quality: write
 
     steps:
       - uses: actions/checkout@v6
@@ -30,9 +31,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Scala
-        uses: japgolly/setup-everything-scala@v3.1
+        uses: japgolly/setup-everything-scala@v4.1
         with:
-          java-version: temurin:1.23.0.1
+          java-version: temurin:1.25.0.2
       - name: Build the Docker Compose stack
         run: |
           docker compose up --quiet-pull -d
@@ -50,15 +51,16 @@ jobs:
         shell: bash
         run: sbt scalafmtCheckAll
 
-
       - name: Build and test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        run: sbt clean coverage test coverageReport
+        run: |
+          sbt clean coverage test coverageReport
 
-      - uses: 5monkeys/cobertura-action@v14
+      - uses: actions/upload-code-coverage@v1
         with:
-          path: ./target/scala-3.6.1/coverage-report/cobertura.xml
-          minimum_coverage: 0
+          file: target/scala-3.8.3/coverage-report/cobertura.xml
+          language: Java
+          label: code-coverage/jacoco
 

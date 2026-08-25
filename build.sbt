@@ -1,9 +1,9 @@
 import com.typesafe.sbt.packager.graalvmnativeimage.GraalVMNativeImagePlugin.autoImport.GraalVMNativeImage
 
-ThisBuild / version := "1.0.0-SNAPSHOT"
+ThisBuild / version := "2.4.2-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars := true
-ThisBuild / scalaVersion := "3.6.1"
+ThisBuild / scalaVersion := "3.8.3"
 ThisBuild / organization := "com.sneaksanddata"
 
 resolvers += "Arcane framework repo" at "https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala"
@@ -25,19 +25,18 @@ lazy val plugin = (project in file("."))
     name := "arcane-stream-microsoft-synapse-link",
     idePackagePrefix := Some("com.sneaksanddata.arcane.microsoft_synapse_link"),
 
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.0.0-9-gdc66fbd",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.2",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
-
     // bugfix for upgrade header
     // https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5
     libraryDependencies += "org.apache.httpcomponents.client5" % "httpclient5" % "5.4.2",
 
     // Test dependencies
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.19" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.24" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.24" % Test,
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.0.7" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.26" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.26" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1" % Test,
 
     graalVMNativeImageOptions ++= Seq(
       "--no-fallback",
@@ -60,6 +59,9 @@ lazy val plugin = (project in file("."))
     ),
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
+
+    // Put JAR in target/ directly, instead of in target/scala-x.x.x sub-directory
+    assembly / assemblyOutputPath := target.value / (assembly / assemblyJarName).value,
 
     // We do not use the version name here, because it's executable file name
     // and we want to keep it consistent with the name of the project
