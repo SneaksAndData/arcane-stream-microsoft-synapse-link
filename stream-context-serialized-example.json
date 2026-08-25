@@ -1,0 +1,132 @@
+{
+  "observability": {
+    "metricTags": {}
+  },
+  "staging": {
+    "table": {
+      "maxRowsPerFile": 10000,
+      "stagingCatalogName": "iceberg",
+      "stagingSchemaName": "test",
+      "isUnifiedSchema": false
+    },
+    "icebergCatalog": {
+      "catalogProperties": {},
+      "catalogUri": "http://localhost:20001/catalog",
+      "namespace": "test",
+      "warehouse": "demo",
+      "maxCatalogInstanceLifetime": "3500 second"
+    }
+  },
+  "streamMode": {
+    "backfill": {
+      "backfillBehavior": "Overwrite",
+      "backfillStartDate": "2026-01-01T00:00:00Z"
+    },
+    "changeCapture": {
+      "changeCaptureInterval": "5 second",
+      "changeCaptureJitterVariance": 0.1,
+      "changeCaptureJitterSeed": 0,
+      "changeCaptureRangeLimit": 10
+    }
+  },
+  "sink": {
+    "mergeServiceClient": {
+      "connectionUrl": "jdbc:trino://localhost:8080",
+      "credentialType": {
+        "basic": {}
+      },
+      "extraConnectionParameters": {
+        "clientTags": "test"
+      },
+      "queryRetryMode": {
+        "never": {}
+      },
+      "queryRetryBaseDuration": "100 millisecond",
+      "queryRetryOnMessageContents": [],
+      "queryRetryScaleFactor": 0.1,
+      "queryRetryMaxAttempts": 3
+    },
+    "targetTableProperties": {
+      "format": "PARQUET",
+      "sortedBy": [],
+      "parquetBloomFilterColumns": []
+    },
+    "targetTableFullName": "catalog.schema.table",
+    "maintenanceSettings": {
+      "targetOptimizeSettings": {
+        "batchThreshold": 60,
+        "fileSizeThreshold": "512MB"
+      },
+      "targetOrphanFilesExpirationSettings": {
+        "batchThreshold": 60,
+        "retentionThreshold": "6h"
+      },
+      "targetSnapshotExpirationSettings": {
+        "batchThreshold": 60,
+        "retentionThreshold": "6h"
+      },
+      "targetAnalyzeSettings": {
+        "includedColumns": [],
+        "batchThreshold": 60
+      }
+    },
+    "icebergCatalog": {
+      "catalogProperties": {},
+      "catalogUri": "http://localhost:20001/catalog",
+      "namespace": "test",
+      "warehouse": "demo",
+      "maxCatalogInstanceLifetime": "3500 second"
+    }
+  },
+  "throughput": {
+    "shaperImpl": {
+      "memoryBound": {
+        "fallbackStringTypeSizeEstimate": 50,
+        "objectTypeSizeEstimate": 4096,
+        "chunkCostScale": 1,
+        "chunkCostMax": 2,
+        "tableRowCountWeight": 0.02,
+        "tableSizeWeight": 0.02,
+        "tableSizeScaleFactor": 1,
+        "chunkSizeCap": 1000000,
+        "maxStatisticsAge": 604800
+      }
+    },
+    "advisedRate": "10000 per 15 second",
+    "advisedBurst": 1000,
+    "advisedChunkSize": 1
+  },
+  "source": {
+    "configuration": {
+      "entityName": "dimensionattributelevelvalue",
+      "baseLocation": "abfss://cdm-e2e@devstoreaccount1.dfs.core.windows.net/",
+      "storageConnection": {
+        "accountName": "devstoreaccount1",
+        "endpoint": "http://localhost:10001/devstoreaccount1",
+        "httpClient": {
+          "httpMaxRetries": 3,
+          "httpMaxRetryDelay": "1 second",
+          "httpMinRetryDelay": "100 millisecond",
+          "httpRetryTimeout": "1 minute",
+          "maxResultsPerPage": 10000
+        },
+        "credentialType": {
+          "sharedKey": {
+            "accessKey": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+          }
+        }
+      }
+    },
+    "buffering": {
+      "enabled": false,
+      "strategy": {}
+    },
+    "fieldSelectionRule": {
+      "essentialFields": [],
+      "rule":{
+        "all": {}
+      },
+      "isServerSide": false
+    }
+  }
+}
