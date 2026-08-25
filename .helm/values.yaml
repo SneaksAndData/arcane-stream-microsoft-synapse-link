@@ -1,4 +1,3 @@
-environment: "Development"
 replicaCount: 1
 
 image:
@@ -109,8 +108,8 @@ jobTemplateSettings:
   extraEnv: [ ]
   # Example:
   #
-  #  - name: ASPNETCORE_ENVIRONMENT
-  #    value: production
+  #  - name: LOG_LEVEL
+  #    value: INFO
 
   # Extra environment variables referencing a ConfigMap or Secret
   extraEnvFrom: [ ]
@@ -152,17 +151,20 @@ jobTemplateSettings:
   # Node labels for pod assignment
   affinity: { }
 
+  # Security context settings for the pod
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
   # Security context settings for the container
-  securityContext:
+  containerSecurityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
     readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 1000
-    seccompProfile:
-      type: RuntimeDefault
 
 
   # Allows to specify a custom settings for pod failure policy

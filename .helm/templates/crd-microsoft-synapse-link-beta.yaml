@@ -2,16 +2,16 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: microsoft-synapse-streams.streaming.sneaksanddata.com
+  name:  microsoft-synapse-beta-streams.streaming.sneaksanddata.com
 spec:
   group: streaming.sneaksanddata.com
   scope: Namespaced
   names:
-    plural: microsoft-synapse-streams
-    singular: microsoft-synapse-stream
-    kind: MicrosoftSynapseStream
+    plural: microsoft-synapse-beta-streams
+    singular: microsoft-synapse-beta-stream
+    kind: MicrosoftSynapseBetaStream
     shortNames:
-      - mssynapsestream
+      - mssynapsebstream
   versions:
     - name: v1
       served: true
@@ -421,19 +421,11 @@ spec:
                   description: Configuration for throughput management controls
                   default:
                     advisedChunkSize: 10000
-                    advisedRate: 1000 per 15 second
-                    advisedBurst: 1000
+                    advisedRate: 100 per 1 second
+                    advisedBurst: 1
                     shaperImpl:
                       static: null
-                      memoryBound:
-                        fallbackStringTypeSizeEstimate: 50
-                        objectTypeSizeEstimate: 4096
-                        chunkCostScale: 1
-                        chunkCostMax: 10
-                        tableRowCountWeight: 0.03
-                        tableSizeWeight: 0.03
-                        tableSizeScaleFactor: 2
-                        chunkSizeCap: 1000000
+                      memoryBound: null
                   properties:
                     advisedChunkSize:
                       type: integer
@@ -442,7 +434,7 @@ spec:
                     advisedRate:
                       type: string
                       description: Row intake rate. For all shapers except Static, this setting is treated as a computation baseline.
-                      default: 1000 per 15 second
+                      default: 100 per 1 second
                     advisedBurst:
                       type: integer
                       description: Row intake burst. For all shapers except Static, this setting is treated as a computation baseline.
@@ -484,11 +476,11 @@ spec:
                             tableRowCountWeight:
                               type: number
                               description: Weight of a table row's count in cost estimation.
-                              default: 0.02
+                              default: 0.08
                             tableSizeWeight:
                               type: number
                               description: Weight of a table's physical size in bytes in cost estimation.
-                              default: 0.02
+                              default: 0.08
                             tableSizeScaleFactor:
                               type: integer
                               description: Scale for the memory cutoff sigmoid estimator. This affects how much memory is considered reserved when estimating chunk sizes. Higher values will result in more conservative cutoffs for large tables.
@@ -516,7 +508,7 @@ spec:
                         isServerSide:
                           type: boolean
                           description: If set to true, indicates that a source can provide field selection. This disables field filtering on the application level and relies on a source-specific filtering query instead.
-                          default: false
+                          default: true
                         essentialFields:
                           type: array
                           items:
@@ -682,4 +674,4 @@ spec:
                         enum:
                           - "True"
                           - "False"
-  {{- end }}
+{{- end }}
