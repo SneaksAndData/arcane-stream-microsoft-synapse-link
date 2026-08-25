@@ -20,6 +20,7 @@ streamMode:
     changeCaptureInterval: 5 second
     changeCaptureJitterVariance: 0.1
     changeCaptureJitterSeed: 0
+    changeCaptureRangeLimit: 10
 sink:
   mergeServiceClient:
     connectionUrl: "jdbc:trino://localhost:8080"
@@ -68,6 +69,7 @@ throughput:
       tableSizeWeight: 0.05
       tableSizeScaleFactor: 2
       chunkSizeCap: 1000000
+      maxStatisticsAge: 604800
   advisedRate: "10000 per 15 second"
   advisedBurst: 1000
   advisedChunkSize: 1

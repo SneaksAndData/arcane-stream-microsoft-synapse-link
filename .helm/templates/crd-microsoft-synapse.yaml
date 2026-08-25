@@ -233,6 +233,9 @@ spec:
                         changeCaptureJitterSeed:
                           type: number
                           default: 0
+                        changeCaptureRangeLimit:
+                          type: number
+                          default: 12
                 sink:
                   type: object
                   description: Configuration for the Iceberg Sink
@@ -494,6 +497,10 @@ spec:
                               type: integer
                               description: Hard cap on estimated chunk size. Values above 1.000.000 or below 100.000 are not recommended.
                               default: 1000000
+                            maxStatisticsAge:
+                              type: integer
+                              description: Interval between statistics cache updates in seconds
+                              default: 604800
                 source:
                   type: object
                   properties:
