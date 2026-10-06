@@ -22,7 +22,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -34,7 +34,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.11
+        uses: SneaksAndData/github-actions/generate_version@v0.1.12
         id: version
 
       - name: Extract metadata (tags, labels) for Docker
@@ -55,7 +55,7 @@ jobs:
 
       - name: Build and push Docker image
         id: image_build
-        uses: docker/build-push-action@v6.9.0
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: .container/Dockerfile.graalvm
@@ -80,7 +80,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -92,7 +92,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.11
+        uses: SneaksAndData/github-actions/generate_version@v0.1.12
         id: version
 
       - name: Extract metadata (tags, labels) for Docker
@@ -113,7 +113,7 @@ jobs:
 
       - name: Build and push Docker image
         id: image_build
-        uses: docker/build-push-action@v6.9.0
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: .container/Dockerfile.graalvm
@@ -136,7 +136,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -148,7 +148,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get project version
-        uses: SneaksAndData/github-actions/generate_version@v0.1.11
+        uses: SneaksAndData/github-actions/generate_version@v0.1.12
         id: version
 
       - name: Extract metadata (tags, labels) for Docker
