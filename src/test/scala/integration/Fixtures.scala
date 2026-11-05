@@ -28,7 +28,7 @@ object Fixtures:
     ZIO.attemptBlocking(containerClient.deleteIfExists()) *> ZIO.attemptBlocking(
       containerClient.createIfNotExists()
     ) *> ZIO.attemptBlocking(
-      containerClient.getBlobClient("model.json").upload(BinaryData.fromString(SynapseMetadata.modelJson))
+      containerClient.getBlobClient("model.json").upload(BinaryData.fromString(SynapseMetadata.modelJson), true)
     )
 
   def uploadBatch(
