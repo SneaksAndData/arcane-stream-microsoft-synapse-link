@@ -1,31 +1,38 @@
-import com.typesafe.sbt.packager.graalvmnativeimage.GraalVMNativeImagePlugin.autoImport.GraalVMNativeImage
-
-ThisBuild / version := "2.4.2-SNAPSHOT"
+ThisBuild / version := "2.5.0-SNAPSHOT"
 ThisBuild / trackInternalDependencies := TrackLevel.TrackIfMissing
 ThisBuild / exportJars := true
-ThisBuild / scalaVersion := "3.8.3"
+ThisBuild / scalaVersion := "3.9.0"
 ThisBuild / organization := "com.sneaksanddata"
 
 resolvers += "Arcane framework repo" at "https://maven.pkg.github.com/SneaksAndData/arcane-framework-scala"
 
-credentials += Credentials(
-  "GitHub Package Registry",
-  "maven.pkg.github.com",
-  "_",
-  sys.env("GITHUB_TOKEN")
-)
+val githubToken: Option[String] =
+  sys.env.get("GITHUB_TOKEN").orElse {
+    val tokenFile = file(".ghtoken")
+    if (tokenFile.exists()) {
+      val source = scala.io.Source.fromFile(tokenFile)
+      try Some(source.mkString.trim)
+      finally source.close()
+    } else None
+  }
 
-enablePlugins(GraalVMNativeImagePlugin)
+credentials ++= githubToken.map { token =>
+  Credentials(
+    "GitHub Package Registry",
+    "maven.pkg.github.com",
+    "_",
+    token
+  )
+}.toSeq
 
 mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main")
-GraalVMNativeImage / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main")
 
 lazy val plugin = (project in file("."))
   .settings(
     name := "arcane-stream-microsoft-synapse-link",
     idePackagePrefix := Some("com.sneaksanddata.arcane.microsoft_synapse_link"),
 
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.2-1-geb0f657",
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework_3" % "2.3.2-48-gfb75f5a",
     libraryDependencies += "io.netty" % "netty-tcnative-boringssl-static" % "2.0.74.Final",
     // bugfix for upgrade header
     // https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5
@@ -34,34 +41,16 @@ lazy val plugin = (project in file("."))
     // Test dependencies
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.20" % Test,
     libraryDependencies += "org.scalatest" %% "scalatest-flatspec" % "3.2.20" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.26" % Test,
-    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.26" % Test,
-    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test"          % "2.1.27" % Test,
+    libraryDependencies += "dev.zio" %% "zio-test-sbt"      % "2.1.27" % Test,
+    libraryDependencies += "com.sneaksanddata" % "arcane-framework-test_3" % "0.3.1-2-g404ebe4" % Test,
 
-    graalVMNativeImageOptions ++= Seq(
-      "--no-fallback",
-      "-O2",
-      "--initialize-at-run-time=okhttp3.internal.platform.Android10Platform,reactor.util.Metrics,org.bouncycastle,io.netty",
-      "--enable-http",
-      "--enable-https",
-      "--verbose",
-      "-H:+UnlockExperimentalVMOptions",
-      "-H:+AddAllCharsets",
-      "-H:+ReportExceptionStackTraces",
-      // enable this if you experience build errors to find the root cause
-      //"-H:+PrintClassInitialization",
-      "-H:ResourceConfigurationFiles=../../configs/resource-config.json",
-      "-H:ReflectionConfigurationFiles=../../configs/reflect-config.json",
-      "-H:JNIConfigurationFiles=../../configs/jni-config.json",
-      "-H:DynamicProxyConfigurationFiles=../../configs/proxy-config.json",
-      "-H:SerializationConfigurationFiles=../../configs/serialization-config.json",
-      "--exclude-config", "azure-core-1.54.1.jar", ".*.properties"
-    ),
 
     assembly / mainClass := Some("com.sneaksanddata.arcane.microsoft_synapse_link.main"),
 
-    // Put JAR in target/ directly, instead of in target/scala-x.x.x sub-directory
-    assembly / assemblyOutputPath := target.value / (assembly / assemblyJarName).value,
+    // Put JAR in <root>/target/ directly. sbt 2's `target` is the versioned per-project output
+    // directory (`target/out/jvm/scala-x.x.x/<project>`), so derive the path from the build root instead.
+    assembly / assemblyOutputPath := (ThisBuild / baseDirectory).value / "target" / (assembly / assemblyJarName).value,
 
     // We do not use the version name here, because it's executable file name
     // and we want to keep it consistent with the name of the project
@@ -84,6 +73,15 @@ lazy val plugin = (project in file("."))
       // for javax.activation package take the first one
       case PathList("javax", "activation", _*) => MergeStrategy.last
       case PathList("javax", "xml", _*) => MergeStrategy.last
+
+      // Hadoop/Iceberg transitive deps bundle duplicate servlet and javax.inject APIs
+      case PathList("javax", "servlet", _*) => MergeStrategy.first
+      case PathList("javax", "inject", _*) => MergeStrategy.first
+      case PathList("org", "aopalliance", _*) => MergeStrategy.first
+
+      // Hadoop bundles a shaded copy of jspecify annotations; javax.annotation is shipped by multiple jars
+      case PathList("org", "jspecify", _*) => MergeStrategy.first
+      case PathList("javax", "annotation", _*) => MergeStrategy.first
 
       // For other files we use the default strategy (deduplicate)
       case x => MergeStrategy.deduplicate

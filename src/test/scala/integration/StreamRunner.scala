@@ -56,8 +56,7 @@ object StreamRunner extends ZIOSpecDefault:
        |      "catalogProperties": {},
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3600 second"
+       |      "warehouse": "demo"
        |    }
        |  },
        |  "streamMode": {
@@ -117,8 +116,7 @@ object StreamRunner extends ZIOSpecDefault:
        |      "catalogProperties": {},
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3600 second"
+       |      "warehouse": "demo"
        |    }
        |  },
        |  "throughput": {
@@ -164,13 +162,7 @@ object StreamRunner extends ZIOSpecDefault:
        |      "enabled": false,
        |      "strategy": {}
        |    },
-       |    "fieldSelectionRule": {
-       |      "essentialFields": [],
-       |      "rule":{
-       |        "all": {}
-       |      },
-       |      "isServerSide": false
-       |    }
+       |    "modifications": {"supported": {}}
        |  }
        |}""".stripMargin
 

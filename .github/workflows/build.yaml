@@ -34,33 +34,32 @@ jobs:
         uses: japgolly/setup-everything-scala@v4.1
         with:
           java-version: temurin:1.25.0.2
+      - name: Setup just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+
       - name: Build the Docker Compose stack
-        run: |
-          docker compose up --quiet-pull -d
+        run: just up --quiet-pull
 
       - name: Get Compose Logs
         if: always()
-        run: docker compose logs
-
-      - name: Import the environment variables
-        run: cat integration-tests.env >> $GITHUB_ENV
-
-      - name: Validate formatting
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: sbt scalafmtCheckAll
+        run: just logs
 
       - name: Build and test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        run: |
-          sbt clean coverage test coverageReport
+        run: just test "clean; coverage; Test/testFull; coverageReport"
+
+      - name: Validate formatting
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: just fmt-check
 
       - uses: actions/upload-code-coverage@v1
         with:
-          file: target/scala-3.8.3/coverage-report/cobertura.xml
+          fail-on-error: false
+          file: target/out/jvm/scala-3.9.0/arcane-stream-microsoft-synapse-link/coverage-report/cobertura.xml
           language: Java
           label: code-coverage/jacoco
 
