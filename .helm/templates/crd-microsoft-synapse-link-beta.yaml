@@ -50,10 +50,12 @@ spec:
                     These settings should never be referenced by the plugin application and/or Arcane Framework,
                     but are meant to be used by the Arcane Operator alone for controlling the execution of the stream.
                   properties:
-                    backfillJobTemplateRef:
+                    migrationJobTemplateRef:
                       description: |
-                        Name of the job template to be used for the for the application in backfill mode.
+                        Name of the job template to be used for the for the application running in `migrate` mode.
                       type: object
+                      nullable: true
+                      default: null
                       properties:
                         name:
                           type: string
@@ -134,11 +136,7 @@ spec:
                   nullable: true
                   default:
                     layoutVersion: "v1"
-                    backfillJobTemplateRef:
-                      apiGroup: streaming.sneaksanddata.com
-                      kind: StreamingJobTemplate
-                      name: standard-job-template
-                      namespace: default
+                    migrationJobTemplateRef: null
                     streamingBackend:
                       changeCapture:
                         jobTemplateRef:
@@ -199,10 +197,6 @@ spec:
                         warehouse:
                           type: string
                           description: Catalog warehouse to use for all sessions
-                        maxCatalogInstanceLifetime:
-                          type: string
-                          description: Lifetime of RESTSessionCatalog instances
-                          default: 3500 second
                 streamMode:
                   type: object
                   description: Configuration for various modes of operation (backfill, change capture)
@@ -411,10 +405,6 @@ spec:
                           type: string
                         warehouse:
                           type: string
-                        maxCatalogInstanceLifetime:
-                          type: string
-                          description: Lifetime of RESTSessionCatalog instances
-                          default: 3500 second
                 throughput:
                   type: object
                   nullable: true
@@ -496,55 +486,47 @@ spec:
                 source:
                   type: object
                   properties:
-                    fieldSelectionRule:
+                    modifications:
                       type: object
-                      description: Select a subset of fields from source
+                      description: Row and schema modifications to apply to data read from the source, in their configured order
                       default:
-                        rule:
-                          all: null
-                          include: null
-                          exclude: null
+                        supported: { }
                       properties:
-                        isServerSide:
-                          type: boolean
-                          description: If set to true, indicates that a source can provide field selection. This disables field filtering on the application level and relies on a source-specific filtering query instead.
-                          default: true
-                        essentialFields:
-                          type: array
-                          items:
-                            type: string
-                          default:
-                            - id
-                            - versionnumber
-                            - isdelete
-                            - arcane_merge_key
-                        rule:
+                        supported:
                           type: object
+                          description: Row and schema modification settings, in their configured order
+                          default: { }
                           properties:
-                            all:
+                            fieldSelector:
                               type: object
+                              description: Select a subset of fields read from the source. Only one of `include`/`exclude` may be set.
                               nullable: true
-                              description: Use all fields without filters.
                               default: null
-                            include:
-                              type: object
-                              description: Only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well.
-                              nullable: true
                               properties:
-                                fields:
-                                  type: array
-                                  items:
-                                    type: string
-                              default: null
-                            exclude:
+                                include:
+                                  type: object
+                                  description: Only use fields provided. You must specify mandatory fields like ARCANE_MERGE_KEY as well.
+                                  nullable: true
+                                  default: null
+                                  properties:
+                                    fields:
+                                      type: array
+                                      items:
+                                        type: string
+                                exclude:
+                                  type: object
+                                  description: Exclude provided fields.
+                                  nullable: true
+                                  default: null
+                                  properties:
+                                    fields:
+                                      type: array
+                                      items:
+                                        type: string
+                            surrogateTimestamp:
                               type: object
-                              description: Exclude provided fields.
+                              description: Adds the time at which Arcane loaded a batch into the sink.
                               nullable: true
-                              properties:
-                                fields:
-                                  type: array
-                                  items:
-                                    type: string
                               default: null
                     buffering:
                       type: object

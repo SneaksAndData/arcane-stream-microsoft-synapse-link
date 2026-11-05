@@ -5,7 +5,10 @@ import common.Common
 import integration.Fixtures.formatter
 import models.app.MicrosoftSynapseLinkPluginStreamContext
 
+import com.sneaksanddata.arcane.framework.models.schemas.ArcaneType.{LongType, StringType}
+import com.sneaksanddata.arcane.framework.models.schemas.{ArcaneSchema, IndexedField, IndexedMergeKeyField}
 import com.sneaksanddata.arcane.framework.services.synapse.versioning.SynapseWatermark
+import com.sneaksanddata.arcane.framework.testkit.setups.FrameworkTestSetup.prepareWatermark
 import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerificationUtilities.{
   StrStrDecoder,
   clearTarget,
@@ -13,6 +16,7 @@ import com.sneaksanddata.arcane.framework.testkit.verifications.FrameworkVerific
   readTarget
 }
 import com.sneaksanddata.arcane.framework.testkit.zioutils.ZKit.{liveSeed, runOrFail}
+import com.sneaksanddata.arcane.framework.utils.HashUtils
 import org.scalatest.matchers.should.Matchers.should
 import zio.metrics.connectors.MetricsConfig
 import zio.metrics.connectors.datadog.DatadogPublisherConfig
@@ -21,15 +25,17 @@ import zio.test.*
 import zio.test.TestAspect.timeout
 import zio.{Scope, ZIO, ZLayer}
 
+import java.sql.DriverManager
 import java.time.{Duration, Instant, OffsetDateTime, ZoneOffset}
 import scala.language.postfixOps
 import scala.util.Random
 
 object StreamRunner extends ZIOSpecDefault:
 
-  private val targetTableName = "iceberg.test.stream_dimensionattributelevelvalue"
+  private val targetTableName          = "iceberg.test.stream_dimensionattributelevelvalue"
+  private val migrationTargetTableName = "iceberg.test.stream_dimensionattributelevelvalue_migration"
 
-  private val streamContextStr =
+  private def getStreamContextStr(targetTableName: String) =
     s"""
          {
        |  "backfillJobTemplateRef": {
@@ -56,8 +62,7 @@ object StreamRunner extends ZIOSpecDefault:
        |      "catalogProperties": {},
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3600 second"
+       |      "warehouse": "demo"
        |    }
        |  },
        |  "streamMode": {
@@ -117,8 +122,7 @@ object StreamRunner extends ZIOSpecDefault:
        |      "catalogProperties": {},
        |      "catalogUri": "http://localhost:20001/catalog",
        |      "namespace": "test",
-       |      "warehouse": "demo",
-       |      "maxCatalogInstanceLifetime": "3600 second"
+       |      "warehouse": "demo"
        |    }
        |  },
        |  "throughput": {
@@ -164,25 +168,88 @@ object StreamRunner extends ZIOSpecDefault:
        |      "enabled": false,
        |      "strategy": {}
        |    },
-       |    "fieldSelectionRule": {
-       |      "essentialFields": [],
-       |      "rule":{
-       |        "all": {}
-       |      },
-       |      "isServerSide": false
-       |    }
+       |    "modifications": {"supported": {}}
        |  }
        |}""".stripMargin
 
-  private val streamContext = MicrosoftSynapseLinkPluginStreamContext(streamContextStr)
+  // `Id` is not emitted to the sink, it is only hashed into ARCANE_MERGE_KEY
+  private def mergeKey(id: String): String = HashUtils.murmur3(id)
 
-  private val streamContextLayer = ZLayer.succeed[MicrosoftSynapseLinkPluginStreamContext](streamContext) ++ ZLayer
-    .succeed[DatagramSocketConfig](streamContext) ++ ZLayer
-    .succeed[MetricsConfig](streamContext) ++ ZLayer.succeed(DatadogPublisherConfig())
+  private def getStreamContext(targetTableName: String) =
+    MicrosoftSynapseLinkPluginStreamContext(getStreamContextStr(targetTableName))
+
+  private def getStreamContextLayer(targetTableName: String) =
+    val context = getStreamContext(targetTableName)
+    ZLayer.succeed[MicrosoftSynapseLinkPluginStreamContext](context) ++ ZLayer
+      .succeed[DatagramSocketConfig](context) ++ ZLayer
+      .succeed[MetricsConfig](context) ++ ZLayer.succeed(DatadogPublisherConfig())
+
+  // sink table layout produced before `Id` and `versionnumber` became technical fields
+  private val legacySchema = ArcaneSchema(
+    Seq(
+      IndexedField(name = "Id", fieldType = StringType, fieldId = 1),
+      IndexedField(name = "versionnumber", fieldType = LongType, fieldId = 2),
+      IndexedMergeKeyField(3)
+    )
+  )
+
+  private val legacyRows = List(("legacy-id-1", 111L), ("legacy-id-2", 222L))
+
+  private def seedLegacyRows(table: String) = ZIO.scoped {
+    for
+      connection <- ZIO.attempt(DriverManager.getConnection(Fixtures.trinoConnectionString))
+      statement  <- ZIO.attempt(connection.createStatement())
+      values = legacyRows.map { case (id, version) => s"('$id', $version, 'stale-key')" }.mkString(", ")
+      _ <- ZIO.attemptBlocking(
+        statement.execute(s"INSERT INTO $table (Id, versionnumber, ARCANE_MERGE_KEY) VALUES $values")
+      )
+    yield ()
+  }
+
+  private def readColumns(table: String) = ZIO.scoped {
+    for
+      connection <- ZIO.attempt(DriverManager.getConnection(Fixtures.trinoConnectionString))
+      statement  <- ZIO.attempt(connection.createStatement())
+      resultSet  <- ZIO.fromAutoCloseable(ZIO.attemptBlocking(statement.executeQuery(s"DESCRIBE $table")))
+      columns <- ZIO.attempt(
+        Iterator.continually(resultSet).takeWhile(_.next()).map(_.getString(1).toLowerCase).toList
+      )
+    yield columns
+  }
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("StreamRunner")(
+    test("migrate legacy sink table to ARCANE_MERGE_KEY and ARCANE_VERSION") {
+      for
+        migrationContext <- ZIO.succeed(getStreamContext(migrationTargetTableName))
+        migrationContextLayer = getStreamContextLayer(migrationTargetTableName)
+        _ <- clearTarget(migrationTargetTableName)
+        _ <- Fixtures.clearSource
+        _ <- prepareWatermark(migrationTargetTableName.split('.').last, legacySchema, SynapseWatermark.epoch)
+        _ <- seedLegacyRows(migrationTargetTableName)
+
+        columnsBefore <- readColumns(migrationTargetTableName)
+
+        _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "migrate")
+        migrator <- Common.getTestApp(Duration.ofSeconds(45), migrationContextLayer).fork
+        _        <- migrator.runOrFail(Duration.ofSeconds(30))
+        _        <- TestSystem.putEnv("STREAMCONTEXT__RUNMODE", "stream")
+
+        columnsAfter <- readColumns(migrationTargetTableName)
+        migrated <- readTarget(
+          migrationContext.sink.targetTableFullName,
+          "ARCANE_MERGE_KEY, ARCANE_VERSION",
+          StrStrDecoder
+        )
+      yield assertTrue(columnsBefore.contains("id") && columnsBefore.contains("versionnumber")) implies
+        assertTrue(!columnsBefore.contains("arcane_version")) implies
+        assertTrue(!columnsAfter.contains("id") && !columnsAfter.contains("versionnumber")) implies
+        assertTrue(columnsAfter.contains("arcane_merge_key") && columnsAfter.contains("arcane_version")) implies
+        assertTrue(migrated.sorted == legacyRows.map { case (id, version) => (mergeKey(id), version.toString) }.sorted)
+    },
     test("backfill and then stream changes successfully") {
       for
+        streamContext      = getStreamContext(targetTableName)
+        streamContextLayer = getStreamContextLayer(targetTableName)
         _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL", "true")
         _ <- TestSystem.putEnv("STREAMCONTEXT__BACKFILL_ID", Random.alphanumeric.take(10).mkString("").toLowerCase)
         _ <- clearTarget(targetTableName)
@@ -198,7 +265,7 @@ object StreamRunner extends ZIOSpecDefault:
 
         backfilledCount <- readTarget(
           streamContext.sink.targetTableFullName,
-          "Id, versionnumber",
+          "ARCANE_MERGE_KEY, ARCANE_VERSION",
           StrStrDecoder
         )
           .map(_.size)
@@ -223,7 +290,7 @@ object StreamRunner extends ZIOSpecDefault:
 
         currentRows <- readTarget(
           streamContext.sink.targetTableFullName,
-          "Id, versionnumber",
+          "ARCANE_MERGE_KEY, ARCANE_VERSION",
           StrStrDecoder
         )
 
@@ -233,11 +300,16 @@ object StreamRunner extends ZIOSpecDefault:
       yield assertTrue(backfilledCount == 5) implies assertTrue(
         backfilledWatermark.version == s"${formatter.format(startTime.minusHours(1))}Z"
       ) implies assertTrue(currentRows.size == 5 - 1 + 2) implies assertTrue(
-        !currentRows.exists(_._1 == "50bff458-d47a-4924-804b-31c0a83108e6")
+        !currentRows.exists(_._1 == mergeKey("50bff458-d47a-4924-804b-31c0a83108e6"))
       ) implies assertTrue(
-        currentRows.find(_._1 == "5b4bc74e-2132-4d8e-8572-48ce4260f182").map(_._2).getOrElse("") == "2111000012"
+        currentRows
+          .find(_._1 == mergeKey("5b4bc74e-2132-4d8e-8572-48ce4260f182"))
+          .map(_._2)
+          .getOrElse("") == "2111000012"
       ) implies assertTrue(
         streamedWatermark.version == s"${formatter.format(startTime.minusMinutes(5))}Z"
       )
     }
-  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.before(liveSeed)
+  ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential @@ TestAspect.before(
+    liveSeed
+  )

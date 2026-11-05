@@ -1,4 +1,4 @@
-version: '3.3'
+name: arcane-stream-microsoft-synapse-link
 
 services:
   minio:
@@ -31,7 +31,7 @@ services:
     volumes:
       - ./integration-tests.properties:/etc/trino/catalog/iceberg.properties
   lakekeeper:
-    image: quay.io/lakekeeper/catalog:v0.13.3
+    image: quay.io/lakekeeper/catalog:v0.13.5
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
@@ -56,7 +56,7 @@ services:
       minio:
         condition: service_started
   lakekeeper_migrate:
-    image: quay.io/lakekeeper/catalog:v0.13.3
+    image: quay.io/lakekeeper/catalog:v0.13.5
     network_mode: host
     environment:
 #      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!

@@ -27,7 +27,9 @@ case class MicrosoftSynapseLinkPluginStreamContext(
     override val source: MicrosoftSynapseLinkSourceSettings
 ) extends DefaultPluginStreamContext(observabilityIn, stagingIn, streamModeIn, sinkIn, throughputIn) derives ReadWriter:
   // TODO: should be implemented when Operator supports overrides
-  override def merge(other: Option[PluginStreamContext]): PluginStreamContext = this
+  override def merge[OtherImpl <: com.sneaksanddata.arcane.framework.models.app.OverrideStreamContext](
+      other: Option[OtherImpl]
+  ): this.type = this
 
 object MicrosoftSynapseLinkPluginStreamContext:
   def apply(value: String): MicrosoftSynapseLinkPluginStreamContext =
@@ -35,4 +37,4 @@ object MicrosoftSynapseLinkPluginStreamContext:
 
   lazy val layer
       : ZLayer[Any, Throwable, PluginStreamContext & DatagramSocketConfig & MetricsConfig & DatadogPublisherConfig] =
-    PluginStreamContext.getLayer[MicrosoftSynapseLinkPluginStreamContext]
+    PluginStreamContext.getLayer[MicrosoftSynapseLinkPluginStreamContext, MicrosoftSynapseLinkOverrideStreamContext]
