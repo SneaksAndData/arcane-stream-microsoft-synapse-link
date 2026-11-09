@@ -603,6 +603,26 @@ spec:
                                   type: integer
                                   description: Max items per page in paginated API responses
                                   default: 5000
+                                proxy:
+                                  type: object
+                                  nullable: true
+                                  default: null
+                                  description: Forward proxy for all calls to Azure Storage. If not set, no proxy is used and proxy settings from the environment (HTTP_PROXY, JVM system properties) are ignored.
+                                  required:
+                                    - host
+                                    - port
+                                  properties:
+                                    host:
+                                      type: string
+                                      description: Proxy host name
+                                    port:
+                                      type: integer
+                                      description: Proxy port
+                                    nonProxyHosts:
+                                      type: string
+                                      nullable: true
+                                      default: null
+                                      description: Optional list of hosts that bypass the proxy, separated by `|`. For example, `localhost|*.internal.net`
                             credentialType:
                               type: object
                               description: Credential type to use
