@@ -32,6 +32,9 @@ import scala.util.Random
 
 object StreamRunner extends ZIOSpecDefault:
 
+  // sbt's layered classloaders hide the JDBC driver from DriverManager's ServiceLoader lookup
+  private val registerDriver = ZIO.attempt(java.sql.DriverManager.registerDriver(new io.trino.jdbc.TrinoDriver()))
+
   private val targetTableName          = "iceberg.test.stream_dimensionattributelevelvalue"
   private val migrationTargetTableName = "iceberg.test.stream_dimensionattributelevelvalue_migration"
 
@@ -311,5 +314,5 @@ object StreamRunner extends ZIOSpecDefault:
       )
     }
   ) @@ timeout(zio.Duration.fromSeconds(180)) @@ TestAspect.withLiveClock @@ TestAspect.sequential @@ TestAspect.before(
-    liveSeed
+    registerDriver *> liveSeed
   )
