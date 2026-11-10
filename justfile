@@ -7,6 +7,9 @@ ENV_FILE := "test-resources/integration-tests.env"
 default:
     @just --list
 
+compile:
+    sbt compile
+
 build:
     sbt assembly
 
