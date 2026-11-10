@@ -26,10 +26,23 @@ case class MicrosoftSynapseLinkPluginStreamContext(
     @key("throughput") private val throughputIn: DefaultThroughputSettings,
     override val source: MicrosoftSynapseLinkSourceSettings
 ) extends DefaultPluginStreamContext(observabilityIn, stagingIn, streamModeIn, sinkIn, throughputIn) derives ReadWriter:
-  // TODO: should be implemented when Operator supports overrides
   override def merge[OtherImpl <: com.sneaksanddata.arcane.framework.models.app.OverrideStreamContext](
       other: Option[OtherImpl]
-  ): this.type = this
+  ): MicrosoftSynapseLinkPluginStreamContext = {
+    other match {
+      case None => this
+      case Some(o: MicrosoftSynapseLinkOverrideStreamContext) =>
+        this.copy(
+          observabilityIn = this.observabilityIn.merge(o.observability),
+          stagingIn = this.staging.merge(o.staging),
+          streamModeIn = this.streamMode.merge(o.streamMode),
+          sinkIn = this.sinkIn.merge(o.sink),
+          throughputIn = this.throughput.merge(o.throughput),
+          source = this.source.merge(o.source)
+        )
+      case _ => this
+    }
+  }
 
 object MicrosoftSynapseLinkPluginStreamContext:
   def apply(value: String): MicrosoftSynapseLinkPluginStreamContext =

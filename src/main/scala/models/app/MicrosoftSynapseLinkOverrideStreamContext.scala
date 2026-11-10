@@ -10,14 +10,16 @@ import com.sneaksanddata.arcane.framework.models.settings.streaming.{
   DefaultOverrideThroughputSettings
 }
 import upickle.ReadWriter
+import upickle.implicits.key
 
 /** The partial stream override provided by the Arcane operator via the environment variable.
   */
 case class MicrosoftSynapseLinkOverrideStreamContext(
-    override val streamMode: Option[DefaultOverrideStreamModeSettings] = None,
-    override val sink: Option[DefaultOverrideSinkSettings] = None,
-    override val staging: Option[DefaultOverrideStagingSettings] = None,
-    override val observability: Option[DefaultOverrideObservabilitySettings] = None,
-    override val throughput: Option[DefaultOverrideThroughputSettings] = None,
+    @key("observability") private val observabilityIn: Option[DefaultOverrideObservabilitySettings] = None,
+    @key("staging") private val stagingIn: Option[DefaultOverrideStagingSettings] = None,
+    @key("streamMode") private val streamModeIn: Option[DefaultOverrideStreamModeSettings] = None,
+    @key("sink") private val sinkIn: Option[DefaultOverrideSinkSettings] = None,
+    @key("throughput") private val throughputIn: Option[DefaultOverrideThroughputSettings] = None,
     override val source: Option[OverrideMicrosoftSynapseLinkSourceSettings] = None
-) extends DefaultOverrideStreamContext(streamMode, sink, staging, observability, throughput) derives ReadWriter
+) extends DefaultOverrideStreamContext(streamModeIn, sinkIn, stagingIn, observabilityIn, throughputIn)
+    derives ReadWriter
